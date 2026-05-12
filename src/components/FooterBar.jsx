@@ -130,6 +130,15 @@ export default function FooterBar({ isExpanded, toggleFooter }) {
           >
             Contact
           </Link>
+          <a 
+            href="https://github.com/McFuddy2/Site_of_Many_Things_Frontend" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="footer-button" 
+            onClick={handleButtonClick}
+          >
+            GitHub
+          </a>
         </div>
       </div>
       
