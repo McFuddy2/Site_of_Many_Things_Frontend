@@ -4,6 +4,36 @@
   z-index: 2000;
 }
 
+@media screen and (max-width: 767px) {
+  .settings-modal {
+    z-index: 1100;
+  }
+
+  .settings-modal .close-modal-button {
+    display: inline-block;
+  }
+
+  .settings-modal .modal {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--initiative-banner) transparent;
+  }
+
+  .settings-modal .modal::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .settings-modal .modal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-modal .modal::-webkit-scrollbar-thumb {
+    background-color: var(--initiative-banner);
+    border-radius: 999px;
+  }
+}
+
 
 .settings-modal h2 {
   font-size: 1.75rem;
@@ -26,6 +56,30 @@
   font-size: 1.1rem;
   margin-bottom: 10px;
   gap: 12px;
+}
+
+.settings-view-toggle-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.settings-view-toggle-note {
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.settings-view-toggle-disabled {
+  opacity: 0.58;
+}
+
+.settings-view-toggle-disabled .settings-switch {
+  pointer-events: none;
+}
+
+.settings-view-toggle-disabled .settings-slider {
+  cursor: not-allowed;
 }
 
 .settings-switch {
@@ -117,6 +171,12 @@
   transition: background 0.2s;
   height: 50px;
   width: 40%;
+}
+
+@media screen and (max-width: 767px) {
+  .settings-new-combat-button {
+    font-size: 0.91rem;
+  }
 }
 
 .settings-checkbox-group {

@@ -177,22 +177,133 @@ html, body {
   border-radius: 50%;
 }
 
-@media screen and (max-width: 950px) {
-  .conditions-list {
-    width: 100%;
-    display: none !important;
+@media screen and (max-width: 767px) {
+  .initiative-page-scroll {
+    height: calc(100dvh - 6vh);
+    min-height: calc(100dvh - 6vh);
+    overflow-y: hidden;
+    overflow-x: hidden;
+  }
+
+  .wrapper {
+    height: 88vh;
+    min-height: 88vh;
+    padding: 1.5vh 2.5vw;
+    overflow: hidden;
+  }
+
+  .app-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    grid-template-areas: "initiative";
+    gap: 0;
+    height: 93%;
+    align-content: start;
   }
 
   .initiative-list {
+    grid-area: initiative;
     width: 100%;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .conditions-list,
+  .conditions-list-res {
+    grid-area: initiative;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    padding-bottom: 2.5vh;
+  }
+
+  .conditions-list {
+    display: none;
+  }
+
+  .conditions-list-res {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .conditions-list-banner {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: var(--page-background);
+  }
+
+  .conditions-list-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .right-show-conditions {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    bottom: 2%;
+    right: 3%;
+    top: auto;
+    z-index: 40;
+    background-color: var(--condition-list-banner-background);
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    height: auto;
+    width: auto;
+    cursor: pointer;
+  }
+
+  .left-show-initiative {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    bottom: 2%;
+    right: 3%;
+    left: auto;
+    top: auto;
+    z-index: 40;
+    background-color: var(--initiative-banner);
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    height: auto;
+    width: auto;
+    cursor: pointer;
+  }
+
+  .right-show-conditions img,
+  .left-show-initiative img {
+    display: none;
+  }
+
+  .initiative-list .corner-border-image,
+  .conditions-list .corner-border-image,
+  .conditions-list-res .corner-border-image {
+    width: 22%;
+  }
+
+  .help-n-ad-section {
+    display: none;
+  }
+
+  .help-section,
+  .ad-section {
+    display: none;
   }
 }
 
-@media screen and (min-width: 951px) {
+@media screen and (min-width: 768px) {
   .right-show-conditions {
     display: none;
   }

@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import HelpDialog from "../components/ui/HelpDialog";
 import { useState, useEffect } from "react";
 import '../10homePage.css';
 import swordAndShield from '../media/sword-and-shield.png';
@@ -71,7 +70,7 @@ export default function HomePage() {
         to The Site of Many Things!
       </div>
       <p className="home-page-description">
-        Where will your journey take you today?
+        Where will your<span className="home-page-description-break"><br /></span>journey take you today?
       </p>
       <div className="home-page-map-background" style={{ backgroundImage: `url(${mainMenuMap})` }}>
         <main className="home-page-main">
@@ -90,36 +89,21 @@ export default function HomePage() {
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="mobile-init-button">
                 <Link
                   to="/initiative"
-                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 transition"
+                  className="mobile-home-action-link mobile-home-initiative-link"
                 >
-                  Initiative Tracker
+                  <span>Initiative</span>
+                  <span>Tracker</span>
                 </Link>
               </motion.div>
             </div>
-            <div className="mobile-nav-buttons">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="mobile-nav-button-link">
+            <div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="mobile-init-button">
                 <Link
-                  to="/privacy"
-                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 transition"
+                  to="/spell-search"
+                  className="mobile-home-action-link mobile-home-spell-link"
                 >
-                  Privacy
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="mobile-nav-button-link">
-                <Link
-                  to="/about"
-                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 transition"
-                >
-                  About
-                </Link>
-              </motion.div>
-              <HelpDialog isMobile={true}/>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} className="mobile-nav-button-link">
-                <Link
-                  to="/terms"
-                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 transition"
-                >
-                  Terms
+                  <span>Spell</span>
+                  <span>Searcher</span>
                 </Link>
               </motion.div>
             </div>

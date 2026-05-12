@@ -76,7 +76,9 @@ background-color: #0056b3;
   display: block;
 }
 
-.affect-buttons button.positive, button.neutral, button.negative {
+.affect-buttons button.positive,
+.affect-buttons button.neutral,
+.affect-buttons button.negative {
 background-color: #002366;
 color: white;
 border: none;
@@ -105,23 +107,36 @@ margin-left: 1%;
 }
 
 /* Style for Add Condition and Cancel buttons in the custom condition modal */
+.custom-condition-modal .modal-button-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .custom-condition-modal .modal-button-group button[type="submit"], .custom-condition-modal .close-custom-modal-button,
 .custom-condition-modal .modal-button-group button[type="button"] {
   background-color: #002366;
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 7px 12px;
+  padding: 7px 10px;
   font-size: 0.9rem;
   font-weight: 500;
-  margin-right: 20px;
+  margin: 0;
   cursor: pointer;
   transition: background 0.2s;
-  height: 30px;
+  height: 34px;
+  flex: 1 1 calc(33.333% - 8px);
+  width: auto;
+  min-width: 96px;
+  max-width: 140px;
 }
 
 .custom-condition-modal .modal-button-group button[type="submit"]:hover,
-.custom-condition-modal .modal-button-group button[type="button"]:hover {
+.custom-condition-modal .modal-button-group button[type="button"]:hover,
+.custom-condition-modal .close-custom-modal-button:hover {
   background-color: #0056b3;
 }
 
@@ -227,6 +242,22 @@ font-size: large;
   justify-content: flex-start;
 }
 
+.custom-condition-name-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+}
+
+.custom-condition-name-button:hover {
+  text-decoration: underline;
+}
+
 .custom-mob-condition-modal {
   position: fixed;
   top: 0;
@@ -252,5 +283,40 @@ font-size: large;
 
   .close-custom-modal-button {
     margin-top: 10px;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .custom-condition-modal .modal-button-group {
+    gap: 2%;
+  }
+
+  .custom-condition-modal .modal-button-group button[type="submit"],
+  .custom-condition-modal .close-custom-modal-button,
+  .custom-condition-modal .modal-button-group button[type="button"] {
+    padding: 1%;
+    flex: 0 1 30%;
+    width: 30%;
+    min-width: 0;
+    max-width: none;
+    height: 30px;
+  }
+
+  .custom-condition-modal .close-custom-modal-button {
+    height: 15px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .custom-mob-condition-modal .custom-condition-modal > .close-custom-modal-button {
+    flex: 0 0 auto !important;
+    width: 100px !important;
+    max-width: none !important;
+    height: 50px !important;
+    min-height: 16px !important;
+    line-height: 1 !important;
+    padding: 0 10px !important;
+    font-size: 1rem;
+    align-self: center;
   }
 }

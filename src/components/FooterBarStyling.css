@@ -85,3 +85,10 @@
 .footer-toggle-button:hover {
   opacity: 0.95;
 }
+
+@media screen and (max-width: 767px) {
+  .footer-bar,
+  .footer-toggle-button {
+    display: none !important;
+  }
+}

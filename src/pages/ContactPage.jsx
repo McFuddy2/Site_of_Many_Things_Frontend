@@ -21,7 +21,8 @@ export default function ContactPage() {
     `mailto:${email}?subject=${subject(subj)}${bod ? `&body=${body(bod)}` : ""}`;
 
   return (
-    <div className="initiative-tracker-landing-page-wrapper">
+    <div className="initiative-tracker-landing-page-wrapper contact-page-wrapper">
+      <div className="contact-page-content">
       <h1 className="initiative-tracker-landing-page-title">Contact Us</h1>
 
         <p className="intro-text">
@@ -135,6 +136,7 @@ export default function ContactPage() {
         Note: We read everything. Replies may take a bit during busy weeks, but your message helps shape
         what we build next.
       </p>
+      </div>
     </div>
   );
 }

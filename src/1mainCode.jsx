@@ -28,6 +28,9 @@ import { setMetaDescription, setCanonical } from "./utils/seo";
 
 export default function MainCode() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  );
   const [showArmorClass, setShowArmorClass] = useState(
     JSON.parse(localStorage.getItem('show-armor-class')) ?? true
   );
@@ -71,6 +74,10 @@ export default function MainCode() {
   const [enemyCountExceededLimit, setEnemyCountExceededLimit] = useState(false);
   const [nameIndividualEnemies, setNameIndividualEnemies] = useState(false);
   const [enemyIndividualNames, setEnemyIndividualNames] = useState([]);
+  const [mobileCharacterDetailModal, setMobileCharacterDetailModal] = useState(null);
+  const [mobileEnemyModalStep, setMobileEnemyModalStep] = useState('setup');
+  const [mobileSummonsConfirmed, setMobileSummonsConfirmed] = useState(false);
+  const [mobileEnemiesConfirmed, setMobileEnemiesConfirmed] = useState(false);
   const summonInputRefs = useRef([]);
   const enemyNameInputRefs = useRef([]);
   const nextSummonFocusIndexRef = useRef(null);
@@ -170,6 +177,7 @@ export default function MainCode() {
 
   const [selectedConditions, setSelectedConditions] = useState([]);
   const [selectedCharacters, setSelectedCharacters] = useState([]);
+  const [mobileAddConditionStep, setMobileAddConditionStep] = useState(1);
 
   const [showCustomConditionForm, setShowCustomConditionForm] = useState(false);
   const [customConditionName, setCustomConditionName] = useState('');
@@ -694,18 +702,45 @@ export default function MainCode() {
   useEffect(() => {
     const description =
       "Free D&D 5e initiative tracker for DMs and players. Track turn order, rounds, conditions, and concentration fast with no login required.";
+    const title = "Initiative Tracker | Site of Many Things";
+    const image = "https://thesiteofmanythings.com/images/initiative-preview.png";
 
-    document.title = "Initiative Tracker | Site of Many Things";
+    document.title = title;
     setMetaDescription(description);
     setCanonical("https://thesiteofmanythings.com/initiative");
 
-    let meta = document.querySelector('meta[name="description"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'description');
-      document.head.appendChild(meta);
+    let metaDescription = document.querySelector('meta[name="description"]');
+    let metaOgTitle = document.querySelector('meta[property="og:title"]');
+		let metaOgDescription = document.querySelector('meta[property="og:description"]');
+		let metaOgImage = document.querySelector('meta[property="og:image"]');
+
+    if (!metaDescription) {
+      metaDescription = document.createElement('meta');
+      metaDescription.setAttribute('name', 'description');
+      document.head.appendChild(metaDescription);
     }
-    meta.setAttribute('content', description);
+    metaDescription.setAttribute('content', description);
+
+    if (!metaOgTitle) {
+      metaOgTitle = document.createElement('meta');
+      metaOgTitle.setAttribute('property', 'og:title');
+      document.head.appendChild(metaOgTitle);
+    }
+    metaOgTitle.setAttribute('content', title);
+
+    if (!metaOgDescription) {
+      metaOgDescription = document.createElement('meta');
+      metaOgDescription.setAttribute('property', 'og:description');
+      document.head.appendChild(metaOgDescription);
+    }
+    metaOgDescription.setAttribute('content', description);
+
+    if (!metaOgImage) {
+      metaOgImage = document.createElement('meta');
+      metaOgImage.setAttribute('property', 'og:image');
+      document.head.appendChild(metaOgImage);
+    }
+    metaOgImage.setAttribute('content', image);
 
     const existingJsonLd = document.getElementById('initiative-tracker-jsonld');
     if (existingJsonLd) {
@@ -879,11 +914,12 @@ export default function MainCode() {
       'Exhaustion4', 'Exhaustion5', 'Exhaustion6', 'Other1', 'Other2', 'Other3', 'Other4'
     ];
     const custom = customConditions.map(cond => cond.name);
-    return original.concat(custom);
+    return [...original, ...custom].sort((a, b) => a.localeCompare(b));
   }
 
   const handleAddConditionClick = (rowIndex) => {
     setIsAddConditionModalOpen(rowIndex);
+    setMobileAddConditionStep(1);
   };
 
   const handleFullReset = () => {
@@ -900,8 +936,10 @@ export default function MainCode() {
 
   const handleSettingsSubmit = (e) => {
     e.preventDefault();
-      setShowArmorClass(viewArmorClassToggle);
-      setShowHitPoints(viewHitPointsToggle);
+      if (!isMobileLayout) {
+        setShowArmorClass(viewArmorClassToggle);
+        setShowHitPoints(viewHitPointsToggle);
+      }
       if (resetRound) setRound(0);
       if (resetInitiative) {
         setRowData(prev =>
@@ -1033,6 +1071,7 @@ export default function MainCode() {
     setIsAddConditionModalOpen(null); // Close the add-condition modal
     setSelectedConditions([]);        // Deselect all conditions
     setSelectedCharacters([]);        // Deselect all characters
+    setMobileAddConditionStep(1);
     setIsCustomConditionModalOpen(false);
     setToggleAddConditionEnforcementMessage(false);
   };
@@ -1185,6 +1224,7 @@ export default function MainCode() {
     setIsAddConditionModalOpen(null);
     setSelectedConditions([]);
     setSelectedCharacters([]);
+    setMobileAddConditionStep(1);
     setIsCustomConditionModalOpen(false);
     setToggleAddConditionEnforcementMessage(false);
     // Optionally reset expiration dropdowns here
@@ -1212,6 +1252,52 @@ export default function MainCode() {
         ? prev.filter((c) => c !== character)
         : [...prev, character]
     );
+  };
+
+  const handleMobileCharacterSelectChange = (event) => {
+    const selectedValues = Array.from(event.target.selectedOptions, (option) => option.value);
+    setSelectedCharacters(selectedValues);
+  };
+
+  const handleMobileConditionSelectChange = (event) => {
+    const selectedValues = Array.from(event.target.selectedOptions, (option) => option.value);
+    setSelectedConditions(selectedValues);
+  };
+
+  const handleMobileConditionStepBack = () => {
+    if (mobileAddConditionStep === 3) {
+      setSelectedConditions([]);
+      setIsCustomConditionModalOpen(false);
+      setShowCustomConditionForm(false);
+      setMobileAddConditionStep(2);
+      return;
+    }
+
+    if (mobileAddConditionStep === 2) {
+      setMobileAddConditionStep(1);
+    }
+  };
+
+  const handleDeleteCustomCondition = (deleteIndex, conditionName) => {
+    setCustomConditions((prevConditions) =>
+      prevConditions.filter((_, i) => i !== deleteIndex)
+    );
+    setConditionDescriptions((prevDescriptions) => {
+      const updatedDescriptions = { ...prevDescriptions };
+      delete updatedDescriptions[conditionName];
+      return updatedDescriptions;
+    });
+    setConditionColors((prevColors) => {
+      const updatedColors = { ...prevColors };
+      delete updatedColors[conditionName];
+      return updatedColors;
+    });
+    setSelectedConditions((prev) => prev.filter((condition) => condition !== conditionName));
+    setShowCustomConditionForm(false);
+    setCustomConditionName('');
+    setCustomConditionAffect('');
+    setCustomConditionDescription('');
+    setEditCustomConditionIndex(null);
   };
 
   const handleNextRound = () => {
@@ -1294,6 +1380,10 @@ export default function MainCode() {
     setEnemyCountExceededLimit(false);
     setNameIndividualEnemies(false);
     setEnemyIndividualNames([]);
+    setMobileCharacterDetailModal(null);
+    setMobileEnemyModalStep('setup');
+    setMobileSummonsConfirmed(false);
+    setMobileEnemiesConfirmed(false);
     setEditCharacterIndex(null);
   };
   
@@ -1308,7 +1398,57 @@ export default function MainCode() {
     setEnemyCountExceededLimit(false);
     setNameIndividualEnemies(false);
     setEnemyIndividualNames([]);
+    setMobileCharacterDetailModal(null);
+    setMobileEnemyModalStep('setup');
+    setMobileSummonsConfirmed(false);
+    setMobileEnemiesConfirmed(false);
     setEditCharacterIndex(null);
+  };
+
+  const handleCloseMobileCharacterDetailModal = () => {
+    if (mobileCharacterDetailModal === 'summons') {
+      setMobileSummonsConfirmed(true);
+    }
+    if (mobileCharacterDetailModal === 'enemies') {
+      setMobileEnemiesConfirmed(true);
+    }
+    setMobileCharacterDetailModal(null);
+  };
+
+  const handleSubmitMobileEnemiesModal = () => {
+    if (mobileEnemyModalStep === 'setup' && nameIndividualEnemies) {
+      setEnemyIndividualNames((prev) => (prev.length > 0 ? prev : ['']));
+      setMobileEnemyModalStep('names');
+      return;
+    }
+
+    setMobileEnemiesConfirmed(true);
+    setMobileCharacterDetailModal(null);
+    setMobileEnemyModalStep('setup');
+  };
+
+  const handleBackFromEnemyNamesModal = () => {
+    setMobileEnemyModalStep('setup');
+    setNameIndividualEnemies(false);
+    setEnemyIndividualNames([]);
+  };
+
+  const handleBackFromSummonsModal = () => {
+    setAddSummons(false);
+    setSummonNames(['']);
+    setMobileSummonsConfirmed(false);
+    setMobileCharacterDetailModal(null);
+  };
+
+  const handleBackFromEnemiesModal = () => {
+    setMultipleEnemiesType(false);
+    setEnemyTypeCount('');
+    setEnemyCountExceededLimit(false);
+    setNameIndividualEnemies(false);
+    setEnemyIndividualNames([]);
+    setMobileEnemyModalStep('setup');
+    setMobileEnemiesConfirmed(false);
+    setMobileCharacterDetailModal(null);
   };
 
   const handleSummonNameChange = (index, value) => {
@@ -1351,11 +1491,44 @@ export default function MainCode() {
     });
   };
 
+  const removeEnemyIndividualInput = (index) => {
+    setEnemyIndividualNames((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setEnemyTypeCount((prev) => {
+      const parsed = Number.parseInt(prev, 10);
+      if (!Number.isFinite(parsed) || parsed <= 1) {
+        setNameIndividualEnemies(false);
+        return '';
+      }
+      return String(parsed - 1);
+    });
+  };
+
+  const handleEnemyIndividualNameChange = (index, value) => {
+    setEnemyIndividualNames((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+
+  const promoteNextEnemyInput = (index) => {
+    setEnemyIndividualNames((prev) => {
+      const value = (prev[index] || '').trim();
+      if (!value) return prev;
+      if (index !== prev.length - 1) return prev;
+      if (prev.length >= 30) return prev;
+      setEnemyTypeCount(String(prev.length + 1));
+      return [...prev, ''];
+    });
+  };
+
   const handleEnemyNameEnter = (index) => {
     const nextInput = enemyNameInputRefs.current[index + 1];
     if (nextInput) {
       nextInput.focus();
+      return;
     }
+    promoteNextEnemyInput(index);
   };
 
   useEffect(() => {
@@ -1486,6 +1659,10 @@ export default function MainCode() {
     setEnemyCountExceededLimit(false);
     setNameIndividualEnemies(false);
     setEnemyIndividualNames([]);
+    setMobileCharacterDetailModal(null);
+    setMobileEnemyModalStep('setup');
+    setMobileSummonsConfirmed(false);
+    setMobileEnemiesConfirmed(false);
     setErrorMessage('');
   };
   
@@ -1520,6 +1697,61 @@ export default function MainCode() {
       setViewedSummon(null);
     }
   }
+
+  const showMobileConditionsPanel = () => {
+    if (!isMobileLayout) {
+      return;
+    }
+
+    const initiativeElement = document.getElementsByClassName("initiative-list")[0];
+    const rightToggleElement = document.getElementsByClassName("right-show-conditions")[0];
+    const leftToggleElement = document.getElementsByClassName("left-show-initiative")[0];
+    const conditionsElement = document.getElementsByClassName("conditions-list")[0]
+      || document.getElementsByClassName("conditions-list-res")[0];
+
+    if (initiativeElement) {
+      initiativeElement.style.display = 'none';
+    }
+    if (leftToggleElement) {
+      leftToggleElement.style.display = 'inline-flex';
+    }
+    if (rightToggleElement) {
+      rightToggleElement.style.display = 'none';
+    }
+    if (conditionsElement && conditionsElement.classList.contains("conditions-list")) {
+      conditionsElement.classList.remove("conditions-list");
+      conditionsElement.classList.add("conditions-list-res");
+    }
+  };
+
+  const showMobileInitiativePanel = () => {
+    if (!isMobileLayout) {
+      return;
+    }
+
+    setViewCharacterIndex(null);
+    setViewedSummon(null);
+
+    const initiativeElement = document.getElementsByClassName("initiative-list")[0];
+    const rightToggleElement = document.getElementsByClassName("right-show-conditions")[0];
+    const leftToggleElement = document.getElementsByClassName("left-show-initiative")[0];
+    const conditionsElement = document.getElementsByClassName("conditions-list-res")[0]
+      || document.getElementsByClassName("conditions-list")[0];
+
+    if (initiativeElement) {
+      initiativeElement.style.display = 'flex';
+    }
+    if (rightToggleElement) {
+      rightToggleElement.style.display = 'inline-flex';
+    }
+    if (leftToggleElement) {
+      leftToggleElement.style.display = 'none';
+    }
+    if (conditionsElement && conditionsElement.classList.contains("conditions-list-res")) {
+      conditionsElement.classList.remove("conditions-list-res");
+      conditionsElement.classList.add("conditions-list");
+    }
+  };
 
   const getDisplayedConditions = (realIndex) => {
     if (
@@ -1892,6 +2124,27 @@ export default function MainCode() {
     localStorage.setItem('show-hit-points', JSON.stringify(showHitPoints));
   }, [showHitPoints]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateMobileLayout = (event) => {
+      setIsMobileLayout(event.matches);
+    };
+
+    setIsMobileLayout(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateMobileLayout);
+      return () => mediaQuery.removeEventListener('change', updateMobileLayout);
+    }
+
+    mediaQuery.addListener(updateMobileLayout);
+    return () => mediaQuery.removeListener(updateMobileLayout);
+  }, []);
+
   const characterRows = sortedRowData.filter((row) => !overlayActive[row.index]);
   const overlayRows = sortedRowData.filter((row) => overlayActive[row.index]);
 
@@ -1904,6 +2157,14 @@ export default function MainCode() {
   const lowestInitiativeRowIndex = characterRows.length > 0
     ? characterRows[characterRows.length - 1].index
     : null;
+  const conditionTargets = getConditionTargets();
+  const selectedConditionTargetLabels = conditionTargets
+    .filter((target) => selectedCharacters.includes(target.id))
+    .map((target) => target.label);
+  const selectedConditionLabels = selectedConditions;
+  const showMobileTargetStep = isMobileLayout && mobileAddConditionStep === 1;
+  const showMobileConditionStep = isMobileLayout && mobileAddConditionStep === 2;
+  const showMobileExpirationStep = isMobileLayout && mobileAddConditionStep === 3;
   
   return (
     <div className="initiative-page-scroll">
@@ -1912,29 +2173,37 @@ export default function MainCode() {
         <div className="modal">
           <h2>Settings</h2>
           <div className="settings-view-options">
-            <label className="settings-view-toggle settings-view-ac">
+            <label className={`settings-view-toggle settings-view-ac${isMobileLayout ? ' settings-view-toggle-disabled' : ''}`}>
               <span className="settings-switch">
                 <input
                   type="checkbox"
                   aria-label="View Armor Class"
                   checked={viewArmorClassToggle}
+                  disabled={isMobileLayout}
                   onChange={(e) => setViewArmorClassToggle(e.target.checked)}
                 />
                 <span className="settings-slider" />
               </span>
-              <span>View Armor Class</span>
+              <span className="settings-view-toggle-text-group">
+                <span>View Armor Class</span>
+                {isMobileLayout && <span className="settings-view-toggle-note">Only available on desktop</span>}
+              </span>
             </label>
-            <label className="settings-view-toggle settings-view-hp">
+            <label className={`settings-view-toggle settings-view-hp${isMobileLayout ? ' settings-view-toggle-disabled' : ''}`}>
               <span className="settings-switch">
                 <input
                   type="checkbox"
                   aria-label="View Hit Points"
                   checked={viewHitPointsToggle}
+                  disabled={isMobileLayout}
                   onChange={(e) => setViewHitPointsToggle(e.target.checked)}
                 />
                 <span className="settings-slider" />
               </span>
-              <span>View Hit Points</span>
+              <span className="settings-view-toggle-text-group">
+                <span>View Hit Points</span>
+                {isMobileLayout && <span className="settings-view-toggle-note">Only available on desktop</span>}
+              </span>
             </label>
           </div>
           <div className="settings-subtitle">
@@ -2107,8 +2376,24 @@ export default function MainCode() {
                 return (
                 <div
                   key={index}
-                  className={`row ${isActiveRow ? 'shifted-row' : ''} ${isWiggleRow ? 'shifted-row-wiggle' : ''} ${isRoundDividerTarget ? 'round-divider-target' : ''}`}
+                  className={`row ${isMobileLayout ? 'row-mobile-viewable' : ''} ${isActiveRow ? 'shifted-row' : ''} ${isWiggleRow ? 'shifted-row-wiggle' : ''} ${isRoundDividerTarget ? 'round-divider-target' : ''}`}
                   data-round-label={isRoundDividerTarget ? `Round ${round + 1}` : undefined}
+                  onClick={(e) => {
+                    if (!isMobileLayout || overlayActive[index]) {
+                      return;
+                    }
+
+                    const interactiveTarget = e.target.closest(
+                      'button, input, textarea, select, label, .name-input-summon-item'
+                    );
+
+                    if (interactiveTarget) {
+                      return;
+                    }
+
+                    updateViewCharacterIndex(shiftedIndex);
+                    showMobileConditionsPanel();
+                  }}
                   style={{
                     backgroundColor:
                       isViewedRow
@@ -2143,59 +2428,63 @@ export default function MainCode() {
                       onChange={(e) => handleInitiativeChange(index, e.target.value)}
                     />
                   </div>
-                  <div className="view-character-conditions">
-                    <button className="view-button" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
-                      <img src={viewIcon} alt="View Icon" className="view-icon" />
-                    </button>
-                  </div>
-                  <div className="edit-character">
-                    <button
-                      className="editCharacterButton"
-                      onClick={() => {
-                        setEditCharacterIndex(index);
-                        setCharacterName(rowData[index].name);
-                        setAffiliation(rowData[index].affiliation);
-                        if (rowData[index].affiliation === 'Player Character' && (rowData[index].summons || []).length > 0) {
-                          setAddSummons(true);
-                          setSummonNames([...rowData[index].summons]);
-                        } else {
-                          setAddSummons(false);
-                          setSummonNames(['']);
-                        }
+                  <div className="row-actions">
+                    {!isMobileLayout && (
+                      <div className="view-character-conditions">
+                        <button className="view-button" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
+                          <img src={viewIcon} alt="View Icon" className="view-icon" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="edit-character">
+                      <button
+                        className="editCharacterButton"
+                        onClick={() => {
+                          setEditCharacterIndex(index);
+                          setCharacterName(rowData[index].name);
+                          setAffiliation(rowData[index].affiliation);
+                          if (rowData[index].affiliation === 'Player Character' && (rowData[index].summons || []).length > 0) {
+                            setAddSummons(true);
+                            setSummonNames([...rowData[index].summons]);
+                          } else {
+                            setAddSummons(false);
+                            setSummonNames(['']);
+                          }
 
-                        if (rowData[index].affiliation === 'Enemy' && rowData[index].multipleEnemiesType) {
-                          setMultipleEnemiesType(true);
-                          setEnemyTypeCount(String(rowData[index].enemyTypeCount || ''));
-                          setEnemyCountExceededLimit(false);
-                          setNameIndividualEnemies(Boolean(rowData[index].nameIndividualEnemies));
-                          setEnemyIndividualNames(
-                            rowData[index].nameIndividualEnemies
-                              ? [...(rowData[index].enemyIndividualNames || rowData[index].summons || [])]
-                              : []
-                          );
-                        } else {
-                          setMultipleEnemiesType(false);
-                          setEnemyTypeCount('');
-                          setEnemyCountExceededLimit(false);
-                          setNameIndividualEnemies(false);
-                          setEnemyIndividualNames([]);
-                        }
+                          if (rowData[index].affiliation === 'Enemy' && rowData[index].multipleEnemiesType) {
+                            setMultipleEnemiesType(true);
+                            setEnemyTypeCount(String(rowData[index].enemyTypeCount || ''));
+                            setEnemyCountExceededLimit(false);
+                            setNameIndividualEnemies(Boolean(rowData[index].nameIndividualEnemies));
+                            setEnemyIndividualNames(
+                              rowData[index].nameIndividualEnemies
+                                ? [...(rowData[index].enemyIndividualNames || rowData[index].summons || [])]
+                                : []
+                            );
+                          } else {
+                            setMultipleEnemiesType(false);
+                            setEnemyTypeCount('');
+                            setEnemyCountExceededLimit(false);
+                            setNameIndividualEnemies(false);
+                            setEnemyIndividualNames([]);
+                          }
 
-                        setIsModalOpen(index);
-                      }}
-                    >
-                      <img src={pencilIcon} alt="Edit" className="edit-icon" />
-                    </button>
-                  </div>
-                  <div className="delete-character">
-                    <button
-                      className="deleteCharacterButton"
-                      onClick={() => {
-                        setDeleteConfirmIndex(index);
-                      }}
-                    >
-                      <img src={trashcanIcon} alt="Delete" className="delete-icon" />
-                    </button>
+                          setIsModalOpen(index);
+                        }}
+                      >
+                        <img src={pencilIcon} alt="Edit" className="edit-icon" />
+                      </button>
+                    </div>
+                    <div className="delete-character">
+                      <button
+                        className="deleteCharacterButton"
+                        onClick={() => {
+                          setDeleteConfirmIndex(index);
+                        }}
+                      >
+                        <img src={trashcanIcon} alt="Delete" className="delete-icon" />
+                      </button>
+                    </div>
                   </div>
                   {showArmorClass && (
                     <div className="ac-input">
@@ -2220,7 +2509,7 @@ export default function MainCode() {
                     <div className="name-input-main" style={{ color: getTextColor(rowData[index].affiliation) }}>
                       {displayName}
                     </div>
-                    {(rowData[index].summons || []).length > 0 && (!isEnemyWithIndividuals || shouldShowEnemyIndividuals) && (
+                    {!isMobileLayout && (rowData[index].summons || []).length > 0 && (!isEnemyWithIndividuals || shouldShowEnemyIndividuals) && (
                       <div className="name-input-summons">
                         {rowData[index].summons.map((summonName, summonIdx) => (
                           <div
@@ -2238,6 +2527,9 @@ export default function MainCode() {
 
                               setViewCharacterIndex(shiftedIndex);
                               setViewedSummon({ rowIndex: index, summonName });
+                              if (isMobileLayout) {
+                                showMobileConditionsPanel();
+                              }
                             }}
                           >
                             <div className="summon-name-label">{summonName}</div>
@@ -2259,6 +2551,49 @@ export default function MainCode() {
                       </div>
                     )}
                   </div>
+                  {isMobileLayout && (rowData[index].summons || []).length > 0 && (!isEnemyWithIndividuals || shouldShowEnemyIndividuals) && (
+                    <div className="row-summons">
+                      <div className="name-input-summons">
+                        {rowData[index].summons.map((summonName, summonIdx) => (
+                          <div
+                            key={`${summonName}-${summonIdx}`}
+                            className={`name-input-summon-item${rowData[index].affiliation === 'Enemy' ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
+                            onClick={() => {
+                              const isSameSummonSelected =
+                                viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName;
+
+                              if (isSameSummonSelected) {
+                                setViewedSummon(null);
+                                setViewCharacterIndex(null);
+                                return;
+                              }
+
+                              setViewCharacterIndex(shiftedIndex);
+                              setViewedSummon({ rowIndex: index, summonName });
+                              if (isMobileLayout) {
+                                showMobileConditionsPanel();
+                              }
+                            }}
+                          >
+                            <div className="summon-name-label">{summonName}</div>
+                            <div className="summon-condition-dots">
+                              {(rowData[index].summonConditions?.[summonName] || []).map((condition, condIdx) => (
+                                <span
+                                  key={`${summonName}-dot-${condIdx}`}
+                                  className="summon-condition-dot"
+                                  style={{
+                                    backgroundColor: getConditionBackgroundColor(
+                                      typeof condition === "object" ? condition.name : condition
+                                    )
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="personal-conditions">
                     {rowData[index].conditions.length > 0
                       ? rowData[index].conditions.map((condition, i) => (
@@ -2282,15 +2617,8 @@ export default function MainCode() {
             </div>
           </div>
 
-          <div className="right-show-conditions" onClick={() => {
-            document.getElementsByClassName("initiative-list")[0].style.display = 'none';
-            document.getElementsByClassName("left-show-initiative")[0].style.display = 'inline-block';
-            document.getElementsByClassName("right-show-conditions")[0].style.display = 'none';
-            const condElement = document.getElementsByClassName("conditions-list")[0];
-            condElement.classList.remove("conditions-list");
-            condElement.classList.add("conditions-list-res");
-          }}>
-            <img src={rightArrow}></img>
+          <div className="right-show-conditions" onClick={showMobileConditionsPanel}>
+            View Conditions →
           </div>
 
           <div className="conditions-list">
@@ -2557,15 +2885,8 @@ export default function MainCode() {
       contentKey="initiative"
     />
 
-      <div className="left-show-initiative" onClick={() => {
-          document.getElementsByClassName("initiative-list")[0].style.display = 'inline-block';
-          document.getElementsByClassName("right-show-conditions")[0].style.display = 'inline-block';
-          document.getElementsByClassName("left-show-initiative")[0].style.display = 'none';
-          const condElement = document.getElementsByClassName("conditions-list-res")[0];
-          condElement.classList.remove("conditions-list-res");
-          condElement.classList.add("conditions-list");
-        }}>
-          <img src={leftArrow}></img>
+      <div className="left-show-initiative" onClick={showMobileInitiativePanel}>
+          ← View Initiatives
         </div>
   
         {/* Add-Character Modal */}
@@ -2610,6 +2931,8 @@ export default function MainCode() {
                               setNameIndividualEnemies(false);
                               setEnemyIndividualNames([]);
                             }
+                            setMobileCharacterDetailModal(null);
+                            setMobileEnemyModalStep('setup');
                           }}
                         />
                         {type}
@@ -2619,41 +2942,83 @@ export default function MainCode() {
                 </div>
                 {affiliation === 'Player Character' && (
                   <div className="accordion-panel">
-                    <label className="accordion-label">
-                      <input
-                        type="checkbox"
-                        checked={addSummons}
-                        onChange={(e) => {
-                          setAddSummons(e.target.checked);
-                          if (!e.target.checked) {
-                            setSummonNames(['']);
-                          }
-                        }}
-                        className="accordion-checkbox"
-                      />
-                      Add Summons?
-                    </label>
+                    {isMobileLayout && mobileSummonsConfirmed ? (
+                      <div className="mobile-character-summary">
+                        <span className="mobile-character-summary-label">Added: </span>
+                        <span className="mobile-character-summary-value">
+                          {summonNames
+                            .map((name) => name.trim())
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    ) : (
+                      <label className="accordion-label">
+                        <input
+                          type="checkbox"
+                          checked={addSummons}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setAddSummons(checked);
+                            if (!checked) {
+                              setSummonNames(['']);
+                              setMobileSummonsConfirmed(false);
+                            }
+                            if (isMobileLayout) {
+                              setMobileCharacterDetailModal(checked ? 'summons' : null);
+                            }
+                          }}
+                          className="accordion-checkbox"
+                        />
+                        Add Summons?
+                      </label>
+                    )}
                   </div>
                 )}
                 {affiliation === 'Enemy' && (
                   <div className="accordion-panel">
-                    <label className="accordion-label">
-                      <input
-                        type="checkbox"
-                        checked={multipleEnemiesType}
-                        onChange={(e) => {
-                          setMultipleEnemiesType(e.target.checked);
-                          if (!e.target.checked) {
-                            setEnemyTypeCount('');
-                            setEnemyCountExceededLimit(false);
-                            setNameIndividualEnemies(false);
-                            setEnemyIndividualNames([]);
-                          }
-                        }}
-                        className="accordion-checkbox"
-                      />
-                      Multiple Enemies of this Type?
-                    </label>
+                    {isMobileLayout && mobileEnemiesConfirmed ? (
+                      <div className="mobile-character-summary">
+                        <span className="mobile-character-summary-label">Added:</span>
+                        <span className="mobile-character-summary-value">
+                          {nameIndividualEnemies
+                            ? (() => {
+                                const namedEnemies = enemyIndividualNames
+                                  .map((name) => name.trim())
+                                  .filter(Boolean);
+                                if (namedEnemies.length > 0) {
+                                  return namedEnemies.join(', ');
+                                }
+                                return `${enemyTypeCount || 0} enemies of this type`;
+                              })()
+                            : `${enemyTypeCount || 0} enemies of this type`}
+                        </span>
+                      </div>
+                    ) : (
+                      <label className="accordion-label">
+                        <input
+                          type="checkbox"
+                          checked={multipleEnemiesType}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setMultipleEnemiesType(checked);
+                            if (!checked) {
+                              setEnemyTypeCount('');
+                              setEnemyCountExceededLimit(false);
+                              setNameIndividualEnemies(false);
+                              setEnemyIndividualNames([]);
+                              setMobileEnemiesConfirmed(false);
+                            }
+                            if (isMobileLayout) {
+                              setMobileCharacterDetailModal(checked ? 'enemies' : null);
+                              setMobileEnemyModalStep('setup');
+                            }
+                          }}
+                          className="accordion-checkbox"
+                        />
+                        Multiple Enemies of this Type?
+                      </label>
+                    )}
                   </div>
                 )}
                 {errorMessage && <p className="error-message">{errorMessage}</p>}
@@ -2668,7 +3033,7 @@ export default function MainCode() {
               </form>
             </div>
 
-            {affiliation === 'Player Character' && addSummons && (
+            {!isMobileLayout && affiliation === 'Player Character' && addSummons && (
               <div className="summons-side-panel">
                 <h3>Name Your Summons</h3>
                 <div className="summons-input-list">
@@ -2710,7 +3075,7 @@ export default function MainCode() {
               </div>
             )}
 
-            {affiliation === 'Enemy' && multipleEnemiesType && (
+            {!isMobileLayout && affiliation === 'Enemy' && multipleEnemiesType && (
               <div className="summons-side-panel">
                 <h3>Input the number of this enemy type:</h3>
                 <input
@@ -2795,6 +3160,193 @@ export default function MainCode() {
                 )}
               </div>
             )}
+
+            {isMobileLayout && mobileCharacterDetailModal === 'summons' && affiliation === 'Player Character' && addSummons && (
+              <div className="mobile-character-detail-overlay">
+                <div className="summons-side-panel mobile-character-detail-modal">
+                  <h3>Name Your Summons</h3>
+                  <div className="summons-input-list">
+                    {summonNames.map((name, index) => (
+                      <div key={`summon-name-${index}`} className="summons-input-row">
+                        <input
+                          type="text"
+                          className="summons-input"
+                          placeholder="Name of Summon"
+                          value={name}
+                          ref={(el) => {
+                            summonInputRefs.current[index] = el;
+                          }}
+                          onChange={(e) => handleSummonNameChange(index, e.target.value)}
+                          onBlur={() => promoteNextSummonInput(index)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSummonEnter(index);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="summons-remove-button"
+                          aria-label={`Remove summon input ${index + 1}`}
+                          onClick={() => removeSummonInput(index)}
+                        >
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {summonNames.length >= 10 && (
+                    <p className="summons-limit-message">
+                      You can only have a maximum of 10 summons at a time.
+                    </p>
+                  )}
+                  <div className="mobile-character-detail-actions">
+                    <button
+                      type="button"
+                      className="mobile-character-detail-back-button"
+                      onClick={handleBackFromSummonsModal}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      className="submit-button mobile-character-detail-submit-button"
+                      onClick={handleCloseMobileCharacterDetailModal}
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isMobileLayout && mobileCharacterDetailModal === 'enemies' && affiliation === 'Enemy' && multipleEnemiesType && (
+              <div className="mobile-character-detail-overlay">
+                <div className="summons-side-panel mobile-character-detail-modal">
+                  {mobileEnemyModalStep === 'setup' ? (
+                    <>
+                      <h3>Input the number of this enemy type:</h3>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        className="summons-input enemy-count-input"
+                        value={enemyTypeCount}
+                        onChange={(e) => {
+                          const numericOnly = e.target.value.replace(/\D/g, '');
+                          if (numericOnly === '') {
+                            setEnemyTypeCount('');
+                            setEnemyCountExceededLimit(false);
+                            return;
+                          }
+
+                          const parsed = Number.parseInt(numericOnly, 10);
+                          if (parsed > 30) {
+                            setEnemyTypeCount('30');
+                            setEnemyCountExceededLimit(true);
+                          } else {
+                            setEnemyTypeCount(String(parsed));
+                            setEnemyCountExceededLimit(false);
+                          }
+                        }}
+                        placeholder="0"
+                      />
+                      {enemyCountExceededLimit && (
+                        <div className="enemy-count-limit-message">
+                          You can only have a maximum of 30 enemies of this type
+                        </div>
+                      )}
+
+                      <label className="accordion-label enemy-naming-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={nameIndividualEnemies}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setNameIndividualEnemies(checked);
+                            if (!checked) {
+                              setEnemyIndividualNames([]);
+                            }
+                          }}
+                          className="accordion-checkbox"
+                        />
+                        Name Individual Enemies of this Type?
+                      </label>
+
+                      <div className="mobile-character-detail-actions">
+                        <button
+                          type="button"
+                          className="mobile-character-detail-back-button"
+                          onClick={handleBackFromEnemiesModal}
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          className="submit-button mobile-character-detail-submit-button"
+                          onClick={handleSubmitMobileEnemiesModal}
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3>Name Individual Enemies of this Type</h3>
+                      <div className="summons-input-list enemy-input-list">
+                        {(enemyIndividualNames.length > 0 ? enemyIndividualNames : ['']).map((enemyName, index) => (
+                          <div key={`enemy-name-${index}`} className="summons-input-row">
+                            <input
+                              type="text"
+                              className="summons-input"
+                              placeholder={`Enemy ${index + 1} Name`}
+                              value={enemyName || ''}
+                              ref={(el) => {
+                                enemyNameInputRefs.current[index] = el;
+                              }}
+                              onChange={(e) => handleEnemyIndividualNameChange(index, e.target.value)}
+                              onBlur={() => promoteNextEnemyInput(index)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleEnemyNameEnter(index);
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="summons-remove-button"
+                              aria-label={`Remove enemy input ${index + 1}`}
+                              onClick={() => removeEnemyIndividualInput(index)}
+                            >
+                              X
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mobile-character-detail-actions">
+                        <button
+                          type="button"
+                          className="mobile-character-detail-back-button"
+                          onClick={handleBackFromEnemyNamesModal}
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          className="submit-button mobile-character-detail-submit-button"
+                          onClick={handleSubmitMobileEnemiesModal}
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2867,15 +3419,41 @@ export default function MainCode() {
           </img>
           <span className='tooltiptext'>These Conditions use the 2024 Dungeons and Dragons Rules</span>
         </div>
+        {isMobileLayout && (
+          <button
+            type="button"
+            className="mobile-add-condition-close-button"
+            onClick={handleCloseAddConditionModal}
+            aria-label="Close Add Condition"
+          >
+            X
+          </button>
+        )}
+        {isMobileLayout && mobileAddConditionStep >= 2 && selectedConditionTargetLabels.length > 0 && (
+          <div className="condition-mobile-apply-summary">
+            <span>Apply to:</span> {selectedConditionTargetLabels.join(', ')}
+          </div>
+        )}
+        {isMobileLayout && mobileAddConditionStep >= 3 && selectedConditionLabels.length > 0 && (
+          <div className="condition-mobile-apply-summary">
+            <span>Conditions:</span> {selectedConditionLabels.join(', ')}
+          </div>
+        )}
+        {isMobileLayout && mobileAddConditionStep >= 2 && (
+          <div className="condition-mobile-step-actions">
+            <button type="button" className="submit-button" onClick={handleMobileConditionStepBack}>Back</button>
+          </div>
+        )}
         <form onSubmit={handleAddConditionSubmit} className="add-condition-form">
           {/* Choose Condition(s) Section */}
           <div className="characters-conditions">
+          {(!isMobileLayout || showMobileTargetStep) && (
           <div className="characters-section">
             <div className="form-group conditions-form-group">
               <label htmlFor="characters">Apply to:</label>
               <div className="characters-checkbox-group">
                 <div className="characters-conditions-list">
-                  {getConditionTargets().map((target) => (
+                  {conditionTargets.map((target) => (
                       <div
                         key={target.id}
                         className={`selectable-item${selectedCharacters.includes(target.id) ? ' selected' : ''}${target.isSummon ? ' summon-target-item' : ''}`}
@@ -2886,11 +3464,8 @@ export default function MainCode() {
                     ))}
                 </div>
                 <div className="mobile-characters-dropdown">
-                  <select onChange={(e) => {
-                    if (e.target.value) setSelectedCharacters([e.target.value])
-                  }}>
-                      <option value="">--Select--</option>
-                    {getConditionTargets().map((target) => (
+                  <select multiple value={selectedCharacters} onChange={handleMobileCharacterSelectChange}>
+                    {conditionTargets.map((target) => (
                       <option key={target.id} value={target.id} >
                         {target.label}
                       </option>
@@ -2898,8 +3473,22 @@ export default function MainCode() {
                   </select>
                 </div>
               </div>
+              {isMobileLayout && showMobileTargetStep && (
+                <div className="condition-mobile-step-actions">
+                  <button
+                    type="button"
+                    className="submit-button"
+                    onClick={() => setMobileAddConditionStep(2)}
+                    disabled={selectedCharacters.length < 1}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+          )}
+          {(!isMobileLayout || showMobileConditionStep) && (
           <div className="conditions-section">
             <div className="form-group conditions-form-group">
               <label htmlFor="conditions">Choose Condition(s):</label>
@@ -2933,10 +3522,7 @@ export default function MainCode() {
                 ))}
               </div>
               <div className="conditions-dropwdown-list">
-                <select onChange={(e) => {
-                  if (e.target.value) setSelectedConditions([e.target.value])
-                }}>
-                  <option value="">--Select--</option>
+                <select multiple value={selectedConditions} onChange={handleMobileConditionSelectChange}>
                   {getOriginalAndCustomConditions().map((condition) => (
                     <option key={condition} value={condition} >
                       {condition}
@@ -2944,9 +3530,31 @@ export default function MainCode() {
                   ))}
                 </select>
               </div>
+              {isMobileLayout && showMobileConditionStep && (
+                <div className="condition-mobile-step-actions">
+                  <button
+                    type="button"
+                    className="submit-button"
+                    onClick={() => setMobCustomOpen(true)}
+                  >
+                    Custom
+                  </button>
+                  <button
+                    type="button"
+                    className="submit-button"
+                    onClick={() => setMobileAddConditionStep(3)}
+                    disabled={selectedConditions.length < 1}
+                  >
+                    Continue
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+          )}
           </div>
+            {(!isMobileLayout || showMobileExpirationStep) && (
+              <>
             <div className="condition-expiration-selection">
               <label htmlFor="condition-expiration-timing" className="condition-expiration-label">
                 Condition Expiration:
@@ -3049,20 +3657,26 @@ export default function MainCode() {
               <div className="submit-button-container">
                 <button className="submit-button">Submit</button>
               </div>
-              <div className="submit-button-container add-con-close-container">
-                <button type="button" className="submit-button add-con-close" onClick={() => setMobCustomOpen(true)}>Custom</button>
-              </div>
-              <div className="submit-button-container add-con-close-container">
+              {!isMobileLayout && (
+                <div className="submit-button-container add-con-close-container">
+                  <button type="button" className="submit-button add-con-close" onClick={() => setMobCustomOpen(true)}>Custom</button>
+                </div>
+              )}
+              <div className="submit-button-container add-con-close-container add-con-close-btn-container">
                 <button type="button" className="submit-button add-con-close" onClick={handleCloseAddConditionModal}>Close</button>
               </div>
-              <button
-                type="button"
-                className="close-modal-button"
-                onClick={handleCloseAddConditionModal}
-              >
-                X
-              </button>
+              {!isMobileLayout && (
+                <button
+                  type="button"
+                  className="close-modal-button"
+                  onClick={handleCloseAddConditionModal}
+                >
+                  X
+                </button>
+              )}
             </div>
+              </>
+            )}
         </form>
       </div>
 
@@ -3153,7 +3767,15 @@ export default function MainCode() {
                 </div>
 
                 <div className="modal-button-group">
-                  <button type="submit">Add Condition</button>
+                  <button type="submit">{editCustomConditionIndex !== null ? 'Save' : (isMobileLayout ? 'Add' : 'Add Condition')}</button>
+                  {editCustomConditionIndex !== null && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
+                    >
+                      Delete
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -3175,58 +3797,42 @@ export default function MainCode() {
                 <div className="custom-condition-list">
                   {customConditions.length > 0 ? (
                     customConditions.map((condition, index) => {
-                      const isSelected = selectedConditions.includes(condition.name);
+                      const isConditionSelected = selectedConditions.includes(condition.name);
 
                       return (
                         <div
                           key={index}
-                          className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}${isSelected ? ' selected' : ''}`}
-                          onClick={() => handleConditionClick(condition.name)}
+                          className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}${isConditionSelected ? ' selected' : ''}`}
                         >
                           <button
                             type="button"
                             className="remove-condition-button"
-                            onClick={(e) => {
-                              e.stopPropagation(); // prevent also selecting the item
-                              setCustomConditions((prevConditions) =>
-                                prevConditions.filter((_, i) => i !== index)
-                              );
-                              setConditionDescriptions(prevDescriptions => {
-                                delete prevDescriptions[condition.name]
-                                return {...prevDescriptions}
-                              })
-                              setConditionColors(prevColors => {
-                                delete prevColors[condition.name]
-                                return {...prevColors}
-                              })
-                            }}
+                            onClick={() => handleDeleteCustomCondition(index, condition.name)}
+                            aria-label={`Delete custom condition ${condition.name}`}
                           >
-                            <img
-                              src={minusIcon}
-                              alt="Remove"
-                              className="condition-icon"
-                            />
+                            <img src={trashcanIcon} alt="Delete" className="condition-icon" />
                           </button>
                           <button
                             type="button"
                             className="edit-custom-condition"
-                            onClick={e => {
-                              e.stopPropagation();
+                            onClick={() => {
                               setCustomConditionName(condition.name);
                               setCustomConditionAffect(condition.affect);
                               setCustomConditionDescription(condition.description);
                               setShowCustomConditionForm(true);
-                              setEditCustomConditionIndex(index); // Track which one is being edited
+                              setEditCustomConditionIndex(index);
                             }}
-                            style={{ marginRight: 8 }}
+                            aria-label={`Edit custom condition ${condition.name}`}
                           >
-                            <img
-                              src={pencilIcon}
-                              alt="Edit"
-                              className="condition-icon"
-                            />
+                            <img src={pencilIcon} alt="Edit" className="condition-icon" />
                           </button>
-                          {condition.name}
+                          <button
+                            type="button"
+                            className="custom-condition-name-button"
+                            onClick={() => handleConditionClick(condition.name)}
+                          >
+                            {condition.name}
+                          </button>
                         </div>
                       );
                     })
@@ -3327,7 +3933,15 @@ export default function MainCode() {
                   </div>
 
                   <div className="modal-button-group">
-                    <button type="submit">Add Condition</button>
+                    <button type="submit">{editCustomConditionIndex !== null ? 'Save' : (isMobileLayout ? 'Add' : 'Add Condition')}</button>
+                    {editCustomConditionIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
+                      >
+                        Delete
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -3349,57 +3963,18 @@ export default function MainCode() {
                   <div className="custom-condition-list">
                     {customConditions.length > 0 ? (
                       customConditions.map((condition, index) => {
-                        const isSelected = selectedConditions.includes(condition.name);
-
                         return (
                           <div
                             key={index}
-                            className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}${isSelected ? ' selected' : ''}`}
-                            // onClick={() => handleConditionClick(condition.name)}
+                            className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}`}
+                            onClick={() => {
+                              setCustomConditionName(condition.name);
+                              setCustomConditionAffect(condition.affect);
+                              setCustomConditionDescription(condition.description);
+                              setShowCustomConditionForm(true);
+                              setEditCustomConditionIndex(index);
+                            }}
                           >
-                            <button
-                              type="button"
-                              className="remove-condition-button"
-                              onClick={(e) => {
-                                e.stopPropagation(); // prevent also selecting the item
-                                setCustomConditions((prevConditions) =>
-                                  prevConditions.filter((_, i) => i !== index)
-                                );
-                                setConditionDescriptions(prevDescriptions => {
-                                  delete prevDescriptions[condition.name]
-                                  return {...prevDescriptions}
-                                })
-                                setConditionColors(prevColors => {
-                                  delete prevColors[condition.name]
-                                  return {...prevColors}
-                                })
-                              }}
-                            >
-                              <img
-                                src={minusIcon}
-                                alt="Remove"
-                                className="condition-icon"
-                              />
-                            </button>
-                            <button
-                              type="button"
-                              className="edit-custom-condition"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setCustomConditionName(condition.name);
-                                setCustomConditionAffect(condition.affect);
-                                setCustomConditionDescription(condition.description);
-                                setShowCustomConditionForm(true);
-                                setEditCustomConditionIndex(index); // Track which one is being edited
-                              }}
-                              style={{ marginRight: 8 }}
-                            >
-                              <img
-                                src={pencilIcon}
-                                alt="Edit"
-                                className="condition-icon"
-                              />
-                            </button>
                             {condition.name}
                           </div>
                         );
@@ -3410,13 +3985,15 @@ export default function MainCode() {
                   </div>
                 )}
             </div>
-            <button
-              type="button"
-              className="close-custom-modal-button"
-              onClick={() => setMobCustomOpen(false)}
-            >
-              Close
-            </button>
+            {!(isMobileLayout && showCustomConditionForm) && (
+              <button
+                type="button"
+                className="close-custom-modal-button"
+                onClick={() => setMobCustomOpen(false)}
+              >
+                Close
+              </button>
+            )}
           </div>
         </div>
       )}

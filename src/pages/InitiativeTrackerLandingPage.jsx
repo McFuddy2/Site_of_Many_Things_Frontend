@@ -7,7 +7,7 @@ import "../11InitiativeTrackerLandingPage.css";
 
 export default function InitiativeTrackerLandingPage() {
   useEffect(() => {
-    document.title = "Free D&D 5e Initiative Tracker | Site of Many Things";
+    // document.title = "Free D&D 5e Initiative Tracker | Site of Many Things";
 
     const description =
   "Free D&D 5e initiative tracker for DMs and players. Track turn order, rounds, conditions, and concentration fast with no login required.";

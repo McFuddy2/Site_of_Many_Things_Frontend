@@ -262,6 +262,10 @@
   display: none;
 }
 
+.mobile-add-condition-close-button {
+  display: none;
+}
+
 @media screen and (max-width: 1500px) {
   .condition-modal {
     overflow: scroll;
@@ -317,5 +321,102 @@
 
   .add-con-close-container {
     display: inline-block;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  .condition-modal {
+    width: 90%;
+    max-width: 90%;
+    position: relative;
+  }
+
+  .condition-mobile-apply-summary {
+    margin: 0 0 10px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .condition-mobile-apply-summary span {
+    font-weight: 700;
+  }
+
+  .condition-mobile-step-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 8px 0 10px;
+  }
+
+  .mobile-characters-dropdown,
+  .conditions-dropwdown-list {
+    width: 100%;
+  }
+
+  .mobile-characters-dropdown select,
+  .conditions-dropwdown-list select {
+    width: 100%;
+    min-height: 140px;
+  }
+
+  .condition-expiration-selection {
+    min-height: 24px;
+    padding: 6px 8px;
+    row-gap: 4px;
+  }
+
+  .condition-expiration-dropdown {
+    flex: 0 0 auto;
+    width: 80%;
+    max-width: 80%;
+    min-height: 15%;
+    height: 15%;
+    padding: 0 4px;
+    line-height: 1;
+    font-size: 0.82rem;
+  }
+
+  .condition-modal .close-modal-button {
+    display: block;
+  }
+
+  .mobile-add-condition-close-button {
+    display: block;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 3;
+  }
+
+  .mobile-add-condition-close-button:hover {
+    color: #555;
+  }
+
+  .mobile-add-condition-close-button:focus {
+    outline: none;
+  }
+
+  .add-con-close-btn-container {
+    display: none !important;
+  }
+
+  .dual-modal-wrapper {
+    width: 100%;
+  }
+
+  .condition-modal-header .tooltip {
+    display: none;
+  }
+
+  .tooltiptext {
+    display: none;
   }
 }

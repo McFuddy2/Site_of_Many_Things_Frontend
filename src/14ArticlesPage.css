@@ -237,12 +237,42 @@
 
 /* Mobile */
 @media (max-width: 640px) {
+  .articles-page-wrapper {
+    height: 90%;
+    overflow-y: auto;
+    border-radius: 10px;
+  }
+
+  .articles-page-content,
+  .article-full-wrapper {
+    height: auto;
+    padding-bottom: 2%;
+    box-sizing: border-box;
+  }
+
   .articles-page-title {
-    font-size: 1.6rem;
+    font-size: 1.3rem;
+  }
+
+  .articles-page-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .article-card-title {
+    font-size: 1rem;
+  }
+
+  .article-card-excerpt {
+    font-size: 0.84rem;
   }
 
   .article-full-title {
-    font-size: 1.4rem;
+    font-size: 1.15rem;
+  }
+
+  .article-body {
+    font-size: 0.86rem;
+    line-height: 1.5;
   }
 
   .article-card-link {
