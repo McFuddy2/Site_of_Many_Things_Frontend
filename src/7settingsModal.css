@@ -1,0 +1,171 @@
+@import './1colors.css';
+
+.delete-confirm-modal {
+  z-index: 2000;
+}
+
+
+.settings-modal h2 {
+  font-size: 1.75rem;
+  margin-bottom: 10px;
+}
+
+.settings-view-options {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.settings-view-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.settings-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #c9c9c9;
+  transition: 0.2s ease;
+  border-radius: 999px;
+}
+
+.settings-slider::before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  top: 3px;
+  background-color: white;
+  transition: 0.2s ease;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.settings-switch input:checked + .settings-slider {
+  background-color: var(--initiative-banner);
+}
+
+.settings-switch input:checked + .settings-slider::before {
+  transform: translateX(20px);
+}
+
+.settings-switch input:focus-visible + .settings-slider {
+  outline: 2px solid rgba(0, 0, 0, 0.6);
+  outline-offset: 2px;
+}
+
+.settings-subtitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 6px 0 6px;
+  text-align: center;
+  width: 100%;
+}
+
+.settings-caution-text {
+  color: red;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: small;
+}
+
+.settings-parent-buttons {
+  width: 100%;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+
+.settings-new-combat-button, .settings-full-reset-button {
+  background-color: var(--initiative-banner);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 400;
+  transition: background 0.2s;
+  height: 50px;
+  width: 40%;
+}
+
+.settings-checkbox-group {
+  text-align: left;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.settings-checkbox-group label {
+  text-align: left;
+  justify-content: flex-start;
+  align-items: flex-start;
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.settings-checkbox-group input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--initiative-banner); /* Optional: matches your theme color */
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.settings-submit-button {
+  background-color: var(--initiative-banner);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-right: 20px;
+  transition: background 0.2s;
+  height: 50px;
+  width: 100%;
+}
+
+.settings-submit-button:hover {
+  background-color: black;
+}
+
+.settings-description-text {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: black;
+  margin-top: 10px;
+  width: 100%;
+}
+

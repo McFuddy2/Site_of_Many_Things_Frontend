@@ -1,0 +1,548 @@
+@import './1colors.css';
+
+.spell-list-wrapper {
+	display: flex;
+	flex-direction: column;
+}
+
+.spell-search-sort-bar {
+	height: 10%;
+	width: 100%;
+	background-color: var(--page-background);
+	display: flex;
+	align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    margin-bottom: 0.25rem;
+}
+
+.column-view-section {
+	width: 5%;
+	height: 100%;
+	background-color: transparent;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.column-view-button {
+	width: 100%;
+	height: 60%;
+	border: none;
+	padding: 0;
+	background-color: transparent;
+	background-image: url('./media/pillar-button.png');
+	background-size: contain;
+	background-position: center;
+	background-repeat: no-repeat;
+	cursor: pointer;
+}
+
+.sort-by-toggle-section {
+	width: 75%;
+	height: 100%;
+	background-color: transparent;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	box-sizing: border-box;
+}
+
+.sort-by-toggle-section > * {
+	align-self: center;
+}
+
+.text-and-toggles {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	width: 100%;
+}
+
+.page-of-spell-list {
+	width: 15%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	box-sizing: border-box;
+	padding: 0;
+}
+
+.page-of-spell-list-left,
+.page-of-spell-list-right {
+	position: relative;
+	height: 60%;
+	flex: 1 1 0;
+	display: flex;
+	align-items: center;
+	font-size: 1.15rem;
+	font-weight: 700;
+	color: #ffffff;
+	background-size: 100% 100%;
+	background-position: center;
+	background-repeat: no-repeat;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+.page-of-spell-list-arrow-button {
+	flex: 0 0 2.2rem;
+	width: 2.2rem;
+	height: 2.2rem;
+	border: none;
+	background: transparent;
+	padding: 0;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.2s ease;
+}
+
+.page-of-spell-list-arrow-button::before {
+	content: "";
+	width: 0;
+	height: 0;
+	border-top: 0.6rem solid transparent;
+	border-bottom: 0.6rem solid transparent;
+}
+
+.page-of-spell-list-arrow-button.is-left::before {
+	border-right: 0.9rem solid hotpink;
+}
+
+.page-of-spell-list-arrow-button.is-right::before {
+	border-left: 0.9rem solid hotpink;
+}
+
+.page-of-spell-list-arrow-button:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.page-of-spell-list-arrow-button.is-left:disabled::before {
+	border-right-color: #ffc0db;
+}
+
+.page-of-spell-list-arrow-button.is-right:disabled::before {
+	border-left-color: #ffc0db;
+}
+
+.page-of-spell-list-text {
+	position: relative;
+	z-index: 1;
+	display: inline-block;
+	width: 100%;
+}
+
+.page-of-spell-list-left {
+	justify-content: flex-end;
+	text-align: right;
+	background-image: url('./media/left-page-of.png');
+}
+
+.page-of-spell-list-left .page-of-spell-list-text {
+	text-align: right;
+	padding-left: 0.6rem;
+	padding-right: 0;
+}
+
+.page-of-spell-list-right {
+	justify-content: flex-start;
+	text-align: left;
+	background-image: url('./media/right-page-of.png');
+}
+
+.page-of-spell-list-right .page-of-spell-list-text {
+	text-align: left;
+	padding-left: 0;
+	padding-right: 0.6rem;
+}
+
+.spell-column-headers {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0;
+	width: 100%;
+}
+
+.spell-column-header {
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-align: center;
+}
+
+.spell-column-headers .spell-column-header {
+	flex: 1;
+}
+
+.sort-by-label {
+	color: #111111;
+    font-size: x-large;
+	font-weight: 1000;
+}
+
+.sort-by-toggle {
+	position: relative;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	align-items: center;
+	background-color: #000000;
+	color: #ffffff;
+	padding: 0.3rem;
+	border-radius: 999px;
+	border: none;
+	cursor: pointer;
+    width: 15%;
+	min-width: 240px;
+	height: 3rem;
+}
+
+.sort-by-option {
+	font-size: 0.95rem;
+	font-weight: 600;
+	position: relative;
+	z-index: 1;
+	justify-self: center;
+}
+
+.sort-by-switch {
+	position: absolute;
+	top: 0.2rem;
+	bottom: 0.2rem;
+	left: 0.2rem;
+	width: calc(50% - 0.2rem);
+	background-color: hotpink;
+	border-radius: 999px;
+	transition: transform 0.2s ease;
+	pointer-events: none;
+}
+
+.sort-by-toggle.is-alphabetical .sort-by-switch {
+	transform: translateX(100%);
+}
+
+.sort-by-toggle.is-descending .sort-by-switch {
+	transform: translateX(100%);
+}
+
+.spell-search-spell-list {
+	height: 90%;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	overflow-y: auto;
+	scrollbar-gutter: stable;
+	padding-right: 0.5rem;
+	box-sizing: border-box;
+	background-color: transparent;
+}
+
+.spell-search-spell-list > .spell-list-item {
+	border-radius: 10px;
+	flex: 0 0 auto;
+}
+
+.spell-list-empty-state {
+	margin: 0.5rem 0.75rem;
+	padding: 1rem 1.25rem;
+	border-radius: 10px;
+	background-color: rgba(52, 23, 102, 0.78);
+	color: #ffffff;
+	font-size: 1.05rem;
+	font-weight: 600;
+	line-height: 1.35;
+	text-align: center;
+}
+
+.spell-search-spell-list {
+	scrollbar-color: var(--gold-hightlight, var(--golden-highlight)) transparent;
+	scrollbar-width: thin;
+}
+
+.spell-search-spell-list::-webkit-scrollbar {
+	width: 0.6rem;
+}
+
+.spell-search-spell-list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.spell-search-spell-list::-webkit-scrollbar-thumb {
+	background-color: var(--gold-hightlight, var(--golden-highlight));
+	border-radius: 999px;
+}
+
+.spell-search-spell-list::-webkit-scrollbar-button {
+	background-color: var(--gold-hightlight, var(--golden-highlight));
+}
+
+
+.spell-list-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem 0.5rem 2.75rem;
+	min-height: 7.5rem;
+	border-radius: 10px;
+	cursor: pointer;
+	position: relative;
+}
+
+.spell-copy-info-button {
+	position: absolute;
+	top: 0.45rem;
+	left: 0.45rem;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	margin: 0;
+	z-index: 2;
+}
+
+.spell-copy-info-button::after {
+	content: 'Copy Spell Info';
+	position: absolute;
+	left: calc(100% + 8px);
+	top: 50%;
+	transform: translateY(-50%);
+	background-color: rgba(0, 0, 0, 0.85);
+	color: white;
+	padding: 6px 12px;
+	border-radius: 6px;
+	font-size: 10px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.3s ease;
+	z-index: 10;
+}
+
+.spell-copy-info-button:hover::after {
+	opacity: 1;
+}
+
+.spell-copy-info-button.is-copied::after {
+	content: 'Spell Info Copied!';
+	opacity: 1;
+}
+
+.spell-search-spell-list > .spell-list-item:nth-child(odd) .spell-list-row {
+	background-color: rgb(209, 229, 255);
+}
+
+.spell-search-spell-list > .spell-list-item:nth-child(even) .spell-list-row {
+	background-color: rgb(244, 230, 250);
+}
+
+.spell-list-cell {
+	flex: 1 1 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: 0.2rem;
+}
+
+.spell-list-checkbox-cell {
+	flex: 0 0 4%;
+}
+
+.spell-list-name-cell {
+	flex: 0 0 14%;
+	font-size: 1.5rem;
+	line-height: 1.15;
+}
+
+.spell-list-details-grid {
+	flex: 1 1 0;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-rows: repeat(2, minmax(0, 1fr));
+	gap: 0.35rem;
+}
+
+.spell-name-button {
+	border: none;
+	padding: 0;
+	background: transparent;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+.spell-name-button:hover {
+	text-decoration: underline;
+}
+
+.spell-row-accordion {
+	width: 95%;
+	margin: 0 auto;
+	box-sizing: border-box;
+	display: grid;
+	grid-template-rows: 0fr;
+	overflow: hidden;
+	padding: 0 0.75rem;
+	transition: grid-template-rows 0.35s ease, padding 0.35s ease;
+	border-bottom-left-radius: 10px;
+	border-bottom-right-radius: 10px;
+}
+
+.spell-row-accordion.is-open {
+	grid-template-rows: 1fr;
+	padding: 1rem;
+	overflow: visible;
+}
+
+.spell-row-accordion-content {
+	min-height: 0;
+	overflow: visible;
+	font-size: 0.95rem;
+	line-height: 1.35;
+}
+
+.spell-keyword-highlight {
+	background-color: hotpink;
+	color: #111111;
+	font-weight: 700;
+	padding: 0 0.1em;
+	border-radius: 0.2em;
+}
+
+.spell-search-spell-list > .spell-list-item:nth-child(odd) .spell-row-accordion {
+	background-color: rgb(241, 247, 255);
+}
+
+.spell-search-spell-list > .spell-list-item:nth-child(even) .spell-row-accordion {
+	background-color: rgb(252, 245, 255);
+}
+
+.spell-cell-value {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+}
+
+.spell-cell-value-classes {
+	text-align: center;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+	line-height: 1.25;
+}
+
+.spell-row-checkbox {
+	width: 1.75rem;
+	height: 1.75rem;
+	border-radius: 10px;
+	background-color: #ffffff;
+}
+
+/* Copy Description button inside spell accordion */
+.spell-copy-description-button {
+	float: right;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	margin: 0 0 0.5rem 0.75rem;
+	position: relative;
+	flex-shrink: 0;
+}
+
+.spell-copy-description-icon {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	display: block;
+	transition: filter 0.2s ease;
+}
+
+.spell-copy-description-button:hover .spell-copy-description-icon,
+.spell-copy-info-button:hover .spell-copy-description-icon {
+	filter: drop-shadow(0 0 3px rgba(255, 230, 0, 0.90))
+	        drop-shadow(0 0 6px rgba(255, 230, 0, 0.65))
+	        drop-shadow(0 0 10px rgba(255, 230, 0, 0.40))
+	        brightness(1.08) saturate(1.10);
+	animation: spellCopyIconPulse 2.5s ease-in-out infinite;
+	will-change: filter;
+}
+
+.spell-copy-description-button:active .spell-copy-description-icon,
+.spell-copy-info-button:active .spell-copy-description-icon {
+	animation: none;
+}
+
+.spell-copy-description-button::after {
+	content: 'Copy Description';
+	position: absolute;
+	right: calc(100% + 8px);
+	top: 50%;
+	transform: translateY(-50%);
+	background-color: rgba(0, 0, 0, 0.85);
+	color: white;
+	padding: 6px 12px;
+	border-radius: 6px;
+	font-size: 10px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.3s ease;
+	z-index: 10;
+}
+
+.spell-copy-description-button:hover::after {
+	opacity: 1;
+}
+
+.spell-copy-description-button.is-copied::after {
+	content: 'Spell Description Copied!';
+	opacity: 1;
+}
+
+@keyframes spellCopyIconPulse {
+	0% {
+		filter: drop-shadow(0 0 3px rgba(255, 230, 0, 0.90))
+		        drop-shadow(0 0 6px rgba(255, 230, 0, 0.65))
+		        drop-shadow(0 0 10px rgba(255, 230, 0, 0.40))
+		        brightness(1.08) saturate(1.10);
+	}
+	25% {
+		filter: drop-shadow(0 0 4px rgba(255, 210, 0, 0.95))
+		        drop-shadow(0 0 8px rgba(255, 210, 0, 0.75))
+		        drop-shadow(0 0 14px rgba(255, 210, 0, 0.50))
+		        brightness(1.12) saturate(1.14);
+	}
+	50% {
+		filter: drop-shadow(0 0 5px rgba(170, 0, 255, 1))
+		        drop-shadow(0 0 10px rgba(170, 0, 255, 0.85))
+		        drop-shadow(0 0 16px rgba(170, 0, 255, 0.60))
+		        brightness(1.18) saturate(1.20);
+	}
+	75% {
+		filter: drop-shadow(0 0 4px rgba(200, 50, 255, 0.95))
+		        drop-shadow(0 0 9px rgba(200, 50, 255, 0.80))
+		        drop-shadow(0 0 14px rgba(200, 50, 255, 0.55))
+		        brightness(1.14) saturate(1.18);
+	}
+	100% {
+		filter: drop-shadow(0 0 3px rgba(255, 230, 0, 0.90))
+		        drop-shadow(0 0 6px rgba(255, 230, 0, 0.65))
+		        drop-shadow(0 0 10px rgba(255, 230, 0, 0.40))
+		        brightness(1.08) saturate(1.10);
+	}
+}

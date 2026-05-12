@@ -1,0 +1,75 @@
+<svg width="680" height="680" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Single-color version of The Site of Many Things logo.
+    Designed for embroidery, screen printing, and single-ink use.
+    Swap stroke/fill color to any single color as needed.
+    Default: white (works on dark backgrounds).
+    For light backgrounds: change all "white" to "#0A0812" or your dark color.
+  -->
+
+  <!-- Outer ring -->
+  <circle cx="340" cy="340" r="305" fill="none" stroke="white" stroke-width="3"/>
+
+  <!-- Orbit ring (dashed) -->
+  <circle cx="340" cy="340" r="200" fill="none" stroke="white" stroke-width="1.8" stroke-dasharray="4 8"/>
+
+  <!-- 8 Spokes -->
+  <line x1="340" y1="258" x2="340" y2="168" stroke="white" stroke-width="1.5"/>
+  <line x1="399" y1="281" x2="481" y2="199" stroke="white" stroke-width="1.5"/>
+  <line x1="422" y1="340" x2="522" y2="340" stroke="white" stroke-width="1.5"/>
+  <line x1="399" y1="399" x2="481" y2="481" stroke="white" stroke-width="1.5"/>
+  <line x1="340" y1="422" x2="340" y2="512" stroke="white" stroke-width="1.5"/>
+  <line x1="281" y1="399" x2="199" y2="481" stroke="white" stroke-width="1.5"/>
+  <line x1="258" y1="340" x2="158" y2="340" stroke="white" stroke-width="1.5"/>
+  <line x1="281" y1="281" x2="199" y2="199" stroke="white" stroke-width="1.5"/>
+
+  <!-- 8 Orbit nodes -->
+  <circle cx="340" cy="140" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="481" cy="199" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="540" cy="340" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="481" cy="481" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="340" cy="540" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="199" cy="481" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="140" cy="340" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="199" cy="199" r="30" fill="none" stroke="white" stroke-width="2.5"/>
+
+  <!-- Scroll body (filled white) -->
+  <rect x="278" y="283" width="124" height="142" rx="3" fill="white"/>
+
+  <!-- Top curl flap (slightly translucent to suggest depth within single color) -->
+  <path d="M272,278 Q340,252 408,278 L402,285 Q340,260 278,285 Z" fill="white" opacity="0.65"/>
+  <!-- Top curl shadow edge -->
+  <path d="M278,285 Q340,272 402,285" fill="none" stroke="white" stroke-width="1.2" opacity="0.3"/>
+
+  <!-- Bottom curl (toward viewer) -->
+  <path d="M278,415 Q340,442 402,415 L402,426 Q340,453 278,426 Z" fill="white" opacity="0.85"/>
+  <!-- Bottom curl ridge line -->
+  <path d="M280,415 Q340,441 400,415" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Text lines on scroll (dark cutouts against white body) -->
+  <rect x="286" y="308" width="108" height="1.5" fill="#0A0812" opacity="0.2"/>
+  <rect x="286" y="319" width="108" height="1.5" fill="#0A0812" opacity="0.2"/>
+  <rect x="286" y="378" width="108" height="1.5" fill="#0A0812" opacity="0.2"/>
+  <rect x="286" y="389" width="108" height="1.5" fill="#0A0812" opacity="0.2"/>
+
+  <!-- Title text -->
+  <text x="340" y="348" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="11.5" font-weight="700" fill="#0A0812" letter-spacing="0.8">THE SITE</text>
+  <text x="340" y="361" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="9" font-weight="400" fill="#0A0812" letter-spacing="1.5">of Many</text>
+  <text x="340" y="375" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="11.5" font-weight="700" fill="#0A0812" letter-spacing="0.8">THINGS</text>
+
+  <!-- Dividers -->
+  <line x1="293" y1="341" x2="314" y2="341" stroke="#0A0812" stroke-width="0.8" opacity="0.4"/>
+  <line x1="366" y1="341" x2="387" y2="341" stroke="#0A0812" stroke-width="0.8" opacity="0.4"/>
+  <line x1="293" y1="379" x2="314" y2="379" stroke="#0A0812" stroke-width="0.8" opacity="0.4"/>
+  <line x1="366" y1="379" x2="387" y2="379" stroke="#0A0812" stroke-width="0.8" opacity="0.4"/>
+
+  <!-- Diamond ornaments -->
+  <polygon points="340,335 343.5,338.5 340,342 336.5,338.5" fill="#0A0812" opacity="0.45"/>
+  <polygon points="340,380 343.5,383.5 340,387 336.5,383.5" fill="#0A0812" opacity="0.45"/>
+</svg>

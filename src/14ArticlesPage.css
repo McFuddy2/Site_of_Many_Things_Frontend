@@ -1,0 +1,251 @@
+@import './1colors.css';
+
+/* Articles Pages Styles */
+
+.articles-page-wrapper {
+  background-color: var(--page-background);
+  padding: 2% 2% 3% 2%;
+  margin-left: 5%;
+  margin-right: 5%;
+  margin-top: 2%;
+  border-radius: 10px 10px 0px 0px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar styling */
+.articles-page-wrapper::-webkit-scrollbar {
+  width: 12px;
+}
+
+.articles-page-wrapper::-webkit-scrollbar-track {
+  background: rgba(79, 70, 229, 0.1);
+  border-radius: 10px;
+}
+
+.articles-page-wrapper::-webkit-scrollbar-thumb {
+  background-color: rgb(79, 70, 229);
+  border-radius: 10px;
+  border: 2px solid var(--page-background);
+}
+
+.articles-page-wrapper::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(67, 56, 202);
+}
+
+/* Firefox scrollbar */
+.articles-page-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
+}
+
+/* Index page */
+.articles-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.articles-page-subtitle {
+  margin-bottom: 2.5rem;
+  font-size: 1.05rem;
+  opacity: 0.75;
+}
+
+.articles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.article-card {
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-card:hover {
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.1);
+}
+
+.article-card-link {
+  display: block;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.article-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.article-category-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(79, 70, 229);
+  background: rgba(79, 70, 229, 0.1);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+}
+
+.article-date {
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+
+.article-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.article-card-excerpt {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  opacity: 0.75;
+}
+
+.article-read-more {
+  font-size: 0.875rem;
+  color: rgb(79, 70, 229);
+  font-weight: 500;
+}
+
+/* Full article page */
+.article-full-wrapper {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.article-breadcrumb {
+  margin-bottom: 2rem;
+}
+
+.article-breadcrumb a {
+  color: rgb(79, 70, 229);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.article-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.article-header {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.article-full-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.article-full-excerpt {
+  font-size: 1rem;
+  line-height: 1.65;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* Markdown body styles */
+.article-body {
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.article-body h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+}
+
+.article-body h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.article-body p {
+  margin-bottom: 1.25rem;
+}
+
+.article-body ul,
+.article-body ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.article-body li {
+  margin-bottom: 0.4rem;
+}
+
+.article-body a {
+  color: rgb(79, 70, 229);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-body a:hover {
+  opacity: 0.8;
+}
+
+.article-body strong {
+  font-weight: 600;
+}
+
+.article-body code {
+  background: rgba(79, 70, 229, 0.1);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.9em;
+  color: rgb(79, 70, 229);
+}
+
+/* Footer CTA */
+.article-footer-cta {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(79, 70, 229, 0.2);
+  text-align: center;
+  opacity: 0.8;
+}
+
+.article-back-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: rgb(79, 70, 229);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.article-back-link:hover {
+  text-decoration: underline;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .articles-page-title {
+    font-size: 1.6rem;
+  }
+
+  .article-full-title {
+    font-size: 1.4rem;
+  }
+
+  .article-card-link {
+    padding: 1.25rem;
+  }
+}

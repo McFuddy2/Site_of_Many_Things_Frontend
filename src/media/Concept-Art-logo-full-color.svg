@@ -1,0 +1,135 @@
+<svg width="680" height="680" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#F2E0B0"/>
+      <stop offset="40%" stop-color="#E2C87A"/>
+      <stop offset="100%" stop-color="#C8A040"/>
+    </linearGradient>
+    <linearGradient id="curl-top-under" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#E2C87A"/>
+      <stop offset="50%" stop-color="#B08030"/>
+      <stop offset="100%" stop-color="#7A5010"/>
+    </linearGradient>
+    <linearGradient id="curl-bot-front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8D090"/>
+      <stop offset="60%" stop-color="#C09040"/>
+      <stop offset="100%" stop-color="#8A6820"/>
+    </linearGradient>
+    <linearGradient id="ps" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8A6010" stop-opacity="0.45"/>
+      <stop offset="18%" stop-color="#F5EAC0" stop-opacity="0.1"/>
+      <stop offset="82%" stop-color="#F5EAC0" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#8A6010" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="tl" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8A6018" stop-opacity="0"/>
+      <stop offset="12%" stop-color="#8A6018" stop-opacity="0.45"/>
+      <stop offset="88%" stop-color="#8A6018" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#8A6018" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="340" cy="340" r="305" fill="#0A0812"/>
+  <circle cx="340" cy="340" r="305" fill="none" stroke="#5A2A98" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="340" cy="340" r="295" fill="none" stroke="#7040B8" stroke-width="0.5" opacity="0.25"/>
+
+  <!-- Orbit ring -->
+  <circle cx="340" cy="340" r="200" fill="none" stroke="#7B44C0" stroke-width="1.2" stroke-dasharray="3 7" opacity="0.55"/>
+
+  <!-- 8 Spokes -->
+  <line x1="340" y1="258" x2="340" y2="168" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="399" y1="281" x2="481" y2="199" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="422" y1="340" x2="522" y2="340" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="399" y1="399" x2="481" y2="481" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="340" y1="422" x2="340" y2="512" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="281" y1="399" x2="199" y2="481" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="258" y1="340" x2="158" y2="340" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+  <line x1="281" y1="281" x2="199" y2="199" stroke="#7040B8" stroke-width="1.1" opacity="0.65"/>
+
+  <!-- 8 Orbit nodes -->
+  <circle cx="340" cy="140" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="340" cy="140" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="340" cy="140" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="481" cy="199" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="481" cy="199" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="481" cy="199" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="540" cy="340" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="540" cy="340" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="540" cy="340" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="481" cy="481" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="481" cy="481" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="481" cy="481" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="340" cy="540" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="340" cy="540" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="340" cy="540" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="199" cy="481" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="199" cy="481" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="199" cy="481" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="140" cy="340" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="140" cy="340" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="140" cy="340" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <circle cx="199" cy="199" r="30" fill="#0A0812" stroke="#9055D0" stroke-width="1.5"/>
+  <circle cx="199" cy="199" r="24" fill="none" stroke="#5A2A90" stroke-width="0.6" opacity="0.45"/>
+  <circle cx="199" cy="199" r="3.5" fill="#A070E0" opacity="0.75"/>
+
+  <!-- Scroll shadow -->
+  <ellipse cx="342" cy="426" rx="66" ry="7" fill="#000" opacity="0.35"/>
+
+  <!-- Top curl (rolling behind) -->
+  <path d="M272,278 Q340,252 408,278 L402,285 Q340,260 278,285 Z" fill="url(#curl-top-under)"/>
+  <path d="M282,278 Q340,253 398,278" fill="none" stroke="#C8A040" stroke-width="1" opacity="0.4"/>
+  <path d="M278,285 Q340,272 402,285 L402,298 Q340,288 278,298 Z" fill="#7A5010" opacity="0.22"/>
+
+  <!-- Scroll body -->
+  <rect x="278" y="283" width="124" height="142" rx="3" fill="url(#pg)"/>
+  <rect x="278" y="283" width="124" height="142" rx="3" fill="url(#ps)"/>
+
+  <!-- Vertical creases -->
+  <line x1="300" y1="288" x2="300" y2="422" stroke="#A07828" stroke-width="0.5" opacity="0.18"/>
+  <line x1="380" y1="288" x2="380" y2="422" stroke="#A07828" stroke-width="0.5" opacity="0.18"/>
+
+  <!-- Text lines above title -->
+  <rect x="278" y="308" width="124" height="1.1" fill="url(#tl)"/>
+  <rect x="278" y="319" width="124" height="1.1" fill="url(#tl)"/>
+  <rect x="278" y="330" width="124" height="0.9" fill="url(#tl)" opacity="0.6"/>
+
+  <!-- Text lines below title -->
+  <rect x="278" y="378" width="124" height="0.9" fill="url(#tl)" opacity="0.6"/>
+  <rect x="278" y="389" width="124" height="1.1" fill="url(#tl)"/>
+  <rect x="278" y="400" width="124" height="1.1" fill="url(#tl)"/>
+
+  <!-- Title -->
+  <text x="340" y="348" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+        font-size="11.5" font-weight="700" fill="#3A2000" letter-spacing="0.8" opacity="0.95">THE SITE</text>
+  <text x="340" y="361" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+        font-size="9" font-weight="400" fill="#4A2C00" letter-spacing="1.5" opacity="0.8">of Many</text>
+  <text x="340" y="375" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif"
+        font-size="11.5" font-weight="700" fill="#3A2000" letter-spacing="0.8" opacity="0.95">THINGS</text>
+
+  <!-- Dividers -->
+  <line x1="293" y1="341" x2="316" y2="341" stroke="#7A5018" stroke-width="0.8" opacity="0.55"/>
+  <line x1="364" y1="341" x2="387" y2="341" stroke="#7A5018" stroke-width="0.8" opacity="0.55"/>
+  <line x1="293" y1="379" x2="316" y2="379" stroke="#7A5018" stroke-width="0.8" opacity="0.55"/>
+  <line x1="364" y1="379" x2="387" y2="379" stroke="#7A5018" stroke-width="0.8" opacity="0.55"/>
+
+  <!-- Diamonds -->
+  <polygon points="340,335 343.5,338.5 340,342 336.5,338.5" fill="#7A5018" opacity="0.6"/>
+  <polygon points="340,380 343.5,383.5 340,387 336.5,383.5" fill="#7A5018" opacity="0.6"/>
+
+  <!-- Bottom curl (toward viewer) -->
+  <path d="M278,408 Q340,402 402,408 L402,415 Q340,408 278,415 Z" fill="#7A5010" opacity="0.2"/>
+  <path d="M278,415 Q340,440 402,415 L402,425 Q340,450 278,425 Z" fill="url(#curl-bot-front)"/>
+  <path d="M280,415 Q340,439 400,415" fill="none" stroke="#F0DC98" stroke-width="1.3" opacity="0.65"/>
+  <ellipse cx="340" cy="430" rx="62" ry="5" fill="#000" opacity="0.22"/>
+
+  <!-- Outer decoration -->
+  <circle cx="340" cy="340" r="305" fill="none" stroke="#7040B8" stroke-width="1.5" opacity="0.28"/>
+</svg>

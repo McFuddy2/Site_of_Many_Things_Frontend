@@ -1,0 +1,203 @@
+@import './1colors.css';
+
+/* Set full height on root elements */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .initiative-page-scroll {
+    height: calc(100dvh - 6vh);
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-color: var(--gold-hightlight, var(--golden-highlight)) transparent;
+    scrollbar-width: thin;
+  }
+
+  .initiative-page-scroll::-webkit-scrollbar {
+    width: 0.6rem;
+  }
+
+  .initiative-page-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .initiative-page-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--gold-hightlight, var(--golden-highlight));
+    border-radius: 999px;
+  }
+
+  .initiative-page-scroll::-webkit-scrollbar-button {
+    background-color: var(--gold-hightlight, var(--golden-highlight));
+  }
+ 
+  .wrapper {
+    height: 88vh; /* 100vh total: 6vh header + 88vh wrapper + 6vh help/ad */
+    width: 100%;
+    max-width: 100%;
+    padding: 2vh 2vw; /* 2% padding around the edges */
+    box-sizing: border-box; /* Includes padding in the total size */
+    background-color: transparent;
+    overflow: hidden; /* Prevent any overflow/scrollbars */
+    position: relative;
+  }
+
+  .help-n-ad-section {
+    width: 100%;
+    height: 6vh;
+    min-height: 6vh;
+    background-color: transparent;
+    display: flex;
+    flex-direction: row;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  .help-n-ad-section.tool-learn-more-is-open {
+    height: auto;
+    align-items: flex-start;
+  }
+
+  .help-section {
+    width: 60%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+    position: relative;
+  }
+
+  .help-n-ad-section.tool-learn-more-is-open .help-section {
+    height: auto;
+  }
+
+  .ad-section {
+    width: 40%;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .seo-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .app-container {
+    display: flex;
+    height: 100%; /* Full height of the wrapper */
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    gap: 1%; /* 1% gap between flex items */
+  }
+ 
+  .initiative-list {
+    width: 65%; /* Adjusted to account for the gap */
+    height: 100%; /* Full height of the container */
+    padding: 0; /* Ensure no extra padding */
+    margin: 0; /* Ensure no extra margin */
+    box-sizing: border-box; /* Include padding and borders in size calculations */
+    background-color: var(--page-background);
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+/* This is mostly intended for prototyping; please download the pattern and re-host for production environments. Thank you! */
+  }
+ 
+.conditions-list {
+  flex-grow: 1;
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 10px;
+  overflow: visible;
+  background-color: var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  width: 44%;
+  height: 100%;
+  min-height: 0;
+  padding-left: 1%;
+  padding-right: 1%;
+  padding-bottom: 1%;
+}
+
+.conditions-list-res {
+  flex-grow: 1;
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 10px;
+  overflow: visible;
+  background-color: var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding-left: 1%;
+  padding-right: 1%;
+  padding-bottom: 1%;
+}
+
+.right-show-conditions {
+  display: none;
+  position: absolute;
+  top: 40%;
+  right: 2%;
+  background-color: red;
+  z-index: 15;
+  height: 50px;
+  width: 50px;
+  border-radius: 50%;
+}
+
+.left-show-initiative {
+  display: none;
+  position: absolute;
+  top: 49%;
+  left: 3%;
+  background-color: blue;
+  z-index: 15;
+  height: 50px;
+  width: 50px;
+  border-radius: 50%;
+}
+
+@media screen and (max-width: 950px) {
+  .conditions-list {
+    width: 100%;
+    display: none !important;
+  }
+
+  .initiative-list {
+    width: 100%;
+  }
+
+  .right-show-conditions {
+    display: inline-block;
+  }
+}
+
+@media screen and (min-width: 951px) {
+  .right-show-conditions {
+    display: none;
+  }
+
+  .left-show-initiative {
+    display: none;
+  }
+}

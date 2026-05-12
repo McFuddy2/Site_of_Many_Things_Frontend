@@ -1,0 +1,195 @@
+@import '../1colors.css';
+
+.sidebar {
+  position: fixed;
+  top: 8vh;
+  left: 0;
+  width: 12%;
+  height: calc(100vh - 8vh);
+  background-color: var(--menu-bar-background);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+  z-index: 999;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0);
+  z-index: 998;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-content {
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.sidebar-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sidebar-divider {
+  width: 100%;
+  height: 2px;
+  background-color: var(--golden-highlight);
+  opacity: 1;
+  margin: 0.25rem 0;
+  border-radius: 5px;
+}
+
+.sidebar-section-label {
+  color: lightgray;
+  font-size: 0.875rem;
+  font-weight: 400;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-style: italic;
+  text-decoration: underline;
+}
+
+.sidebar-button {
+  background-color: transparent;
+  color: white;
+  border-radius: 5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: x-large;
+  transition: color 0.2s;
+  padding: 0.5rem;
+}
+
+.sidebar-button:hover {
+  color: rgb(224, 166, 58);
+}
+
+.sidebar-button-help {
+  background-color: transparent;
+  color: white;
+  border-radius: 5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: large;
+  transition: color 0.2s;
+  padding: 0.5rem;
+  border: none;
+  cursor: pointer;
+}
+
+.sidebar-button-help:hover {
+  color: rgb(224, 166, 58);
+}
+
+/* Initiative Tracker button with background image */
+.sidebar-button-initiative {
+  color: white;
+  border-radius: 5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 500;
+  font-size: larger;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-button-initiative::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../media/sword-image.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 0.3s ease;
+  z-index: -1;
+  border-radius: 5px;
+}
+
+.sidebar-button-initiative:hover::before {
+  transform: scale(1.2);
+}
+
+/* Spell Search button with background image */
+.sidebar-button-spell-search {
+  color: white;
+  border-radius: 5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 500;
+  font-size: larger;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-button-spell-search::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('../media/SpellSearcherButton.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: transform 0.3s ease;
+  z-index: -1;
+  border-radius: 5px;
+}
+
+.sidebar-button-spell-search:hover::before {
+  transform: scale(1.2);
+}
+
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media screen and (max-width: 950px) {
+  .sidebar {
+    display: none;
+  }
+
+  .sidebar-backdrop {
+    display: none;
+  }
+}

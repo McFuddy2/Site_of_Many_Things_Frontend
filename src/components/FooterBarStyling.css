@@ -1,0 +1,87 @@
+/* Footer Bar Styling */
+
+.footer-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: var(--menu-bar-background);
+  transition: height 0.3s ease-in-out;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.footer-bar.minimized {
+  height: 0;
+  overflow: hidden;
+}
+
+.footer-bar.expanded {
+  height: 5vh;
+  overflow: visible;
+}
+
+.footer-bar-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4%;
+  width: 100%;
+  height: 100%;
+  padding: 0 2%;
+  box-sizing: border-box;
+}
+
+.footer-button {
+  width: 16.8%;
+  height: 70%;
+  background-color: transparent;
+  color: white;
+  border-radius: 5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.footer-button:hover {
+  color: rgb(224, 166, 58);
+}
+
+.footer-button.active {
+  color: rgb(65, 42, 133);
+}
+
+.footer-toggle-button {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--menu-bar-background);
+  border: none;
+  border-radius: 8px 8px 0 0;
+  padding: 3px 15px;
+  cursor: pointer;
+  z-index: 1001;
+  transition: bottom 0.3s ease-in-out;
+}
+
+.footer-bar.expanded ~ .footer-toggle-button {
+  bottom: 5vh;
+}
+
+.footer-toggle-button .arrow {
+  color: black;
+  font-size: 16px;
+  font-weight: bold;
+  display: block;
+}
+
+.footer-toggle-button:hover {
+  opacity: 0.95;
+}

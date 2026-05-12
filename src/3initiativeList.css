@@ -1,0 +1,955 @@
+@import './1colors.css';
+
+.initiative-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Full height of the container */
+    box-sizing: border-box; /* Include padding and borders in size calculations */
+    margin: 0; /* Remove any default margin */
+    padding-left: 1%; /* Add left padding */
+    padding-right: 1%; /* Add right padding */
+    padding-bottom: 1%; /* Add bottom padding */
+    border-radius: 10px; /* Add rounded corners */
+    position: relative; /* Enable absolute positioning for corner border */
+    --initiative-col-width: 10%;
+    --view-col-width: 5%;
+    --edit-col-width: 5%;
+    --delete-col-width: 5%;
+    --name-col-width-base: 27%;
+    --name-col-width: var(--name-col-width-base);
+    --ac-col-width: 8%;
+    --hp-col-width: 8%;
+    --conditions-col-width-base: 31%;
+    --conditions-col-width: var(--conditions-col-width-base);
+  }
+
+  .initiative-list-column-headers {
+    display: flex;
+    flex-direction: row;
+    margin-left: 1%;
+    text-align: center;
+    font-size: small;
+    border-bottom: 1px solid black;
+  }
+
+  .column-header-initiative {
+    flex: 0 0 var(--initiative-col-width);
+  }
+
+  .column-header-view {
+    flex: 0 0 var(--view-col-width);
+  }
+
+  .column-header-edit {
+    flex: 0 0 var(--edit-col-width);
+  }
+
+  .column-header-delete {
+    flex: 0 0 var(--delete-col-width);
+  }
+
+  .column-header-name {
+    flex: 0 0 var(--name-col-width);
+  }
+
+  .column-header-ac {
+    flex: 0 0 var(--ac-col-width);
+  }
+
+  .column-header-hp {
+    flex: 0 0 var(--hp-col-width);
+  }
+
+  .column-header-conditions {
+    flex: 0 0 var(--conditions-col-width);
+  }
+
+  .initiative-list .corner-border-image {
+    position: absolute;
+    opacity: 0.75;
+    z-index: 100;
+    pointer-events: none;
+    width: 25%;
+    height: auto;
+  }
+
+  .conditions-list .corner-border-image {
+    position: absolute;
+    opacity: 0.75;
+    z-index: 100;
+    pointer-events: none;
+    width: 30%;
+    height: auto;
+  }
+
+.initiative-list .corner-top-left {
+    top: 0;
+    left: 0;
+    margin-left: -1%;
+    margin-top: -2.4%;
+  }
+
+  .corner-top-left {
+    top: 0;
+    left: 0;
+    margin-left: -1%;
+    margin-top: -2.75%;
+  }
+  
+  .initiative-list  .corner-top-right {
+    top: 0;
+    right: 0;
+    margin-right: -1%;
+    margin-top: -2.4%;
+    transform: scaleX(-1);
+  }
+
+  .corner-top-right {
+    top: 0;
+    right: 0;
+    margin-right: -1%;
+    margin-top: -2.75%;
+    transform: scaleX(-1);
+  }
+
+  .initiative-list .corner-bottom-left {
+    bottom: 0;
+    left: 0;
+    margin-left: -1%;
+    margin-bottom: -2.4%;
+    transform: scaleY(-1);
+  }
+
+  .corner-bottom-left {
+    bottom: 0;
+    left: 0;
+    margin-left: -1%;
+    margin-bottom: -2.75%;
+    transform: scaleY(-1);
+  }
+
+ .initiative-list .corner-bottom-right {
+    bottom: 0;
+    right: 0;
+    margin-right: -1%;
+    margin-bottom: -2.4%;
+    transform: scaleX(-1) scaleY(-1);
+  }
+
+  .corner-bottom-right {
+    bottom: 0;
+    right: 0;
+    margin-right: -1%;
+    margin-bottom: -2.75%;
+    transform: scaleX(-1) scaleY(-1);
+  }
+
+
+  .initiative-banner {
+    background-color: transparent;
+    font-weight: bold;
+    text-align: center;
+    border: none;
+    height: 100%;
+    display: flex; /* Use Flexbox layout */
+    min-height: 80px;
+    max-height: 80px;
+    align-items: center; /* Center content vertically */
+    justify-content: space-between; /* Distribute space between columns */
+    border-top-right-radius: 0px;
+    border-top-left-radius: 10px;
+  }
+
+.banner-gear-icon {
+  display: flex;
+  flex: 0 0 10%;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 1;
+  padding-left: 3%;
+}
+
+.gear-icon-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  justify-content: flex-end;
+}
+
+.gear-icon-img {
+  width: 40%;
+  height: 50%;
+}
+
+  .round-counter {
+    flex: 0 0 20%; /* Take up 20% of the width */
+    height: 100%; /* Ensure it fills its container */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: x-large;
+    color: black;
+  }
+ 
+  .initiative-title {
+    flex: 0 0 45%; /* Take up 45% of the width */
+    height: 100%; /* Ensure it fills its container */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: xx-large;
+    color: var(--initiative-banner);
+  }
+ 
+  .next-back {
+    background-color: transparent;
+    flex: 0 0 25%; /* Take up 20% of the width */
+    height: 100%; /* Ensure it fills its container */
+    display: flex;
+    align-items: center;
+    justify-content: space-around; /* Space out the buttons */
+    padding-bottom: 15px;
+  }
+ 
+  .back-button {
+    background-color: transparent;
+    color: black;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: large;
+    font-family: 'Eagle Lake', cursive;
+    height: 100%;
+    width: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .back-button::before {
+    content: '';
+    position: absolute;
+    top: 65%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    background-image: url('./media/Back_Arrow_Icon.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 0;
+    transition: filter 0.2s ease;
+  }
+
+  .back-button:hover::before {
+    filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.95))
+            drop-shadow(0 0 18px rgba(255, 230, 0, 0.80))
+            drop-shadow(0 0 32px rgba(255, 230, 0, 0.60))
+            brightness(1.14) saturate(1.12);
+    animation: iconPulse 1.25s ease-in-out infinite;
+    will-change: filter;
+  }
+
+  .back-button:active::before {
+    animation: none;
+  }
+
+  .back-button::after {
+    content: 'Back';
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  .back-button:hover::after {
+    opacity: 1;
+  }
+
+ 
+  .next-button {
+    background-color: transparent;
+    color: black;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: large;
+    font-family: 'Eagle Lake', cursive;
+    height: 100%;
+    width: 50%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .next-button::before {
+    content: '';
+    position: absolute;
+    top: 65%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    background-image: url('./media/Next_Arrow_Icon.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 0;
+    transition: filter 0.2s ease;
+  }
+
+  .next-button:hover::before {
+    filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.95))
+            drop-shadow(0 0 18px rgba(255, 230, 0, 0.80))
+            drop-shadow(0 0 32px rgba(255, 230, 0, 0.60))
+            brightness(1.14) saturate(1.12);
+    animation: iconPulse 1.25s ease-in-out infinite;
+    will-change: filter;
+  }
+
+  .next-button:active::before {
+    animation: none;
+  }
+
+  .next-button::after {
+    content: 'Next';
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  .next-button:hover::after {
+    opacity: 1;
+  }
+
+
+  .initiative-list-content {
+  position: relative;
+  flex: 1 1 0;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
+  direction: rtl; /* Scrollbar on the left */
+  scrollbar-width: thin;
+  scrollbar-color: var(--initiative-banner, #333) transparent;
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
+  box-sizing: border-box; /* Ensure borders are included in the size */
+  width: 100%; /* Ensure each row takes up the full width */
+  margin: 0; /* Remove any default margin */
+  padding: 0; /* Remove any default padding */
+}
+
+/* Webkit: Hide scrollbar unless scrolling */
+.initiative-list-content::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+  transition: background 0.3s;
+  left: 0;
+}
+.initiative-list-content:hover::-webkit-scrollbar,
+.initiative-list-content:active::-webkit-scrollbar,
+.initiative-list-content:focus::-webkit-scrollbar {
+  background: rgba(0,0,0,0.1);
+}
+.initiative-list-content::-webkit-scrollbar-thumb {
+  background: var(--initiative-banner, #333);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.initiative-list-content:not(:hover):not(:active):not(:focus)::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* For Firefox: hide scrollbar unless scrolling */
+.initiative-list-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--initiative-banner, #333) transparent;
+}
+
+/* Reset text direction for children so content isn't reversed */
+.initiative-list-content > * {
+  direction: ltr;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 10%;      /* Minimum height is 1/10th of the container */
+  box-sizing: border-box;
+  flex: 1 1 0;          /* Allow row to grow if content overflows */
+  align-items: center;
+  /* Remove fixed height so it can grow */
+  height: auto;
+    border-top: 1px solid black; /* Add a border only at the top */
+  transition: transform 0.5s ease, left 0.5s ease;
+  z-index: 15;
+}
+
+.round-divider-target::after {
+  content: "";
+  position: absolute;
+  left: 1%;
+  right: 1%;
+  bottom: -1px;
+  height: 5px;
+  border-radius: 999px;
+  background-color: var(--initiative-banner);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.round-divider-target::before {
+  content: attr(data-round-label);
+  position: absolute;
+  right: 2%;
+  bottom: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--initiative-banner);
+  background: var(--page-background);
+  padding: 0 6px;
+  pointer-events: none;
+}
+
+.round-divider-target + .row {
+  border-top: none;
+}
+
+  .initiative-list-content .row:first-child {
+    border-top: none;
+  }
+ 
+  .add-new-character {
+    position: absolute; /* Position the overlay on top of the row */
+    top: 0;
+    left: 0;
+    width: 100%; /* Cover the full width of the row */
+    height: 100%; /* Cover the full height of the row */
+    background-color: var(--page-background);
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10; /* Ensure the overlay is above the row content */
+  }
+ 
+  .add-character-button {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+ 
+  .add-character-icon {
+    width: 6%; /* Adjust the size of the icon */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain;
+  }
+ 
+  .initiative-input {
+    background-color: transparent;
+    flex: 0 0 var(--initiative-col-width); /* Take up initiative column width */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: black;
+    min-width: 0;
+    height: 75px;
+    font-size: larger;
+    text-align: center;
+  }
+
+  .ac-input,
+  .hp-input {
+    background-color: transparent;
+    flex: 0 0 var(--ac-col-width); /* Take up AC column width */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: black;
+    min-width: 0;
+    height: 75px;
+  }
+
+  .hp-input {
+    flex: 0 0 var(--hp-col-width); /* Take up HP column width */
+  }
+
+
+  .initiative-textbox {
+    width: 80%; /* Make the input box fit nicely within the column */
+    height: 70%; /* Adjust the height to fit the row */
+    border: 1px solid black; /* Add a border for visibility */
+    border-radius: 10px; /* Add rounded corners */
+    padding: 4px; /* Add padding inside the input box */
+    font-size: larger; /* Adjust font size */
+    box-sizing: border-box; /* Include padding and border in the size */
+    text-align: center; /* Center the text horizontally */
+    line-height: normal; /* Ensure proper vertical alignment */
+  }
+
+
+  /* Remove spinner for number input fields */
+.initiative-textbox::-webkit-inner-spin-button,
+.initiative-textbox::-webkit-outer-spin-button {
+  -webkit-appearance: none; /* Remove spinner in WebKit browsers */
+  margin: 0; /* Remove margin */
+}
+
+
+.initiative-textbox {
+  appearance: textfield; /* Standard property for compatibility */
+  -moz-appearance: textfield; /* Remove spinner in Firefox */
+}
+
+.shifted-row {
+    background-color: var(--conditions-box-background); /* Change the background color to green when shifted */
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    z-index: 15;
+  }
+
+  .shifted-row .view-icon {
+    opacity: 0.1; /* Fade the view-icon when row is active */
+  }
+
+  .shifted-row .view-button {
+    cursor: not-allowed; /* Show not-allowed cursor */
+    pointer-events: none; /* Prevent clicking */
+  }
+
+  .shifted-row .view-button:hover .view-icon {
+    filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.95))
+            drop-shadow(0 0 18px rgba(255, 230, 0, 0.80))
+            drop-shadow(0 0 32px rgba(255, 230, 0, 0.60))
+            brightness(1.14) saturate(1.12); /* Revert to static glow, no animation */
+    animation: none; /* Disable pulse animation */
+  }
+
+.view-character-conditions {
+  background-color: transparent;
+  flex: 0 0 var(--view-col-width);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Separate columns for edit/delete buttons */
+.edit-character,
+.delete-character {
+  background-color: transparent;
+  flex: 0 0 var(--edit-col-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+}
+
+.delete-character {
+  flex: 0 0 var(--delete-col-width);
+}
+
+.editCharacterButton,
+.deleteCharacterButton {
+  margin-top: 0; /* Remove top margin so they're aligned horizontally */
+}
+
+/* Example: in your CSS file */
+.positive {
+  background-color: var(--good-condition-background); /* green */
+  color: white;
+}
+
+.neutral {
+  background-color: var(--neutral-condition-background); /* gray */
+  color: white;
+}
+
+.negative {
+  background-color: var(--bad-condition-background); /* red */
+  color: white;
+}
+
+ 
+  .view-button {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 100%; /* Adjust button size to fit the column */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s ease; /* Smooth transition for the shadow effect */
+  }
+ 
+  .view-icon {
+    width: 90%; /* Make the icon fill the button */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensure the image fits nicely */
+    transition: filter 0.2s ease; /* Smooth transition for the filter effect */
+    vertical-align: middle;
+  }
+ 
+  /* Magical yellow glow: focus glow around the image, not the button */
+  .view-button:hover,
+  .editCharacterButton:hover,
+  .deleteCharacterButton:hover {
+    box-shadow: none; /* Remove container glow */
+    animation: none;  /* No button-level pulse */
+  }
+ 
+  .view-button:hover .view-icon,
+  .editCharacterButton:hover .edit-icon,
+  .deleteCharacterButton:hover .delete-icon {
+      filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.95))
+        drop-shadow(0 0 18px rgba(255, 230, 0, 0.80))
+        drop-shadow(0 0 32px rgba(255, 230, 0, 0.60))
+        brightness(1.14) saturate(1.12);
+      animation: iconPulse 1.25s ease-in-out infinite;
+    will-change: filter;
+  }
+
+  /* Pulse animations (icon-only) */
+
+  @keyframes iconPulse {
+    0% {
+        filter: drop-shadow(0 0 6px rgba(255, 230, 0, 0.90))
+          drop-shadow(0 0 12px rgba(255, 230, 0, 0.75))
+          drop-shadow(0 0 22px rgba(255, 230, 0, 0.55))
+          brightness(1.08) saturate(1.10);
+    }
+    25% {
+      /* Amber transition toward purple */
+      filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95))
+              drop-shadow(0 0 20px rgba(255, 210, 0, 0.80))
+              drop-shadow(0 0 32px rgba(255, 210, 0, 0.65))
+              brightness(1.12) saturate(1.14);
+    }
+    50% {
+      /* Purple glow peak */
+      filter: drop-shadow(0 0 16px rgba(170, 0, 255, 1))
+              drop-shadow(0 0 28px rgba(170, 0, 255, 0.95))
+              drop-shadow(0 0 42px rgba(170, 0, 255, 0.75))
+              brightness(1.22) saturate(1.25);
+    }
+    75% {
+      /* Violet transition back toward gold */
+      filter: drop-shadow(0 0 14px rgba(200, 50, 255, 0.95))
+              drop-shadow(0 0 26px rgba(200, 50, 255, 0.85))
+              drop-shadow(0 0 38px rgba(200, 50, 255, 0.70))
+              brightness(1.16) saturate(1.20);
+    }
+    100% {
+        filter: drop-shadow(0 0 6px rgba(255, 230, 0, 0.90))
+          drop-shadow(0 0 12px rgba(255, 230, 0, 0.75))
+          drop-shadow(0 0 22px rgba(255, 230, 0, 0.55))
+          brightness(1.08) saturate(1.10);
+    }
+  }
+
+  .view-button:active .view-icon {
+    animation: none;
+  }
+ 
+    .editCharacterButton {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 80%; /* Adjust button size to fit the column */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s ease; /* Smooth transition for the shadow effect */
+  }
+ 
+  .edit-icon {
+    width: 100%; /* Make the icon fill the button */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensure the image fits nicely */
+    transition: filter 0.2s ease; /* Smooth transition for the filter effect */
+    vertical-align: middle;
+  }
+ 
+    .deleteCharacterButton {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 80%; /* Adjust button size to fit the column */
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: box-shadow 0.2s ease; /* Smooth transition for the shadow effect */
+  }
+ 
+  .delete-icon {
+    width: 100%; /* Make the icon fill the button */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensure the image fits nicely */
+    transition: filter 0.2s ease; /* Smooth transition for the filter effect */
+    vertical-align: middle;
+  }
+
+
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    .view-button:hover,
+    .editCharacterButton:hover,
+    .deleteCharacterButton:hover,
+    .view-button:hover .view-icon,
+    .editCharacterButton:hover .edit-icon,
+    .deleteCharacterButton:hover .delete-icon {
+      animation: none;
+    }
+  }
+ 
+  .name-input {
+    background-color: transparent;
+    flex: 0 0 var(--name-col-width); /* Take up name column width */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-width: 0;
+    height: 100%;
+    padding: 4px 1% 0 1%;
+    box-sizing: border-box;
+  }
+
+  .name-input-main {
+    font-size: x-large;
+    font-weight: bold;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .name-input-summons {
+    margin-top: 6px;
+    margin-bottom: 0;
+    width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-end;
+    gap: 4px;
+  }
+
+  .name-input-summon-item {
+    background-color: #d9d9d9;
+    border: 1px solid #b5b5b5;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 4px 6px;
+    flex: 0 0 calc((100% - 8px) / 3);
+    max-width: calc((100% - 8px) / 3);
+    min-width: 0;
+    font-size: 0.78rem;
+    line-height: 1.1;
+    color: #222;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+
+  .name-input-summon-item.enemy-individual-item {
+    background-color: var(--character-modal-background);
+    border-color: #b89595;
+  }
+
+  .name-input-summon-item.selected-summon {
+    box-shadow: 0 0 0 2px #002366 inset;
+  }
+
+  .summon-name-label {
+    overflow-wrap: anywhere;
+  }
+
+  .summon-condition-dots {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: 8px;
+  }
+
+  .summon-condition-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+  }
+ 
+  .name-textbox {
+    width: 90%; /* Make the input box fit nicely within the column */
+    height: 70%; /* Adjust the height to fit the row */
+    border: 1px solid black; /* Add a border for visibility */
+    padding: 5px; /* Add padding inside the input box */
+    font-size: medium; /* Adjust font size */
+    box-sizing: border-box; /* Include padding and border in the size */
+    text-align: left; /* Center the text horizontally */
+  }
+ 
+  .personal-conditions {
+  display: flex;
+  padding: 3px;
+  flex: 0 0 var(--conditions-col-width); /* Take up conditions column width */
+  flex-wrap: wrap; /* Allow sections to wrap */
+  gap: 3px; /* Add spacing between sections */
+  align-items: center;      /* Center vertically */
+  justify-content: center;  /* Center horizontally */
+}
+
+.personal-conditions .no-conditions {
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  color: black;
+}
+  
+  .condition-section {
+    flex: 1 1 calc(10% - 10px); /* Each section takes up 10% of the width minus spacing */
+    text-align: center;
+    border-radius: 10px; /* Softer edges */
+    padding: 6px;
+    color: black; /* Ensure text is always black */
+    font-weight: bold;
+    position: relative; /* Allow pseudo-element glow */
+    overflow: visible; /* Restore original sizing; clipping handled on pseudo */
+    z-index: 0; /* Anchor stacking so text sits above glow */
+    background-image: var(--condition-background-texture);
+    background-repeat: repeat;
+    background-size: auto;
+    background-blend-mode: multiply; /* Let color and texture blend */
+  }
+
+  .condition-section::after {
+    content: "";
+    position: absolute;
+    inset: 0; /* Constrain glow to the pill */
+    border-radius: inherit;
+    background: inherit; /* Use the pill's inline background color */
+    filter: blur(12px);
+    opacity: 0.6;
+    z-index: -1; /* Push glow behind text */
+    pointer-events: none;
+    clip-path: inset(0 round 10px); /* Keep glow inside without altering size */
+    animation: none;
+  }
+
+  .shifted-row .condition-section::after {
+    animation: conditionGlow 2.8s ease-in-out infinite;
+  }
+
+  @keyframes conditionGlow {
+    0% {
+      filter: blur(12px) brightness(1);
+      opacity: 0.45;
+    }
+    20% {
+      filter: blur(12px) brightness(1.18);
+      opacity: 0.7;
+    }
+    40% {
+      filter: blur(12px) brightness(1.25);
+      opacity: 0.9;
+    }
+    60% {
+      filter: blur(12px) brightness(1.05);
+      opacity: 0.6;
+    }
+    80% {
+      filter: blur(12px) brightness(0.82);
+      opacity: 0.55;
+    }
+    100% {
+      filter: blur(12px) brightness(1);
+      opacity: 0.45;
+    }
+  }
+
+  @keyframes condition-breathe {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.04);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .shifted-row-wiggle .condition-section {
+    animation: condition-breathe 3s ease-in-out infinite, conditionWiggle 0.5s ease-in-out 1;
+  }
+
+  @keyframes conditionWiggle {
+    0% {
+      transform: rotate(0deg);
+    }
+    15% {
+      transform: rotate(-3deg);
+    }
+    30% {
+      transform: rotate(3deg);
+    }
+    45% {
+      transform: rotate(-2deg);
+    }
+    60% {
+      transform: rotate(2deg);
+    }
+    75% {
+      transform: rotate(-1deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+

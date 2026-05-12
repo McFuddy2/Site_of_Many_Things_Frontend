@@ -1,0 +1,25 @@
+@import './1colors.css';
+
+.character-delete-modal-button-group button {
+  background-color: var(--initiative-banner);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.character-delete-modal-button-group button:hover {
+  background-color: black;
+}
+
+.delete-confirm-modal p {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: black;
+  margin-bottom: 20px;
+}

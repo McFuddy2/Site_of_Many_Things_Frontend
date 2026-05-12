@@ -1,0 +1,260 @@
+@import './1colors.css';
+  
+  .conditions-list-banner {
+    background-color: transparent;
+    color: var(--condition-list-banner-background);
+    text-align: center;
+    font-size: XX-large;
+    font-weight: bold;
+    width: 100%; /* Ensure it spans the full width of the box */
+    min-height: 80px;
+    max-height: 80px;
+    flex: 0 0 60; /* Fixed height, adjust as needed */
+    display: flex;
+    align-items: center; /* Center text vertically */
+    justify-content: center; /* Space out the text and button */
+    border-bottom: 1px solid black;
+    padding: 0 10px; /* Add padding for spacing */
+  }
+
+  .conditions-list-header {
+    width: 60%;
+    text-align: right; /* Optional: aligns text to the left inside the header */
+  }
+  
+  .conditions-banner-button {
+    width: 40%;
+    display: flex;
+    justify-content: center; /* Center the button */
+    align-items: center; /* Vertically centers the button */
+    height: 100%;
+  }  
+  
+  .add-condition-button {
+    background-color: transparent;
+    color: black;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    height: 70%;
+    font-weight: bold;
+    margin-left: 40%;
+    font-family: 'Eagle Lake', cursive;
+    font-size: medium;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    padding: 0;
+  }
+
+  .add-condition-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    background-image: url('./media/Add_Condition_Icon.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 0;
+    transition: filter 0.2s ease;
+  }
+
+  .add-condition-button:hover::before {
+    filter: drop-shadow(0 0 10px rgba(255, 230, 0, 0.95))
+            drop-shadow(0 0 18px rgba(255, 230, 0, 0.80))
+            drop-shadow(0 0 32px rgba(255, 230, 0, 0.60))
+            brightness(1.14) saturate(1.12);
+    animation: iconPulse 1.25s ease-in-out infinite;
+    will-change: filter;
+  }
+
+  .add-condition-button:active::before {
+    animation: none;
+  }
+
+  .add-condition-button::after {
+    content: 'Add Condition';
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  .add-condition-button:hover::after {
+    opacity: 1;
+  }
+
+
+  .condition-description strong {
+  text-decoration: underline;
+}
+  
+ .conditions-list-content {
+  flex: 1 1 0;
+  overflow-y: auto;
+  min-height: 0;
+  box-sizing: border-box;
+  /* Hide scrollbar by default, show on scroll (Webkit) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--condition-list-banner-background, #333) transparent;
+  width: 100%;
+  font-size: medium;
+}
+
+  .conditions-list-content::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+  transition: background 0.3s;
+}
+.conditions-list-content:hover::-webkit-scrollbar,
+.conditions-list-content:active::-webkit-scrollbar,
+.conditions-list-content:focus::-webkit-scrollbar {
+  background: rgba(0,0,0,0.1);
+}
+.conditions-list-content::-webkit-scrollbar-thumb {
+  background: var(--condition-list-banner-background, #333);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.conditions-list-content:not(:hover):not(:active):not(:focus)::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* For Firefox: hide scrollbar unless scrolling */
+.conditions-list-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--condition-list-banner-background, #333) transparent;
+}
+  
+  .conditions-row {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex: 1; /* Each row takes up an equal portion of the remaining height */
+    margin-bottom: 10px;
+  }
+
+.conditions-list-content .conditions-row:last-child {
+  border-bottom: none;
+}
+
+.conditions-main-title {
+  width: 100%;
+  margin: 2px 0 6px 0;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  font-weight: 800;
+  text-decoration: underline;
+  color: var(--condition-list-banner-background);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.conditions-subsection-title {
+  width: 100%;
+  margin: 14px 0 6px 0;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  font-weight: 700;
+  text-decoration: underline;
+  color: var(--condition-list-banner-background);
+  border-top: 1px solid rgba(0, 0, 0, 0.25);
+}
+  
+.remove-condition-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;  
+  align-items: flex-start;
+  justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.remove-condition-button img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  pointer-events: none; /* Prevents accidental drag of the image */
+}
+
+.condition-description {
+  background-color: transparent;
+  width: 89%;                  /* Increased from 83% since remove-condition div is removed */
+  display: flex;
+  flex-direction: row;         /* Place button and content side by side */
+  align-items: flex-start;     /* Align button and text to top */
+  justify-content: flex-start;  /* Left-justify content horizontally */
+  padding: 10px;
+  font-weight: normal;         /* Only the name will be bold */
+  gap: 8px;                    /* Space between button and text */
+}
+
+.condition-description > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;                     /* Make text content expand to fill remaining space */
+}
+  
+.condition-expiration {
+  background-color: var(--conditions-expiration-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  color: black;
+  width: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  font-weight: bold;
+}
+
+.condition-expiration.condition-expiration-na {
+  background-color: var(--na-conditions-expiration-background);
+}
+
+.individual-enemy-action-row .condition-description {
+  align-items: center;
+}
+
+.individual-enemy-action-cell {
+  background-color: transparent;
+  background-image: none;
+}
+
+.individual-enemy-delete-button {
+  background-color: #8b0000;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.individual-enemy-delete-button:hover {
+  background-color: #6d0000;
+}
+
+@media screen and (max-width: 1500px) {
+  .remove-condition {
+    width: 44px;
+  }
+}

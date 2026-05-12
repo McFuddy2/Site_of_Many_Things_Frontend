@@ -1,0 +1,256 @@
+@import './1colors.css';
+  
+.custom-condition-modal {
+  background-color: var(--condition-modal-background); /* ✅ this will now apply */
+  padding: 15px;
+  border-radius: 10px;
+  width: 350px;
+  margin-left: 5px; /* space between the two modals */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  position: relative;
+  z-index: 1; /* same level as other modal */
+  max-height: 560px;       /* maximum height */
+  height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+
+.custom-condition-content {
+    flex: 1;
+    min-height: 0;           /* allow flex item to shrink below content size */
+    overflow-y: auto;        /* enable vertical scrolling if content is taller */
+    scrollbar-width: thin;
+    scrollbar-color: #002366 transparent;
+    text-align: left;
+}
+
+.custom-condition-content,
+.custom-condition-list {
+  text-align: left; /* force list content to align left */
+}
+
+.new-custom-condition-button {
+    justify-content: center;
+}
+
+.new-custom-condition-button {
+background-color: #002366;
+color: white;
+border: none;
+border-radius: 5px;
+padding: 3%;
+cursor: pointer;
+width: 80%;
+font-size: medium;
+}
+
+.new-custom-condition-button:hover {
+background-color: #0056b3;
+}
+
+/* Prevent resizing for Name and Description textareas in the custom condition modal */
+.custom-condition-modal textarea {
+  resize: none;
+  width: 95%;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  border-radius: 5px;
+  padding: 3%;
+}
+
+/* Set specific heights for Name and Description textareas */
+.custom-condition-modal textarea[name="customConditionName"] {
+  height: 45px;      /* Example: 1 row tall */
+}
+
+.custom-condition-modal textarea[name="customConditionDescription"] {
+  height: 190px;      /* Example: 4-5 rows tall */
+}
+
+/* Make labels in the add custom condition form larger and bolder */
+.custom-condition-modal label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.affect-buttons button.positive, button.neutral, button.negative {
+background-color: #002366;
+color: white;
+border: none;
+border-radius: 5px;
+padding: 1%;
+cursor: pointer;
+width: 30%;
+height: 30px;
+margin-right: 1%;
+margin-left: 1%;
+}
+
+.affect-buttons button.selected.positive {
+  background-color: green;
+  color: white;
+}
+
+.affect-buttons button.selected.neutral {
+  background-color: gray;
+  color: white;
+}
+
+.affect-buttons button.selected.negative {
+  background-color: red;
+  color: white;
+}
+
+/* Style for Add Condition and Cancel buttons in the custom condition modal */
+.custom-condition-modal .modal-button-group button[type="submit"], .custom-condition-modal .close-custom-modal-button,
+.custom-condition-modal .modal-button-group button[type="button"] {
+  background-color: #002366;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-right: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+  height: 30px;
+}
+
+.custom-condition-modal .modal-button-group button[type="submit"]:hover,
+.custom-condition-modal .modal-button-group button[type="button"]:hover {
+  background-color: #0056b3;
+}
+
+.custom-condition-list {
+  margin-top: 12px;
+  text-align: left;
+  padding-left: 4px;
+}
+
+.custom-condition-item {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-align: left;             /* in case the item itself inherited center text */
+  flex: 1;                       /* so text takes remaining space next to the icon */
+  white-space: normal;           /* allow wrapping */
+  word-break: break-word;        /* break long words if needed */
+  align-self: flex-start;        /* align to top of flex container */
+}
+
+/* Text color only, no background */
+.custom-condition-item.positive {
+  color: green;
+}
+
+.custom-condition-item.neutral {
+  color: black;
+}
+
+.custom-condition-item.negative {
+  color: red;
+}
+
+.no-custom-conditions {
+  margin-left: 10px;
+  font-style: italic;
+  color: gray;
+  font-size: small;
+}
+
+.selectable-item.positive { color: green; }
+.selectable-item.neutral { color: gray; }
+.selectable-item.negative { color: red; }
+
+.condition-icon {
+  width: 16px !important;      /* override any inline or SVG file sizing */
+  height: 16px !important;
+  flex-shrink: 0;               /* prevents it from squishing in flex layouts */
+  display: inline-block;
+  object-fit: contain;          /* keep proportions */
+}
+
+
+.remove-condition-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.remove-condition-button:hover .condition-icon {
+  filter: brightness(0.8);
+}
+
+.edit-custom-condition {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.selectable-item {
+  display: flex;
+  align-items: flex-start;      /* align buttons to top of first line */
+  justify-content: flex-start;  /* ✅ keep items left-aligned */
+  text-align: left;             /* ✅ ensure text wraps left */
+  gap: 0;                       /* remove any gap, buttons have their own margin */ 
+}
+
+/* When a custom condition list item is selected, make its text white */
+.custom-condition-list .custom-condition-item.selected {
+  color: white;
+}
+
+.custom-condition-item {
+font-size: large;
+}
+
+.custom-condition-modal .selectable-item {
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.custom-mob-condition-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+@media screen and (max-width: 1500px) {
+  .custom-condition-modal {
+    width: 310px;
+    margin-bottom: 0;
+  }
+
+  .mob-custom-title {
+    margin-top: 0;
+  }
+
+  .close-custom-modal-button {
+    margin-top: 10px;
+  }
+}

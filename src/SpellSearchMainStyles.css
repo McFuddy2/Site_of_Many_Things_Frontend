@@ -1,0 +1,84 @@
+@import './1colors.css'; 
+
+.spell-search-page-root {
+	width: 100%;
+	height: auto;
+}
+
+.spell-search-page-scroll {
+	height: calc(100dvh - 6vh);
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-color: var(--gold-hightlight, var(--golden-highlight)) transparent;
+	scrollbar-width: thin;
+}
+
+.spell-search-page-scroll::-webkit-scrollbar {
+	width: 0.6rem;
+}
+
+.spell-search-page-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.spell-search-page-scroll::-webkit-scrollbar-thumb {
+	background-color: var(--gold-hightlight, var(--golden-highlight));
+	border-radius: 999px;
+}
+
+.spell-search-page-scroll::-webkit-scrollbar-button {
+	background-color: var(--gold-hightlight, var(--golden-highlight));
+}
+
+.spell-search-page-container {
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 95%;
+	min-height: 0;
+	width: 100%;
+	max-width: 100%;
+	overflow: hidden;
+	position: relative;
+	background-color: transparent;
+	box-sizing: border-box;
+}
+
+.spell-search-page-scroll > .help-n-ad-section {
+	flex: 0 0 5%;
+	min-height: 0;
+}
+
+.spell-search-page {
+	display: flex;
+	align-items: center;
+	justify-content: space-evenly;
+	gap: 1rem;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	padding: 1%;
+	box-sizing: border-box;
+	flex: 1;
+	min-height: 0;
+}
+
+.spell-list-wrapper,
+.spell-filter-wrapper {
+	height: 100%;
+}
+
+.spell-list-wrapper {
+	width: 75%;
+}
+
+.spell-filter-wrapper {
+	background-color: var(--page-background);
+	background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    width: 25%;
+	border-radius: 10px;
+}

@@ -1,0 +1,321 @@
+@import './1colors.css';
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .condition-modal {
+    background-color: var(--condition-modal-background);
+    padding: 2%;
+    border-radius: 10px;
+    width: 600px;
+    max-width: 90%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    position: relative;
+    height: auto;
+    min-height: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+.condition-modal-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 17px 0;
+}
+
+.condition-modal-header h2 {
+  margin: 0;
+  font-size: x-large;
+}
+
+
+.dual-modal-wrapper {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.characters-conditions {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+  align-items: stretch;
+  width: 100%;
+}
+
+  .selectable-item {
+  padding: 6px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.2s;
+  text-align: center;
+  font-size: medium;
+  font-weight: normal;
+}
+
+.condition-modal .selectable-item {
+  text-align: center;
+  justify-content: center;
+}
+
+.selectable-item.selected {
+  background: #002366; /* dark blue */
+  color: white;
+}
+
+.summon-target-item {
+  font-size: 0.9rem;
+  padding-left: 16px;
+  background: rgba(217, 217, 217, 0.45);
+}
+
+  .condition-modal .form-group > label {
+    font-size: large; /* Increase font size for the labels */
+    font-weight: bold; /* Optional: Make the labels bold */
+  }
+  
+  .checkbox-item label {
+    font-size: large; /* Keep checkbox labels at a normal size */
+    font-weight: bold; /* Ensure checkbox labels are not bold */
+  }
+
+  .conditions-section {
+    background-color: var(--condition-modal-section-background);
+    flex: 0 0 78%;
+    display: flex;
+    flex-direction: column;
+    padding: 15px; /* Add padding for spacing */
+    border-radius: 10px; /* Optional: Add rounded corners */
+    margin-bottom: 20px; /* Add spacing below the section */
+  }
+
+  .characters-section {
+    background-color: var(--condition-modal-section-background);
+    flex: 0 0 20%;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .characters-section .conditions-section .form-group {
+    margin: 0; /* Remove default margin from the form group */
+  }
+
+.characters-checkbox-group {
+  display: flex;
+  flex-direction: column; /* Stack character names vertically */
+  flex: 1 1 auto;
+  max-height: 220px;      /* Adjust height as needed */
+  overflow-y: auto; 
+  gap: 8px;
+  margin-top: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--condition-list-banner-background, #333) transparent;
+  width: 100%;
+}
+
+  .conditions-checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* Create 3 equal-width columns */
+  gap: 12px; /* Add spacing between the checkboxes */
+  margin-top: 10px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-item input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.condition-expiration-selection {
+  width: 100%;
+  max-width: 100%;  
+  min-height: 48px;
+  background-color: var(--condition-modal-section-background);
+  border-radius: 8px;
+  margin: 5px 0 0 0;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  gap: 5px;
+  row-gap: 8px;
+  box-sizing: border-box;
+}
+
+.condition-expiration-label {
+  color: black;
+  font-size: large;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.condition-expiration-dropdown {
+  padding: 5px 5px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  flex: 1 1 160px;
+  max-width: 100%;
+}
+
+.submit-button-container {
+  width: 100%;
+  justify-content: right;
+  align-items: center;
+}
+
+  .submit-button {
+    background-color: #002366;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 15px;
+    cursor: pointer;
+  }
+  
+  .submit-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .close-modal-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+    cursor: pointer;
+  }
+  
+  .close-modal-button:hover {
+    color: #555; /* Slightly lighter color on hover */
+  }
+  
+  .close-modal-button:focus {
+    outline: none; /* Remove focus outline */
+  }
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin: 0 0 0 25px;
+  cursor: help;
+}
+
+.tooltiptext {
+  visibility: hidden;
+  width: 250px;
+  height: 90px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  padding: 6px;
+  position: absolute;
+  z-index: 1100;
+  bottom: 125%;
+  left: 70%;
+  top: 1%;
+  margin-left: -80px;
+}
+
+.custom-modal-open-width {
+ width: 968px;
+}
+
+.custom-modal-closed-width {
+  width: 1076px;
+}
+
+.mobile-characters-dropdown {
+  display: none;
+}
+
+.conditions-dropwdown-list {
+  display: none;
+}
+
+.add-con-close-container {
+  display: none;
+}
+
+@media screen and (max-width: 1500px) {
+  .condition-modal {
+    overflow: scroll;
+    height: 660px;
+  }
+
+  .custom-modal-closed-width, .custom-modal-open-width {
+    max-width: 600px;
+    width: 310px;
+  }
+
+  .mobile-characters-dropdown {
+    display: inline-block;
+  }
+
+  .characters-conditions-list {
+    display: none;
+  }
+
+  .characters-conditions {
+    flex-direction: column;
+  }
+
+  .conditions-dropwdown-list {
+    display: inline-block;
+  }
+
+  .conditions-checkbox-group {
+    display: none;
+  }
+
+  .characters-section {
+    align-items: center;
+  }
+
+  .conditions-form-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .condition-expiration-selection {
+    flex-direction: column;
+    justify-content: center;
+    padding: 15px;
+  }
+
+  .close-modal-button {
+    display: none;
+  }
+
+  .add-con-close-container {
+    display: inline-block;
+  }
+}

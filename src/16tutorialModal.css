@@ -1,0 +1,325 @@
+
+@import './1colors.css';
+
+
+.tutorial-modal-overlay {
+	 position: absolute;
+	 inset: 0;
+	 display: flex;
+	 align-items: center;
+	 justify-content: center;
+	 background-color: rgba(0, 0, 0, 0.35);
+	 z-index: 600;
+}
+
+.tutorial-modal {
+	 position: relative;
+	 width: 80%;
+	 height: 90%;
+	 border-radius: 12px;
+	 overflow: hidden;
+	 box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+	 color: white;
+}
+
+.tutorial-modal .close-modal-button {
+	 position: absolute;
+	 top: 12px;
+	 right: 12px;
+	 z-index: 2;
+}
+
+.tutorial-modal .tutorial-modal-wrapper {
+	 background-color: var(--site-modal-background);
+	 padding: 24px;
+	 margin: 0;
+	 height: 100%;
+	 overflow-y: auto;
+}
+
+.tutorial-modal .tutorial-modal-wrapper::-webkit-scrollbar {
+	 width: 12px;
+}
+
+.tutorial-modal .tutorial-modal-wrapper::-webkit-scrollbar-track {
+	 background: rgba(79, 70, 229, 0.1);
+	 border-radius: 10px;
+}
+
+.tutorial-modal .tutorial-modal-wrapper::-webkit-scrollbar-thumb {
+	 background-color: rgb(79, 70, 229);
+	 border-radius: 10px;
+	 border: 2px solid var(--page-background);
+}
+
+.tutorial-modal .tutorial-modal-wrapper::-webkit-scrollbar-thumb:hover {
+	 background-color: rgb(67, 56, 202);
+}
+
+.tutorial-modal .tutorial-modal-wrapper {
+	 scrollbar-width: thin;
+	 scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
+}
+
+.tutorial-modal .tutorial-modal-top {
+	 display: flex;
+	 flex-wrap: wrap;
+	 gap: 20px;
+}
+
+@media (min-width: 768px) {
+	 .tutorial-modal .tutorial-modal-top {
+		 flex-wrap: nowrap;
+	 }
+}
+
+.tutorial-modal .tutorial-modal-top-left,
+.tutorial-modal .tutorial-modal-top-right {
+	 flex: 1;
+	 min-width: 280px;
+}
+
+.tutorial-modal .tutorial-modal-title {
+	 font-size: 1.5rem;
+	 line-height: 2rem;
+	 font-weight: 600;
+	 margin-bottom: 0.75rem;
+	 text-align: center;
+}
+
+.tutorial-modal h2 {
+	 font-size: 1.25rem;
+	 line-height: 1.75rem;
+	 font-weight: 600;
+	 margin-top: 1.5rem;
+	 margin-bottom: 0.5rem;
+}
+
+.tutorial-modal p.tutorial-modal-intro-text,
+.tutorial-modal p.tutorial-modal-intro-text-large {
+	 color: black;
+	 margin-bottom: 1rem;
+}
+
+.tutorial-modal p.tutorial-modal-intro-text-large {
+	 margin-bottom: 1.25rem;
+}
+
+.tutorial-modal .tutorial-modal-button-container {
+	 display: flex;
+	 flex-direction: column;
+	 margin-bottom: 1.5rem;
+	 align-items: center;
+	 justify-content: center;
+}
+
+@media (min-width: 640px) {
+	 .tutorial-modal .tutorial-modal-button-container {
+		 flex-direction: row;
+	 }
+}
+
+.tutorial-modal .tutorial-modal-btn-primary {
+	 display: inline-flex;
+	 justify-content: center;
+	 border-radius: 0.5rem;
+	 background-color: rgb(79, 70, 229);
+	 padding: 0.75rem 1.5rem;
+	 color: white;
+	 transition: background-color 0.2s;
+	 font-size: 1rem;
+	 font-weight: 600;
+}
+
+.tutorial-modal .tutorial-modal-btn-primary:hover {
+	 background-color: rgb(67, 56, 202);
+}
+
+.tutorial-modal .tutorial-modal-btn-secondary {
+	 display: inline-flex;
+	 justify-content: center;
+	 border-radius: 0.375rem;
+	 border: 1px solid rgb(67, 56, 202);
+	 padding: 0.5rem 1rem;
+	 margin-top: 0.5rem;
+	 background-color: rgb(79, 70, 229);
+	 color: white;
+	 transition: color 0.2s, border-color 0.2s;
+}
+
+.tutorial-modal .tutorial-modal-btn-secondary:hover {
+	 border-color: rgb(226, 232, 240);
+}
+
+.tutorial-modal ol,
+.tutorial-modal ul {
+	 padding-left: 1.5rem;
+	 color: black;
+	 display: flex;
+	 flex-direction: column;
+	 gap: 0.25rem;
+}
+
+.tutorial-modal ol {
+	 list-style-type: decimal;
+}
+
+.tutorial-modal ul {
+	 list-style-type: disc;
+}
+
+.tutorial-modal .tutorial-modal-faq-section {
+	 display: flex;
+	 flex-direction: column;
+	 gap: 1rem;
+	 color: black;
+}
+
+.tutorial-modal .tutorial-modal-faq-item {
+	 font-weight: 600;
+}
+
+.tutorial-modal .tutorial-modal-faq-link {
+	 color: var(--golden-highlight);
+	 text-decoration: underline;
+}
+
+.tutorial-modal .tutorial-modal-faq-link:hover {
+	 color: rgb(67, 56, 202);
+}
+
+.tutorial-modal .tutorial-modal-footer-note {
+	 color: black;
+	 margin-top: 1.5rem;
+	 font-size: 0.875rem;
+	 line-height: 1.25rem;
+}
+
+.guided-tutorial-modal {
+	 position: relative;
+	 width: 26%;
+	 height: 45%;
+	 background-color: white;
+	 border-radius: 12px;
+	 box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+	 padding: 1%;
+	 display: flex;
+	 align-items: stretch;
+	 justify-content: center;
+	 text-align: center;
+	 z-index: 1002;
+}
+
+.guided-tutorial-content {
+	 width: 100%;
+	 display: flex;
+	 flex-direction: column;
+	 justify-content: flex-start;
+	 align-items: center;
+	 padding: 1% 1% 0%;
+	 height: 100%;
+	 position: relative;
+}
+
+.guided-tutorial-title {
+	 font-size: 1rem;
+	 font-weight: 600;
+	 margin: 4px 0 10px;
+	 color: black;
+}
+
+.guided-tutorial-text {
+	 display: flex;
+	 align-items: center;
+	 justify-content: center;
+	 width: 100%;
+	 overflow: visible;
+	 line-height: 1.4;
+}
+
+.guided-tutorial-text br {
+	 display: block;
+	 margin-bottom: 16px;
+	 content: "";
+}
+
+.guided-tutorial-actions {
+	 width: 100%;
+	 display: flex;
+	 justify-content: space-between;
+	 align-items: center;
+	 position: absolute;
+	 left: 0;
+	 bottom: 0px;
+	 padding: 0 8px;
+}
+
+.guided-tutorial-back-btn,
+.guided-tutorial-next-btn {
+	 background-color: transparent;
+	 border: none;
+	 cursor: pointer;
+	 height: 48px;
+	 width: 48px;
+	 position: relative;
+	 padding: 0;
+}
+
+.guided-tutorial-back-btn::before,
+.guided-tutorial-next-btn::before {
+	 content: '';
+	 position: absolute;
+	 inset: 0;
+	 background-size: contain;
+	 background-repeat: no-repeat;
+	 background-position: center;
+}
+
+.guided-tutorial-back-btn::before {
+	 background-image: url('./media/Back_Arrow_Icon.png');
+}
+
+.guided-tutorial-next-btn::before {
+	 background-image: url('./media/Next_Arrow_Icon.png');
+}
+
+.guided-tutorial-close-button {
+	 position: absolute;
+	 top: 8px;
+	 right: 8px;
+	 border: none;
+	 background: transparent;
+	 font-size: 1rem;
+	 font-weight: 600;
+	 cursor: pointer;
+	 border-radius: 5px;
+	 padding: 6px;
+	 z-index: 1003;
+}
+
+.guided-tutorial-close-button:hover {
+	 background-color: #dc2626;
+}
+
+.guided-tutorial-modal-overlay {
+	 position: fixed;
+	 inset: 0;
+	 z-index: 1000;
+}
+
+.guided-tutorial-spotlight {
+	 position: absolute;
+	 transform: translate(-50%, -50%);
+	 border: 3px solid rgba(255, 255, 255, 0.95);
+	 box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+	 pointer-events: none;
+	 z-index: 1001;
+}
+
+.guided-tutorial-spotlight--circle {
+	 border-radius: 50%;
+}
+
+.guided-tutorial-spotlight--rect {
+	 border-radius: 8px;
+}

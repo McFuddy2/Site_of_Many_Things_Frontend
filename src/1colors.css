@@ -1,0 +1,27 @@
+:root {
+    --page-background: #dbc19b;
+    --initiative-box-background: #e2a29b;
+    --initiative-banner: rgb(163, 0, 0);
+    --conditions-box-background: #bcd3db;
+    --conditions-expiration-background: #80adbd;
+    --na-conditions-expiration-background: #aa9473;
+    --character-modal-background: #e3bfbf;
+    --condition-modal-background: #bfd1e3;
+    --condition-list-banner-background: #0045d9;
+    --condition-modal-section-background: #77b3bb;
+    --condition-background-texture: url("https://www.transparenttextures.com/patterns/gold-scale.png");
+    --bad-condition-background: #ff0000;
+    --good-condition-background: rgb(41, 194, 41);
+    --neutral-condition-background: #8d888f;
+    --view-character-background-color: #9c9c9c;
+    --view-character-background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    --player-character-text-color: #3400f1;
+    --enemy-character-text-color: #ff0000;
+    --ally-character-text-color: #feffad;
+    --neutral-character-text-color: #403a42;
+    --menu-bar-background: rgba(95, 42, 131, 0.7);
+    --golden-highlight: rgb(224, 166, 58);
+    --dark-purple-text: rgb(65, 42, 133);
+    --light-purple-text: rgb(170, 73, 184);
+    --site-modal-background: rgb(176, 111, 202);
+}

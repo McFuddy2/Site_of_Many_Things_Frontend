@@ -1,0 +1,40 @@
+@import './1colors.css';
+
+/* About Page Styles */
+
+.about-page-wrapper {
+  background-color: var(--page-background);
+  padding: 2% 2% 3% 2%;
+  margin-left: 5%;
+  margin-right: 5%;
+  margin-top: 2%;
+  border-radius: 10px 10px 0px 0px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar styling */
+.about-page-wrapper::-webkit-scrollbar {
+  width: 12px;
+}
+
+.about-page-wrapper::-webkit-scrollbar-track {
+  background: rgba(79, 70, 229, 0.1);
+  border-radius: 10px;
+}
+
+.about-page-wrapper::-webkit-scrollbar-thumb {
+  background-color: rgb(79, 70, 229);
+  border-radius: 10px;
+  border: 2px solid var(--page-background);
+}
+
+.about-page-wrapper::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(67, 56, 202);
+}
+
+/* Firefox scrollbar */
+.about-page-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
+}
