@@ -87,6 +87,13 @@ export default function FooterBar({ isExpanded, toggleFooter }) {
             About
           </Link>
           <Link 
+            to="/articles" 
+            className={`footer-button ${location.pathname === '/articles' ? 'active' : ''}`} 
+            onClick={handleButtonClick}
+          >
+            Blog
+          </Link>
+          <Link 
             to="/privacy" 
             className={`footer-button ${location.pathname === '/privacy' ? 'active' : ''}`} 
             onClick={handleButtonClick}

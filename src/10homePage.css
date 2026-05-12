@@ -2,7 +2,9 @@
 
 .home-page-wrapper {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 6vh);
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -107,6 +109,10 @@
   text-shadow: -2px -2px 0 black, 2px -2px 0 black, -2px 2px 0 black, 2px 2px 0 black, -2px 0 0 black, 2px 0 0 black, 0 -2px 0 black, 0 2px 0 black;
 }
 
+.home-page-description-break {
+  display: none;
+}
+
 .home-page-map-background {
   background-color: var(--page-background);
   width: 60%;
@@ -206,25 +212,34 @@
 
 .mobile-home-page-button-group {
   display: none;
+  height: 100%;
 }
 
 .mobile-home-page-buttons {
   display: flex;
-  background-color: rgba(138, 43, 226, 0.4);
+  background-color: transparent;
   justify-content: center;
   color: white;
-  height: 100%;
+  height: 67%;
   width: 80%;
 }
 
 .mobile-all-buttons {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   width: 100%;
-  padding: 5%;
+  height: 100%;
+  gap: 9%;
+  padding: 5% 0;
   font-size: 1.5rem;
+}
+
+.mobile-all-buttons > div {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .mobile-nav-button-help-link {
@@ -245,9 +260,65 @@
   display: flex;
   justify-content: center;
   text-align: center;
+  width: 90%;
 }
 
-@media screen and (max-width: 950px) {
+.mobile-home-action-link {
+  width: 100%;
+  min-height: 8rem;
+  position: relative;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: 12px;
+  text-decoration: none;
+  color: white;
+  font-size: clamp(1.75rem, 6.8vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-shadow: 0 3px 4px rgba(0, 0, 0, 1);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-home-action-link::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1px solid var(--golden-highlight);
+  box-shadow: 0 0 18px var(--golden-highlight), 0 0 36px var(--golden-highlight);
+  opacity: 0.75;
+  pointer-events: none;
+  animation: mobile-home-button-glow 5.5s ease-in-out infinite;
+}
+
+@keyframes mobile-home-button-glow {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.mobile-home-initiative-link {
+  background-image: url('./media/sword-image.png');
+}
+
+.mobile-home-spell-link {
+  background-image: url('./media/SpellSearcherButton.png');
+}
+
+@media screen and (max-width: 767px) {
   .home-page-map-background {
     display: none;
   }
@@ -262,8 +333,15 @@
   }
 
   .home-page-description {
+    margin-top: 5%;
     display: inline-block;
     text-align: center;
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+
+  .home-page-description-break {
+    display: inline;
   }
 
   .home-page-site-name {

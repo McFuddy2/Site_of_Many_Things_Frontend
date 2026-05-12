@@ -23,6 +23,7 @@ export default function ArticlesIndexPage() {
 
   return (
     <div className="articles-page-wrapper">
+      <div className="articles-page-content">
       <h1 className="articles-page-title">Articles</h1>
       <p className="articles-page-subtitle">
         Guides for our tools, tips for the table, and deep dives for the curious DM.
@@ -55,6 +56,7 @@ export default function ArticlesIndexPage() {
             </Link>
           </motion.div>
         ))}
+      </div>
       </div>
     </div>
   );

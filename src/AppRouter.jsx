@@ -50,28 +50,30 @@ function AppContent() {
       <Header toggleSidebar={toggleSidebar} />
       <SideBar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/initiative" element={<InitiativePage />} />
-        <Route path="/initiative-tracker" element={<InitiativeTrackerLandingPage />} />
-        <Route path="/spell-search" element={<SpellSearchPage />} />
+      <main className="page-content">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/initiative" element={<InitiativePage />} />
+          <Route path="/initiative-tracker" element={<InitiativeTrackerLandingPage />} />
+          <Route path="/spell-search" element={<SpellSearchPage />} />
 
 
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/release-notes" element={<ReleaseNotesPage />} />
-        <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/release-notes" element={<ReleaseNotesPage />} />
+          <Route path="/contact" element={<ContactPage />} />
 
-        <Route path="/articles" element={<ArticlesIndexPage />} />
-        <Route path="/articles/:slug" element={<ArticlePage />} />
+          <Route path="/articles" element={<ArticlesIndexPage />} />
+          <Route path="/articles/:slug" element={<ArticlePage />} />
 
-        {/* The Void aka 404 page */}
-        <Route path="/Void" element={<Void />} />
+          {/* The Void aka 404 page */}
+          <Route path="/Void" element={<Void />} />
 
-        {/*This must be last on the list of routes */}
-        <Route path="*" element={<Navigate to="/Void" replace />} />
-      </Routes>
+          {/*This must be last on the list of routes */}
+          <Route path="*" element={<Navigate to="/Void" replace />} />
+        </Routes>
+      </main>
 
       {showFooterBar && <FooterBar isExpanded={isFooterExpanded} toggleFooter={toggleFooter} />}
     </>

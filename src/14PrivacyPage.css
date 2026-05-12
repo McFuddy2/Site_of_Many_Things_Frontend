@@ -40,3 +40,31 @@
   scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
 }
 
+@media screen and (max-width: 767px) {
+  .privacy-page-wrapper {
+    height: 90%;
+    overflow-y: auto;
+    border-radius: 10px;
+  }
+
+  .privacy-page-content {
+    height: auto;
+    padding-bottom: 2%;
+    box-sizing: border-box;
+  }
+
+  .privacy-page-wrapper h1 {
+    font-size: 1.5rem !important;
+  }
+
+  .privacy-page-wrapper h2 {
+    font-size: 1.05rem !important;
+  }
+
+  .privacy-page-wrapper p,
+  .privacy-page-wrapper li {
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+}
+

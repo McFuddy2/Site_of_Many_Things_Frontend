@@ -9,6 +9,7 @@ import circleXDeleteIcon from "../media/Circle_X_Delete_Icon.png";
 import copyScrollIcon from "../media/copy-scroll.png";
 import { getSpells, getSpell, queryAdvancedSpells } from "../API/spell_search/spells";
 import ToolPageFooter from "../components/ToolPageFooter";
+import { setMetaDescription, setCanonical } from "../utils/seo";
 
 const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
@@ -99,6 +100,81 @@ export default function SpellSearchPage() {
 	const draggingBubbleRef = useRef(null);
 	const skipBasicToAdvancedSyncRef = useRef(false);
 	const tutorialStateSnapshotRef = useRef(null);
+
+	useEffect(() => {
+		const description =
+			"Free Spell Search for DMs and players. Track spells, filter by category, and save spellbooks for future use. Fast and no login required.";
+		const title = "Spell Searcher | Site of Many Things";
+		const image = "https://thesiteofmanythings.com/images/spell-search-preview.png";
+
+		document.title = title;
+		setMetaDescription(description);
+		setCanonical("https://thesiteofmanythings.com/spell-search");
+
+		let metaDescription = document.querySelector('meta[name="description"]');
+		let metaOgTitle = document.querySelector('meta[property="og:title"]');
+		let metaOgDescription = document.querySelector('meta[property="og:description"]');
+		let metaOgImage = document.querySelector('meta[property="og:image"]');
+
+		if (!metaDescription) {
+			metaDescription = document.createElement('meta');
+			metaDescription.setAttribute('name', 'description');
+			document.head.appendChild(metaDescription);
+		}
+		metaDescription.setAttribute('content', description);
+
+		if (!metaOgTitle) {
+			metaOgTitle = document.createElement('meta');
+			metaOgTitle.setAttribute('property', 'og:title');
+			document.head.appendChild(metaOgTitle);
+		}
+		metaOgTitle.setAttribute('content', title);
+
+		if (!metaOgDescription) {
+			metaOgDescription = document.createElement('meta');
+			metaOgDescription.setAttribute('property', 'og:description');
+			document.head.appendChild(metaOgDescription);
+		}
+		metaOgDescription.setAttribute('content', description);
+
+		if (!metaOgImage) {
+			metaOgImage = document.createElement('meta');
+			metaOgImage.setAttribute('property', 'og:image');
+			document.head.appendChild(metaOgImage);
+		}
+		metaOgImage.setAttribute('content', image);
+
+		const existingJsonLd = document.getElementById('spell-search-jsonld');
+		if (existingJsonLd) {
+			existingJsonLd.remove();
+		}
+
+		const jsonLd = {
+			"@context": "https://schema.org",
+			"@type": "SoftwareApplication",
+			name: "Free Spell Search",
+			applicationCategory: "GameApplication",
+			operatingSystem: "Web",
+			description,
+			offers: {
+				"@type": "Offer",
+				price: "0",
+				priceCurrency: "USD"
+			}
+		};
+
+		const script = document.createElement('script');
+		script.type = 'application/ld+json';
+		script.id = 'spell-search-jsonld';
+		script.text = JSON.stringify(jsonLd);
+		document.head.appendChild(script);
+
+		return () => {
+			if (script.parentNode) {
+				script.parentNode.removeChild(script);
+			}
+		};
+	}, []);
 
 	useEffect(() => {
 		const updateDeleteBoxBounds = () => {

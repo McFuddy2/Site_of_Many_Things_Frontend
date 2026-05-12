@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import MobileNavMenu from "./MobileNavMenu";
 import menuIcon from '../media/menu.png'
@@ -173,7 +174,9 @@ export default function Header({toggleSidebar}) {
           <span className="header-brand-suffix">{` - ${pageSuffix}`}</span>
         ) : null}
       </Link>
-      {showMobileModalMenu && <MobileNavMenu setShowMobileModalMenu={setShowMobileModalMenu} />}
+      <AnimatePresence>
+        {showMobileModalMenu && <MobileNavMenu setShowMobileModalMenu={setShowMobileModalMenu} />}
+      </AnimatePresence>
     </header>
   );
 }

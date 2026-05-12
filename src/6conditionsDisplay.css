@@ -258,3 +258,48 @@
     width: 44px;
   }
 }
+
+@media screen and (max-width: 767px) {
+  .conditions-list-banner {
+    min-height: 64px;
+    max-height: 64px;
+    font-size: 1.6rem;
+    padding: 0 8px;
+  }
+
+  .conditions-list-header {
+    width: 58%;
+    text-align: left;
+    padding-left: 2%;
+    box-sizing: border-box;
+  }
+
+  .conditions-banner-button {
+    width: 42%;
+    justify-content: flex-end;
+    padding-right: 2%;
+    box-sizing: border-box;
+  }
+
+  .add-condition-button {
+    margin-left: 0;
+    min-width: 100px;
+    height: 80%;
+  }
+
+  .conditions-row {
+    margin-bottom: 6px;
+  }
+
+  .condition-description {
+    width: 76%;
+    padding: 8px;
+    font-size: 0.92rem;
+  }
+
+  .condition-expiration {
+    width: 24%;
+    font-size: 0.74rem;
+    padding: 8px 6px;
+  }
+}

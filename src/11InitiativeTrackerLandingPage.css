@@ -179,6 +179,37 @@ ul {
   line-height: 1.25rem;
 }
 
+@media screen and (max-width: 767px) {
+  .contact-page-wrapper {
+    height: 90%;
+    overflow-y: auto;
+    border-radius: 10px;
+  }
+
+  .contact-page-content {
+    height: auto;
+    padding-bottom: 2%;
+    box-sizing: border-box;
+  }
+
+  .contact-page-wrapper .initiative-tracker-landing-page-title {
+    font-size: 1.35rem;
+    line-height: 1.65rem;
+  }
+
+  .contact-page-wrapper p,
+  .contact-page-wrapper li,
+  .contact-page-wrapper a,
+  .contact-page-wrapper .faq-item {
+    font-size: 0.88rem;
+    line-height: 1.38;
+  }
+
+  .contact-page-wrapper .btn-secondary {
+    font-size: 0.88rem;
+  }
+}
+
 
 /* ===== Initiative Help / SEO Section ===== */
 
