@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/initiative-tracker", "destination": "/initiative", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
