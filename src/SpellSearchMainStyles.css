@@ -82,3 +82,14 @@
     width: 25%;
 	border-radius: 10px;
 }
+
+/* Mobile layout adjustments */
+@media screen and (max-width: 767px) {
+	.spell-filter-wrapper {
+		display: none !important;
+	}
+
+	.spell-list-wrapper {
+		width: 100%;
+	}
+}
