@@ -74,6 +74,23 @@ export default function SpellSearchPage() {
 	const [expandedSpellId, setExpandedSpellId] = useState(null);
 	const [copiedSpellInfoId, setCopiedSpellInfoId] = useState(null);
 	const [copiedSpellId, setCopiedSpellId] = useState(null);
+	const [isMobileFiltersModalOpen, setIsMobileFiltersModalOpen] = useState(false);
+	const [mobileFilterMode, setMobileFilterMode] = useState("include");
+	const [hasMobileSavedFilters, setHasMobileSavedFilters] = useState(false);
+	const [mobileSavedIncludeSelections, setMobileSavedIncludeSelections] = useState([]);
+	const [mobileSavedExcludeSelections, setMobileSavedExcludeSelections] = useState([]);
+	const [mobileWorkingIncludeSelections, setMobileWorkingIncludeSelections] = useState([]);
+	const [mobileWorkingExcludeSelections, setMobileWorkingExcludeSelections] = useState([]);
+	const [mobileIncludeFilterField, setMobileIncludeFilterField] = useState("");
+	const [mobileExcludeFilterField, setMobileExcludeFilterField] = useState("");
+	const [mobileIncludeFilterValue, setMobileIncludeFilterValue] = useState("");
+	const [mobileExcludeFilterValue, setMobileExcludeFilterValue] = useState("");
+	const [mobilePendingIncludeSecondaryValues, setMobilePendingIncludeSecondaryValues] = useState([]);
+	const [mobilePendingExcludeSecondaryValues, setMobilePendingExcludeSecondaryValues] = useState([]);
+	const [mobileIncludeRangeLow, setMobileIncludeRangeLow] = useState(0);
+	const [mobileIncludeRangeHigh, setMobileIncludeRangeHigh] = useState(RANGE_SLIDER_MAX);
+	const [mobileExcludeRangeLow, setMobileExcludeRangeLow] = useState(0);
+	const [mobileExcludeRangeHigh, setMobileExcludeRangeHigh] = useState(RANGE_SLIDER_MAX);
 	const [isLoading, setIsLoading] = useState(true);
 	const [spells, setSpells] = useState({ items: [], total: 0, page_size: 20 });
 	const [loadError, setLoadError] = useState("");
@@ -932,6 +949,165 @@ export default function SpellSearchPage() {
 	const advancedSecondaryDropdownOptions = isSingleSelectField(advancedFilterField)
 		? advancedSecondaryOptions
 		: ["ALL", ...advancedSecondaryOptions];
+	const isMobileIncludeMode = mobileFilterMode === "include";
+	const mobileActiveFilterField = isMobileIncludeMode ? mobileIncludeFilterField : mobileExcludeFilterField;
+	const mobileActiveFilterValue = isMobileIncludeMode ? mobileIncludeFilterValue : mobileExcludeFilterValue;
+	const mobileActiveWorkingSelections = isMobileIncludeMode
+		? mobileWorkingIncludeSelections
+		: mobileWorkingExcludeSelections;
+	const mobileActiveSecondaryOptions = getSecondaryFilterOptions(mobileActiveFilterField);
+	const mobileActiveSecondaryDropdownOptions = isSingleSelectField(mobileActiveFilterField)
+		? mobileActiveSecondaryOptions
+		: ["ALL", ...mobileActiveSecondaryOptions];
+	const mobileActivePendingSecondaryValues = isMobileIncludeMode
+		? mobilePendingIncludeSecondaryValues
+		: mobilePendingExcludeSecondaryValues;
+	const mobileOpenSecondaryMenuKey = isMobileIncludeMode ? "include" : "exclude";
+	const mobileCombinedSelections = [
+		...mobileWorkingIncludeSelections.map((entry) => ({ ...entry, mode: "include" })),
+		...mobileWorkingExcludeSelections.map((entry) => ({ ...entry, mode: "exclude" })),
+	];
+
+	const openMobileFiltersModal = () => {
+		const nextIncludeSelections = hasMobileSavedFilters ? mobileSavedIncludeSelections : includeSelections;
+		const nextExcludeSelections = hasMobileSavedFilters ? mobileSavedExcludeSelections : excludeSelections;
+
+		setMobileWorkingIncludeSelections(cloneSelectionEntries(nextIncludeSelections));
+		setMobileWorkingExcludeSelections(cloneSelectionEntries(nextExcludeSelections));
+		setMobileIncludeFilterField("");
+		setMobileExcludeFilterField("");
+		setMobileIncludeFilterValue("");
+		setMobileExcludeFilterValue("");
+		setMobilePendingIncludeSecondaryValues([]);
+		setMobilePendingExcludeSecondaryValues([]);
+		setMobileIncludeRangeLow(includeRangeLow);
+		setMobileIncludeRangeHigh(includeRangeHigh);
+		setMobileExcludeRangeLow(excludeRangeLow);
+		setMobileExcludeRangeHigh(excludeRangeHigh);
+		setMobileFilterMode("include");
+		setOpenSecondaryMenu(null);
+		setIsMobileFiltersModalOpen(true);
+	};
+
+	const closeMobileFiltersModalAndClearList = () => {
+		setIsMobileFiltersModalOpen(false);
+		setOpenSecondaryMenu(null);
+		setMobileSavedIncludeSelections([]);
+		setMobileSavedExcludeSelections([]);
+		setHasMobileSavedFilters(true);
+		setMobileWorkingIncludeSelections([]);
+		setMobileWorkingExcludeSelections([]);
+		setMobileIncludeFilterField("");
+		setMobileExcludeFilterField("");
+		setMobileIncludeFilterValue("");
+		setMobileExcludeFilterValue("");
+		setMobilePendingIncludeSecondaryValues([]);
+		setMobilePendingExcludeSecondaryValues([]);
+		setMobileIncludeRangeLow(0);
+		setMobileIncludeRangeHigh(RANGE_SLIDER_MAX);
+		setMobileExcludeRangeLow(0);
+		setMobileExcludeRangeHigh(RANGE_SLIDER_MAX);
+	};
+
+	const applyMobileFilters = () => {
+		const nextIncludeSelections = cloneSelectionEntries(mobileWorkingIncludeSelections);
+		const nextExcludeSelections = cloneSelectionEntries(mobileWorkingExcludeSelections);
+
+		setIncludeSelections(nextIncludeSelections);
+		setExcludeSelections(nextExcludeSelections);
+		setMobileSavedIncludeSelections(nextIncludeSelections);
+		setMobileSavedExcludeSelections(nextExcludeSelections);
+		setHasMobileSavedFilters(true);
+		setOpenSecondaryMenu(null);
+		setIsMobileFiltersModalOpen(false);
+	};
+
+	const setMobileActiveFilterField = (nextField) => {
+		if (isMobileIncludeMode) {
+			setMobileIncludeFilterField(nextField);
+			setMobileIncludeFilterValue("");
+			setMobilePendingIncludeSecondaryValues([]);
+			return;
+		}
+
+		setMobileExcludeFilterField(nextField);
+		setMobileExcludeFilterValue("");
+		setMobilePendingExcludeSecondaryValues([]);
+	};
+
+	const setMobileActiveFilterValue = (nextValue) => {
+		if (isMobileIncludeMode) {
+			setMobileIncludeFilterValue(nextValue);
+			return;
+		}
+
+		setMobileExcludeFilterValue(nextValue);
+	};
+
+	const addMobileSelection = (field, value) => {
+		if (isMobileIncludeMode) {
+			addSelection(setMobileWorkingIncludeSelections, field, value);
+			return;
+		}
+
+		addSelection(setMobileWorkingExcludeSelections, field, value);
+	};
+
+	const toggleMobilePendingSecondaryOption = (option) => {
+		const currentValues = mobileActivePendingSecondaryValues;
+		let nextValues = currentValues;
+
+		if (option === "ALL") {
+			nextValues = currentValues.includes("ALL") ? [] : ["ALL"];
+		} else if (currentValues.includes(option)) {
+			nextValues = currentValues.filter((entryValue) => entryValue !== option);
+		} else {
+			nextValues = [...currentValues.filter((entryValue) => entryValue !== "ALL"), option];
+		}
+
+		const normalizedValues = normalizeSelectionValuesForField(mobileActiveFilterField, nextValues);
+		if (isMobileIncludeMode) {
+			setMobilePendingIncludeSecondaryValues(normalizedValues);
+			return;
+		}
+
+		setMobilePendingExcludeSecondaryValues(normalizedValues);
+	};
+
+	const commitMobileSecondaryMenuSelections = () => {
+		if (!mobileActiveFilterField) {
+			setOpenSecondaryMenu(null);
+			return;
+		}
+
+		const pendingValues = mobileActivePendingSecondaryValues;
+		const targetSetter = isMobileIncludeMode
+			? setMobileWorkingIncludeSelections
+			: setMobileWorkingExcludeSelections;
+
+		setSelectionValuesForField(targetSetter, mobileActiveFilterField, pendingValues);
+
+		if (isMobileIncludeMode) {
+			setMobileIncludeFilterField("");
+			setMobileIncludeFilterValue("");
+			setMobilePendingIncludeSecondaryValues([]);
+		} else {
+			setMobileExcludeFilterField("");
+			setMobileExcludeFilterValue("");
+			setMobilePendingExcludeSecondaryValues([]);
+		}
+
+		setOpenSecondaryMenu(null);
+	};
+
+	const removeCombinedMobileSelection = (mode, field, value) => {
+		if (mode === "include") {
+			removeSelection(setMobileWorkingIncludeSelections, field, value);
+			return;
+		}
+
+		removeSelection(setMobileWorkingExcludeSelections, field, value);
+	};
 	const includeKeywordSelections = includeSelections
 		.filter((entry) => entry.field === "Key Word")
 		.map((entry) => entry.value)
@@ -1990,6 +2166,10 @@ export default function SpellSearchPage() {
 			return undefined;
 		}
 
+		if (isMobileFiltersModalOpen && (openSecondaryMenu === "include" || openSecondaryMenu === "exclude")) {
+			return undefined;
+		}
+
 		const activeRef = openSecondaryMenu === "include"
 			? includeSecondaryDropdownRef.current
 			: openSecondaryMenu === "exclude"
@@ -2008,6 +2188,7 @@ export default function SpellSearchPage() {
 		};
 	}, [
 		openSecondaryMenu,
+		isMobileFiltersModalOpen,
 		pendingIncludeSecondaryValues,
 		pendingExcludeSecondaryValues,
 		pendingAdvancedSecondaryValues,
@@ -2087,6 +2268,14 @@ export default function SpellSearchPage() {
 							aria-disabled={isOnLastPage}
 							aria-label="Next spell list page"
 						/>
+						<button
+							type="button"
+							className="mobile-filters-button"
+							onClick={openMobileFiltersModal}
+							aria-label="Open filters"
+						>
+							Filters
+						</button>
 					</div>
 				</div>
 				<div className="spell-search-spell-list">
@@ -2127,6 +2316,10 @@ export default function SpellSearchPage() {
 									>
 										{spell.name}
 									</button>
+								</div>
+								<div className="mobile-row-level-cell" aria-label="Spell level">
+									<div className="spell-column-header">Level</div>
+									<div className="spell-cell-value">{spell.level}</div>
 								</div>
 								<div className="spell-list-details-grid" role="group" aria-label={`${spell.name} spell details`}>
 									{visibleColumns.level ? (
@@ -2197,7 +2390,45 @@ export default function SpellSearchPage() {
 									>
 										<img src={copyScrollIcon} alt="" className="spell-copy-description-icon" />
 									</button>
-									{renderDescriptionWithKeywordHighlights(spell.name, currentSpellDescription)}
+									<div className="spell-accordion-description-body">
+										{renderDescriptionWithKeywordHighlights(spell.name, currentSpellDescription)}
+									</div>
+									<div className="mobile-accordion-details-grid" role="group" aria-label={`${spell.name} mobile spell details`}>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">School</div>
+											<div className="spell-cell-value">{spell.school}</div>
+										</div>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">Casting Time</div>
+											<div className="spell-cell-value">{spell.castingTime}</div>
+										</div>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">Range</div>
+											<div className="spell-cell-value">{spell.range}</div>
+										</div>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">Duration</div>
+											<div className="spell-cell-value">{getDurationDisplayValue(spell)}</div>
+										</div>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">Components</div>
+											<div className="spell-cell-value">{spell.components}</div>
+										</div>
+										<div className="mobile-accordion-cell">
+											<div className="spell-column-header">Ritual</div>
+											<div className="spell-cell-value">{spell.ritual}</div>
+										</div>
+										<div className="mobile-accordion-cell mobile-accordion-cell-span-two">
+											<div className="spell-column-header">Classes</div>
+											<div className="spell-cell-value spell-cell-value-classes">{formatClassList(spell.classes)}</div>
+										</div>
+										<div className="mobile-accordion-cell mobile-accordion-cell-span-two">
+											<div className="spell-column-header">Description</div>
+											<div className="spell-cell-value mobile-accordion-description-value">
+												{renderDescriptionWithKeywordHighlights(spell.name, currentSpellDescription)}
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -2206,6 +2437,211 @@ export default function SpellSearchPage() {
 					{!loadError && spellItems.length === 0 ? (
 						<div className="spell-list-empty-state">{emptySpellMessage}</div>
 					) : null}
+				</div>
+				{isMobileFiltersModalOpen ? (
+					<div className="mobile-filters-modal-backdrop" onClick={closeMobileFiltersModalAndClearList}>
+						<div
+							className="mobile-filters-modal"
+							role="dialog"
+							aria-modal="true"
+							aria-label="Spell filters"
+							onClick={(event) => event.stopPropagation()}
+						>
+							<button
+								type="button"
+								className="mobile-filters-modal-close"
+								onClick={closeMobileFiltersModalAndClearList}
+								aria-label="Close filters"
+							>
+								X
+							</button>
+							<div className="mobile-filters-modal-content">
+								<div className="mobile-filters-modal-top">
+									<div className="mobile-filter-mode-dropdown">
+										<select
+											className="basic-filter-select"
+											value={mobileFilterMode}
+											onChange={(event) => {
+												setOpenSecondaryMenu(null);
+												setMobileFilterMode(event.target.value);
+											}}
+											aria-label="Select mobile filter mode"
+										>
+											<option value="include">Include</option>
+											<option value="exclude">Exclude</option>
+										</select>
+									</div>
+									<div className="basic-filter-include-dropdown">
+										<select
+											className="basic-filter-select"
+											value={mobileActiveFilterField}
+											onChange={(event) => setMobileActiveFilterField(event.target.value)}
+											aria-label="Select mobile filter field"
+										>
+											<option value="">Select a Filter Category</option>
+											{filterFieldOptions.map((option) => (
+												<option key={option} value={option}>{option}</option>
+											))}
+										</select>
+									</div>
+									<div className="basic-filter-include-secondary-dropdown">
+										{!mobileActiveFilterField ? (
+											<select className="basic-filter-select basic-filter-select-disabled-placeholder" disabled aria-label="Mobile filter value unavailable">
+												<option>---</option>
+											</select>
+										) : mobileActiveFilterField === "Range" ? (
+											renderRangeSlider(
+												isMobileIncludeMode ? mobileIncludeRangeLow : mobileExcludeRangeLow,
+												isMobileIncludeMode ? setMobileIncludeRangeLow : setMobileExcludeRangeLow,
+												isMobileIncludeMode ? mobileIncludeRangeHigh : mobileExcludeRangeHigh,
+												isMobileIncludeMode ? setMobileIncludeRangeHigh : setMobileExcludeRangeHigh,
+												(low, high) => applyRangeToSelections(isMobileIncludeMode ? setMobileWorkingIncludeSelections : setMobileWorkingExcludeSelections, low, high),
+											)
+										) : isTextEntryField(mobileActiveFilterField) ? (
+											<input
+												type="text"
+												className="basic-filter-input"
+												value={mobileActiveFilterValue}
+												onChange={(event) => setMobileActiveFilterValue(event.target.value)}
+												placeholder={`type ${mobileActiveFilterField.toLowerCase()}`}
+												onKeyDown={(event) => {
+													if (event.key === "Enter") {
+														event.preventDefault();
+														addMobileSelection(mobileActiveFilterField, mobileActiveFilterValue);
+														setMobileActiveFilterValue("");
+													}
+												}}
+												aria-label={`Mobile ${mobileActiveFilterField.toLowerCase()} value`}
+											/>
+										) : usesDeferredSecondaryMenu(mobileActiveFilterField) ? (
+											<div
+												className="secondary-multi-select"
+												ref={isMobileIncludeMode ? includeSecondaryDropdownRef : excludeSecondaryDropdownRef}
+											>
+												<button
+													type="button"
+													className={`secondary-multi-select-trigger${openSecondaryMenu === mobileOpenSecondaryMenuKey ? " is-open" : ""}`}
+													onClick={() => {
+														if (openSecondaryMenu === mobileOpenSecondaryMenuKey) {
+															return;
+														}
+														if (isMobileIncludeMode) {
+															setMobilePendingIncludeSecondaryValues(getSelectionValuesForField(mobileWorkingIncludeSelections, mobileIncludeFilterField));
+														} else {
+															setMobilePendingExcludeSecondaryValues(getSelectionValuesForField(mobileWorkingExcludeSelections, mobileExcludeFilterField));
+														}
+														setOpenSecondaryMenu(mobileOpenSecondaryMenuKey);
+													}}
+													aria-expanded={openSecondaryMenu === mobileOpenSecondaryMenuKey}
+													aria-label="Select mobile filter values"
+												>
+													<span>{getSecondaryMenuButtonLabel(mobileActiveFilterField, mobileActivePendingSecondaryValues)}</span>
+													<span className="secondary-multi-select-arrow" aria-hidden="true">▾</span>
+												</button>
+												{openSecondaryMenu === mobileOpenSecondaryMenuKey ? (
+													<div className="secondary-multi-select-menu">
+														<button
+															type="button"
+															className="mobile-secondary-save-button"
+															onClick={commitMobileSecondaryMenuSelections}
+														>
+															Save
+														</button>
+														{mobileActiveSecondaryDropdownOptions.map((option) => {
+															const isChecked = mobileActivePendingSecondaryValues.includes(option);
+															return (
+																<label key={option} className="secondary-multi-select-option">
+																	<input
+																		type="checkbox"
+																		checked={isChecked}
+																		onChange={() => toggleMobilePendingSecondaryOption(option)}
+																	/>
+																	<span>{option}</span>
+																</label>
+															);
+														})}
+													</div>
+												) : null}
+											</div>
+										) : (
+											<select
+												className="basic-filter-select"
+												value={mobileActiveFilterValue}
+												onChange={(event) => {
+													const nextValue = event.target.value;
+													setMobileActiveFilterValue(nextValue);
+													addMobileSelection(mobileActiveFilterField, nextValue);
+												}}
+												aria-label="Select mobile filter value"
+											>
+												<option value="" disabled>
+													{getSecondaryPlaceholder(mobileActiveFilterField)}
+												</option>
+												{mobileActiveSecondaryDropdownOptions.map((option) => (
+													<option key={option} value={option}>{option}</option>
+												))}
+											</select>
+										)}
+									</div>
+								</div>
+								<div className="mobile-filters-modal-bottom">
+									<div className="mobile-filter-selected-list">
+										{mobileCombinedSelections.length === 0 ? (
+											<div className="mobile-filter-selected-empty">No filters selected yet.</div>
+										) : mobileCombinedSelections.map((entry) => (
+											<div key={`${entry.mode}-${selectionKey(entry.field, entry.value)}`} className="mobile-filter-selected-item">
+												<span
+													className={`mobile-filter-item-icon ${entry.mode === "include" ? "is-include" : "is-exclude"}`}
+													aria-hidden="true"
+												>
+													{entry.mode === "include" ? "✓" : "✕"}
+												</span>
+												<span className="mobile-filter-item-text">{entry.field}: {entry.value}</span>
+												<button
+													type="button"
+													className="mobile-filter-delete-button"
+													onClick={() => removeCombinedMobileSelection(entry.mode, entry.field, entry.value)}
+												>
+													Delete
+												</button>
+											</div>
+										))}
+									</div>
+								</div>
+							</div>
+							<button
+								type="button"
+								className="mobile-filters-modal-apply"
+								onClick={applyMobileFilters}
+							>
+								Apply Filters
+							</button>
+						</div>
+					</div>
+				) : null}
+				<div className="page-of-spell-list-mobile">
+					<button
+						type="button"
+						className="page-of-spell-list-arrow-button is-left"
+						onClick={goToPreviousPage}
+						disabled={isOnFirstPage}
+						aria-disabled={isOnFirstPage}
+						aria-label="Previous spell list page"
+					/>
+					<div className="page-of-spell-list-left">
+						<span className="page-of-spell-list-text">{currentPage}{"\u00A0\u00A0\u00A0"}o</span>
+					</div>
+					<div className="page-of-spell-list-right">
+						<span className="page-of-spell-list-text">f{"\u00A0\u00A0\u00A0"}{totalPages}</span>
+					</div>
+					<button
+						type="button"
+						className="page-of-spell-list-arrow-button is-right"
+						onClick={goToNextPage}
+						disabled={isOnLastPage}
+						aria-disabled={isOnLastPage}
+						aria-label="Next spell list page"
+					/>
 				</div>
 			</div>
 			<div

@@ -3,6 +3,7 @@
 .spell-list-wrapper {
 	display: flex;
 	flex-direction: column;
+	position: relative;
 }
 
 .spell-search-sort-bar {
@@ -23,6 +24,12 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+@media screen and (max-width: 767px) {
+	.column-view-section {
+		display: none;
+	}
 }
 
 .column-view-button {
@@ -50,6 +57,13 @@
 	box-sizing: border-box;
 }
 
+@media screen and (max-width: 767px) {
+	.sort-by-toggle-section {
+		width: 66.67%;
+		padding: 0.25rem 0;
+	}
+}
+
 .sort-by-toggle-section > * {
 	align-self: center;
 }
@@ -62,6 +76,51 @@
 	width: 100%;
 }
 
+@media screen and (max-width: 767px) {
+	.text-and-toggles {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		grid-template-rows: auto 1fr;
+		gap: 0.35rem;
+		width: 100%;
+		height: 100%;
+		box-sizing: border-box;
+		align-items: stretch;
+	}
+
+	.text-and-toggles .sort-by-label {
+		grid-column: 1 / -1;
+		grid-row: 1;
+		text-align: center;
+		font-size: 1rem;
+		margin-bottom: 0;
+	}
+
+	.text-and-toggles .sort-by-toggle .sort-by-option {
+		font-size: 0;
+	}
+
+	.text-and-toggles .sort-by-toggle .sort-by-option::before {
+		font-size: 0.95rem;
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(2) .sort-by-option:nth-child(2)::before {
+		content: "#";
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(2) .sort-by-option:nth-child(3)::before {
+		content: "A";
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(2)::before {
+		content: "▲";
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(3)::before {
+		content: "▼";
+	}
+}
+
 .page-of-spell-list {
 	width: 15%;
 	height: 100%;
@@ -71,6 +130,259 @@
 	gap: 0;
 	box-sizing: border-box;
 	padding: 0;
+}
+
+.page-of-spell-list-mobile {
+	display: none;
+}
+
+@media screen and (max-width: 767px) {
+	.page-of-spell-list {
+		width: 33.33%;
+	}
+
+	.page-of-spell-list > *:not(.mobile-filters-button) {
+		display: none;
+	}
+
+	.page-of-spell-list-mobile {
+		display: flex;
+		width: 60%;
+		min-height: 3rem;
+		align-items: center;
+		justify-content: center;
+		gap: 0;
+		box-sizing: border-box;
+		padding: 0.2rem 0;
+		margin: 0.2rem auto 0;
+	}
+
+	.page-of-spell-list-mobile .page-of-spell-list-left,
+	.page-of-spell-list-mobile .page-of-spell-list-right {
+		height: 2.3rem;
+	}
+}
+
+.mobile-filters-button {
+	display: none;
+	padding: 0.5rem 1rem;
+	background-color: var(--gold-hightlight, var(--golden-highlight));
+	color: #000000;
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	font-size: 1rem;
+	font-weight: 600;
+	transition: opacity 0.2s ease;
+}
+
+.mobile-filters-button:hover {
+	opacity: 0.8;
+}
+
+.mobile-filters-modal-backdrop,
+.mobile-filters-modal,
+.mobile-filters-modal-content,
+.mobile-filters-modal-top,
+.mobile-filters-modal-bottom,
+.mobile-filter-mode-dropdown,
+.mobile-filter-selected-list,
+.mobile-filter-selected-item,
+.mobile-filter-selected-empty,
+.mobile-filter-item-icon,
+.mobile-filter-delete-button,
+.mobile-filters-modal-close,
+.mobile-filters-modal-apply {
+	display: none;
+}
+
+@media screen and (max-width: 767px) {
+	.mobile-filters-button {
+		display: block;
+	}
+
+	.mobile-filters-modal-backdrop {
+		display: flex;
+		position: absolute;
+		inset: 0;
+		align-items: center;
+		justify-content: center;
+		background-color: rgba(0, 0, 0, 0.28);
+		z-index: 40;
+	}
+
+	.mobile-filters-modal {
+		display: block;
+		position: relative;
+		width: min(92%, 34rem);
+		height: 80%;
+		background-color: var(--page-background);
+		border-radius: 12px;
+		box-sizing: border-box;
+		padding: 0;
+	}
+
+	.mobile-filters-modal-content {
+		display: flex;
+		position: absolute;
+		top: 3.2rem;
+		right: 1rem;
+		bottom: 4.2rem;
+		left: 1rem;
+		flex-direction: column;
+		gap: 0.55rem;
+	}
+
+	.mobile-filters-modal-top {
+		display: flex;
+		flex: 0 0 30%;
+		min-height: 0;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.55rem;
+		background-color: rgba(255, 255, 255, 0.28);
+		border-radius: 10px;
+		overflow: visible;
+	}
+
+	.mobile-filter-mode-dropdown {
+		display: block;
+		width: 90%;
+		align-self: center;
+		background-color: rgb(244, 230, 250);
+		border-radius: 5px;
+		padding: 0.2rem;
+	}
+
+	.mobile-filters-modal-top .basic-filter-include-dropdown,
+	.mobile-filters-modal-top .basic-filter-include-secondary-dropdown {
+		width: 90%;
+		align-self: center;
+		margin-top: 0;
+	}
+
+	.mobile-filters-modal-top .basic-filter-include-secondary-dropdown {
+		min-height: 2.2rem;
+	}
+
+	.mobile-filters-modal-bottom {
+		display: flex;
+		flex: 0 0 65%;
+		min-height: 0;
+		padding: 0.55rem;
+		background-color: rgba(255, 255, 255, 0.36);
+		border-radius: 10px;
+	}
+
+	.mobile-filters-modal-top .secondary-multi-select-menu {
+		padding-top: 0.3rem;
+	}
+
+	.mobile-secondary-save-button {
+		position: sticky;
+		top: 0;
+		margin: 0 0 0.35rem auto;
+		border: none;
+		border-radius: 7px;
+		padding: 0.3rem 0.65rem;
+		background-color: var(--dark-purple-text);
+		color: #ffffff;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.mobile-filter-selected-list {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+		gap: 0.4rem;
+		overflow-y: auto;
+		padding-right: 0.25rem;
+	}
+
+	.mobile-filter-selected-item {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.35rem 0.45rem;
+		background-color: rgba(0, 0, 0, 0.08);
+		border-radius: 8px;
+	}
+
+	.mobile-filter-selected-empty {
+		display: block;
+		text-align: center;
+		font-size: 0.85rem;
+		opacity: 0.72;
+		padding-top: 0.25rem;
+	}
+
+	.mobile-filter-item-icon {
+		display: inline-block;
+		font-weight: 900;
+		font-size: 0.95rem;
+	}
+
+	.mobile-filter-item-icon.is-include {
+		color: #0a8f3c;
+	}
+
+	.mobile-filter-item-icon.is-exclude {
+		color: #c01d1d;
+	}
+
+	.mobile-filter-item-text {
+		min-width: 0;
+		font-size: 0.82rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.mobile-filter-delete-button {
+		display: inline-flex;
+		border: none;
+		border-radius: 7px;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.72rem;
+		font-weight: 700;
+		background-color: #000000;
+		color: #ffffff;
+		cursor: pointer;
+	}
+
+	.mobile-filters-modal-close {
+		display: inline-flex;
+		position: absolute;
+		top: 0.65rem;
+		right: 0.65rem;
+		width: 2rem;
+		height: 2rem;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: 999px;
+		background-color: var(--dark-purple-text);
+		color: #ffffff;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.mobile-filters-modal-apply {
+		display: inline-flex;
+		position: absolute;
+		right: 1rem;
+		bottom: 1rem;
+		padding: 0.55rem 0.9rem;
+		border: none;
+		border-radius: 10px;
+		background-color: var(--dark-purple-text);
+		color: #ffffff;
+		font-weight: 700;
+		cursor: pointer;
+	}
 }
 
 .page-of-spell-list-left,
@@ -204,6 +516,15 @@
 	height: 3rem;
 }
 
+@media screen and (max-width: 767px) {
+	.sort-by-toggle {
+		width: 100%;
+		min-width: auto;
+		height: 2.5rem;
+		font-size: 0.85rem;
+	}
+}
+
 .sort-by-option {
 	font-size: 0.95rem;
 	font-weight: 600;
@@ -243,6 +564,14 @@
 	padding-right: 0.5rem;
 	box-sizing: border-box;
 	background-color: transparent;
+}
+
+@media screen and (max-width: 767px) {
+	.spell-search-spell-list {
+		height: auto;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
 }
 
 .spell-search-spell-list > .spell-list-item {
@@ -294,6 +623,93 @@
 	border-radius: 10px;
 	cursor: pointer;
 	position: relative;
+}
+
+.mobile-row-level-cell {
+	display: none;
+}
+
+@media screen and (max-width: 767px) {
+	.spell-copy-info-button,
+	.spell-copy-description-button {
+		display: none !important;
+	}
+
+	.spell-list-row {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-rows: auto;
+		padding: 0.5rem;
+		min-height: auto;
+		gap: 0.35rem;
+		align-items: center;
+	}
+
+	.spell-list-checkbox-cell {
+		grid-column: 1;
+		grid-row: 1;
+		flex: none;
+	}
+
+	.spell-list-name-cell {
+		grid-column: 2 / 4;
+		grid-row: 1;
+		flex: none;
+		font-size: 1.1rem;
+	}
+
+	.spell-list-details-grid {
+		display: none !important;
+	}
+
+	.mobile-row-level-cell {
+		display: flex;
+		grid-column: 4;
+		grid-row: 1;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		gap: 0.2rem;
+	}
+
+	.mobile-row-level-cell .spell-column-header {
+		font-size: 0.65rem;
+	}
+
+	.mobile-row-level-cell .spell-cell-value {
+		font-weight: 700;
+	}
+
+	.spell-accordion-description-body {
+		display: none !important;
+	}
+
+	.mobile-accordion-details-grid {
+		display: grid !important;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-rows: repeat(5, auto);
+		gap: 0.5rem;
+	}
+
+	.mobile-accordion-cell {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		gap: 0.2rem;
+		padding: 0.2rem 0.15rem;
+	}
+
+	.mobile-accordion-cell-span-two {
+		grid-column: 1 / 3;
+	}
+
+	.mobile-accordion-description-value {
+		text-align: left;
+		line-height: 1.35;
+	}
 }
 
 .spell-copy-info-button {
@@ -410,6 +826,14 @@
 	overflow: visible;
 	font-size: 0.95rem;
 	line-height: 1.35;
+}
+
+.spell-accordion-description-body {
+	display: block;
+}
+
+.mobile-accordion-details-grid {
+	display: none;
 }
 
 .spell-keyword-highlight {
