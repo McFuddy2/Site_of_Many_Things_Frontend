@@ -8,6 +8,18 @@ html, body, #root {
   font-family: "Eagle Lake", serif !important;
 }
 
+:root {
+  --app-vh: 100vh;
+  --header-height: calc(var(--app-vh) * 0.06);
+  --footer-height: calc(var(--app-vh) * 0.05);
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-vh: 100dvh;
+  }
+}
+
 #root {
   background-image: url('./media/Magical_Background_Image.png');
   background-size: cover;

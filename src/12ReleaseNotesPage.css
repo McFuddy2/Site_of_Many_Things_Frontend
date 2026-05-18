@@ -8,7 +8,7 @@
   margin-right: 5%;
   margin-top: 2%;
   border-radius: 10px 10px 0px 0px;
-  max-height: 90vh;
+  max-height: calc(var(--app-vh) * 0.9);
   overflow-y: auto;
 }
 
