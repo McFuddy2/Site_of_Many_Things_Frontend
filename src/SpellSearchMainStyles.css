@@ -6,7 +6,7 @@
 }
 
 .spell-search-page-scroll {
-	height: calc(100dvh - 6vh);
+	height: calc(var(--app-vh) - var(--header-height));
 	margin: 0;
 	padding: 0;
 	display: flex;

@@ -8,7 +8,7 @@ html, body {
   }
 
   .initiative-page-scroll {
-    height: calc(100dvh - 6vh);
+    height: calc(var(--app-vh) - var(--header-height));
     margin: 0;
     padding: 0;
     overflow-y: auto;
@@ -35,7 +35,7 @@ html, body {
   }
  
   .wrapper {
-    height: 88vh; /* 100vh total: 6vh header + 88vh wrapper + 6vh help/ad */
+    height: calc(var(--app-vh) - (2 * var(--header-height))); /* total viewport minus header and help/ad section */
     width: 100%;
     max-width: 100%;
     padding: 2vh 2vw; /* 2% padding around the edges */
@@ -47,8 +47,8 @@ html, body {
 
   .help-n-ad-section {
     width: 100%;
-    height: 6vh;
-    min-height: 6vh;
+    height: var(--header-height);
+    min-height: var(--header-height);
     background-color: transparent;
     display: flex;
     flex-direction: row;
@@ -179,15 +179,15 @@ html, body {
 
 @media screen and (max-width: 767px) {
   .initiative-page-scroll {
-    height: calc(100dvh - 6vh);
-    min-height: calc(100dvh - 6vh);
+    height: calc(var(--app-vh) - var(--header-height));
+    min-height: calc(var(--app-vh) - var(--header-height));
     overflow-y: hidden;
     overflow-x: hidden;
   }
 
   .wrapper {
-    height: 88vh;
-    min-height: 88vh;
+    height: calc(var(--app-vh) - (2 * var(--header-height)));
+    min-height: calc(var(--app-vh) - (2 * var(--header-height)));
     padding: 1.5vh 2.5vw;
     overflow: hidden;
   }

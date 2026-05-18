@@ -2,7 +2,7 @@
 
 .home-page-wrapper {
   width: 100%;
-  height: calc(100vh - 6vh);
+  height: calc(var(--app-vh) - var(--header-height));
   box-sizing: border-box;
   overflow: hidden;
   display: flex;

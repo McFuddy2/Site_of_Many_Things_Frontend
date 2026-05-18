@@ -20,7 +20,7 @@
 }
 
 .footer-bar.expanded {
-  height: 5vh;
+  height: var(--footer-height);
   overflow: visible;
 }
 
@@ -72,7 +72,7 @@
 }
 
 .footer-bar.expanded ~ .footer-toggle-button {
-  bottom: 5vh;
+  bottom: var(--footer-height);
 }
 
 .footer-toggle-button .arrow {

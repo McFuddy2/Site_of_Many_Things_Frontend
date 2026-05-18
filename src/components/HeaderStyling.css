@@ -8,7 +8,7 @@
 	color: #ffffff;
 	box-sizing: border-box;
 	width: 100%;
-	height: 6vh; /* 6% of viewport height */
+	height: var(--header-height);
 	flex-shrink: 0; /* Prevent shrinking */
 	position: relative;
 	z-index: 20000;

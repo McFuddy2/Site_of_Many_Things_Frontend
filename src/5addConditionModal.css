@@ -24,7 +24,7 @@
     position: relative;
     height: auto;
     min-height: 560px;
-    max-height: 90vh;
+    max-height: calc(var(--app-vh) * 0.9);
     overflow-y: auto;
   }
 
