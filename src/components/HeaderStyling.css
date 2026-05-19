@@ -172,6 +172,15 @@
 }
 
 @media screen and (max-width: 767px) {
+	.mob-menu-button-kofi {
+		white-space: nowrap;
+		font-size: clamp(0.7rem, 4vw, 1.08rem);
+		background-color: var(--golden-highlight) !important;
+		color: #000 !important;
+	}
+}
+
+@media screen and (max-width: 767px) {
 	.header {
 		background-color: var(--menu-bar-background);
 		justify-content: space-between;

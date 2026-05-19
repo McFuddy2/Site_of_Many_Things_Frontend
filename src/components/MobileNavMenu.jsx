@@ -22,6 +22,19 @@ export default function MobileNavMenu({setShowMobileModalMenu}) {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="mobile-header-menu-sections">
+          <div className="mobile-header-menu-section mobile-header-menu-support-section">
+            <div className="mobile-header-menu-modal-buttons">
+              <a
+                href="https://ko-fi.com/siteofmanythings"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 transition mob-menu-button mob-menu-button-kofi"
+              >
+                Support Us on Ko-fi
+              </a>
+            </div>
+          </div>
+
           <div className="mobile-header-menu-section mobile-header-menu-title-section">
             <h2 className="mobile-header-menu-title">Tools</h2>
           </div>

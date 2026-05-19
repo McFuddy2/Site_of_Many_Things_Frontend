@@ -91,5 +91,29 @@
 
 	.spell-list-wrapper {
 		width: 100%;
+		/* Mirror initiative tracker .wrapper sizing */
+		height: calc(var(--app-vh) - (2 * var(--header-height)));
+		min-height: calc(var(--app-vh) - (2 * var(--header-height)));
+		padding: 1.5vh 2.5vw;
+		box-sizing: border-box;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Mirror initiative tracker .app-container sizing */
+	.app-container-spell-searcher {
+		height: 93%;
+		min-height: 0;
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	html, body {
+		overflow-y: hidden !important;
+		height: 100vh;
+		max-height: 100vh;
 	}
 }
