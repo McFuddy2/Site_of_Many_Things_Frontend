@@ -530,6 +530,23 @@
 	}
 }
 
+@media screen and (min-width: 768px) {
+	.sort-by-toggle {
+		width: 15%;
+		min-width: 240px;
+		height: 3rem;
+		padding: 0.3rem;
+	}
+
+	.text-and-toggles .sort-by-toggle .sort-by-option {
+		font-size: 0.95rem;
+	}
+
+	.text-and-toggles .sort-by-toggle .sort-by-option::before {
+		content: none;
+	}
+}
+
 .sort-by-option {
 	font-size: 0.95rem;
 	font-weight: 600;
@@ -575,6 +592,47 @@
 	.spell-search-spell-list {
 		height: auto;
 		flex: 0 1 auto;
+		min-height: 0;
+	}
+}
+
+@media screen and (min-width: 768px) {
+	.spell-list-wrapper {
+		gap: 1%;
+	}
+
+	.app-container-spell-searcher {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		gap: 1%;
+	}
+
+	.spell-search-sort-bar {
+		height: 10%;
+		flex: 0 0 10%;
+		max-height: 10%;
+		min-height: 0;
+		margin-bottom: 0;
+		overflow: hidden;
+	}
+
+	.column-view-section,
+	.sort-by-toggle-section,
+	.page-of-spell-list,
+	.text-and-toggles {
+		min-height: 0;
+		height: 100%;
+	}
+
+	.sort-by-toggle {
+		height: min(3rem, 82%);
+	}
+
+	.spell-search-spell-list {
+		height: 89% !important;
+		flex: 0 0 89%;
 		min-height: 0;
 	}
 }
