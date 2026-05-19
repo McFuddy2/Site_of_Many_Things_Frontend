@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import './1colors.css';
 import './2mainStyles.css';
@@ -134,26 +134,26 @@ export default function MainCode() {
   });
 
   const [conditionDescriptions, setConditionDescriptions] = useState(JSON.parse(localStorage.getItem("condition-descriptions")) ?? {
-    Blinded: "• Can’t See. You can’t see and automatically fail any ability check that requires sight. ???• Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.",
-    Charmed: "• Can’t Harm the Charmer. You can’t attack the charmer or target the charmer with damaging abilities or magical effects.???• Social Advantage. The charmer has Advantage on any ability check to interact with you socially.",
-    Deafened: "• Can’t Hear. You can’t hear and automatically fail any ability check that requires hearing.",
-    Frightened: "• Ability Checks and Attacks Affected. You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight.???• Can’t Approach. You can’t willingly move closer to the source of fear.",
-    Grappled: "• Speed 0. Your Speed is 0 and can’t increase.???• Attacks Affected. You have Disadvantage on attack rolls against any target other than the grappler.???• Movable. The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot unless you are Tiny or two or more sizes smaller than it.",
-    Incapacitated: "• Inactive. You can’t take any action, Bonus Action, or Reaction.???• No Concentration. Your Concentration is broken.???• Speechless. You can’t speak.???• Surprised. If you’re Incapacitated when you roll Initiative, you have Disadvantage on the roll.",
-    Invisible: "• Surprise. If you’re Invisible when you roll Initiative, you have Advantage on the roll.???• Concealed. You aren’t affected by any effect that requires its target to be seen unless the effect’s creator can somehow see you. Any equipment you are wearing or carrying is also concealed.???• Attacks Affected. Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you don’t gain this benefit against that creature.",
-    Paralyzed: "• Incapacitated. You have the Incapacitated condition.???• Speed 0. Your Speed is 0 and can’t increase.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Attacks Affected. Attack rolls against you have Advantage.???• Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.",
-    Petrified: "• Turned to Inanimate Substance. You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging.???• Incapacitated. You have the Incapacitated condition.???• Speed 0. Your Speed is 0 and can’t increase.???• Attacks Affected. Attack rolls against you have Advantage.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Resist Damage. You have Resistance to all damage.???• Poison Immunity. You have Immunity to the Poisoned condition.",
-    Poisoned: "• Ability Checks and Attacks Affected. You have Disadvantage on attack rolls and ability checks.",
-    Prone: "• Restricted Movement. Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you can’t right yourself.???• Attacks Affected. You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage.",
-    Restrained: "• Speed 0. Your Speed is 0 and can’t increase.???• Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.???• Saving Throws Affected. You have Disadvantage on Dexterity saving throws.",
-    Stunned: "• Incapacitated. You have the Incapacitated condition.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Attacks Affected. Attack rolls against you have Advantage.",
-    Unconscious: "• Inert. You have the Incapacitated and Prone conditions, and you drop whatever you’re holding. When this condition ends, you remain Prone.???• Speed 0. Your Speed is 0 and can’t increase.???• Attacks Affected. Attack rolls against you have Advantage.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.???• Unaware. You’re unaware of your surroundings.",
-    Exhaustion1: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 2.???• Speed Reduced. Your Speed is reduced by 5 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion2: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 4.???• Speed Reduced. Your Speed is reduced by 10 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion3: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 6.???• Speed Reduced. Your Speed is reduced by 15 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion4: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 8.???• Speed Reduced. Your Speed is reduced by 20 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion5: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 10.???• Speed Reduced. Your Speed is reduced by 25 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion6: "• You are Dead.???• If you are revived after dying this way, you return to life with Exhaustion5.",
+    Blinded: "ΓÇó CanΓÇÖt See. You canΓÇÖt see and automatically fail any ability check that requires sight. ???ΓÇó Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.",
+    Charmed: "ΓÇó CanΓÇÖt Harm the Charmer. You canΓÇÖt attack the charmer or target the charmer with damaging abilities or magical effects.???ΓÇó Social Advantage. The charmer has Advantage on any ability check to interact with you socially.",
+    Deafened: "ΓÇó CanΓÇÖt Hear. You canΓÇÖt hear and automatically fail any ability check that requires hearing.",
+    Frightened: "ΓÇó Ability Checks and Attacks Affected. You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight.???ΓÇó CanΓÇÖt Approach. You canΓÇÖt willingly move closer to the source of fear.",
+    Grappled: "ΓÇó Speed 0. Your Speed is 0 and canΓÇÖt increase.???ΓÇó Attacks Affected. You have Disadvantage on attack rolls against any target other than the grappler.???ΓÇó Movable. The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot unless you are Tiny or two or more sizes smaller than it.",
+    Incapacitated: "ΓÇó Inactive. You canΓÇÖt take any action, Bonus Action, or Reaction.???ΓÇó No Concentration. Your Concentration is broken.???ΓÇó Speechless. You canΓÇÖt speak.???ΓÇó Surprised. If youΓÇÖre Incapacitated when you roll Initiative, you have Disadvantage on the roll.",
+    Invisible: "ΓÇó Surprise. If youΓÇÖre Invisible when you roll Initiative, you have Advantage on the roll.???ΓÇó Concealed. You arenΓÇÖt affected by any effect that requires its target to be seen unless the effectΓÇÖs creator can somehow see you. Any equipment you are wearing or carrying is also concealed.???ΓÇó Attacks Affected. Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you donΓÇÖt gain this benefit against that creature.",
+    Paralyzed: "ΓÇó Incapacitated. You have the Incapacitated condition.???ΓÇó Speed 0. Your Speed is 0 and canΓÇÖt increase.???ΓÇó Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???ΓÇó Attacks Affected. Attack rolls against you have Advantage.???ΓÇó Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.",
+    Petrified: "ΓÇó Turned to Inanimate Substance. You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging.???ΓÇó Incapacitated. You have the Incapacitated condition.???ΓÇó Speed 0. Your Speed is 0 and canΓÇÖt increase.???ΓÇó Attacks Affected. Attack rolls against you have Advantage.???ΓÇó Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???ΓÇó Resist Damage. You have Resistance to all damage.???ΓÇó Poison Immunity. You have Immunity to the Poisoned condition.",
+    Poisoned: "ΓÇó Ability Checks and Attacks Affected. You have Disadvantage on attack rolls and ability checks.",
+    Prone: "ΓÇó Restricted Movement. Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you canΓÇÖt right yourself.???ΓÇó Attacks Affected. You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage.",
+    Restrained: "ΓÇó Speed 0. Your Speed is 0 and canΓÇÖt increase.???ΓÇó Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.???ΓÇó Saving Throws Affected. You have Disadvantage on Dexterity saving throws.",
+    Stunned: "ΓÇó Incapacitated. You have the Incapacitated condition.???ΓÇó Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???ΓÇó Attacks Affected. Attack rolls against you have Advantage.",
+    Unconscious: "ΓÇó Inert. You have the Incapacitated and Prone conditions, and you drop whatever youΓÇÖre holding. When this condition ends, you remain Prone.???ΓÇó Speed 0. Your Speed is 0 and canΓÇÖt increase.???ΓÇó Attacks Affected. Attack rolls against you have Advantage.???ΓÇó Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???ΓÇó Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.???ΓÇó Unaware. YouΓÇÖre unaware of your surroundings.",
+    Exhaustion1: "ΓÇó D20 Tests Affected. When you make a D20 Test, the roll is reduced by 2.???ΓÇó Speed Reduced. Your Speed is reduced by 5 feet.???ΓÇó Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+    Exhaustion2: "ΓÇó D20 Tests Affected. When you make a D20 Test, the roll is reduced by 4.???ΓÇó Speed Reduced. Your Speed is reduced by 10 feet.???ΓÇó Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+    Exhaustion3: "ΓÇó D20 Tests Affected. When you make a D20 Test, the roll is reduced by 6.???ΓÇó Speed Reduced. Your Speed is reduced by 15 feet.???ΓÇó Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+    Exhaustion4: "ΓÇó D20 Tests Affected. When you make a D20 Test, the roll is reduced by 8.???ΓÇó Speed Reduced. Your Speed is reduced by 20 feet.???ΓÇó Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+    Exhaustion5: "ΓÇó D20 Tests Affected. When you make a D20 Test, the roll is reduced by 10.???ΓÇó Speed Reduced. Your Speed is reduced by 25 feet.???ΓÇó Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+    Exhaustion6: "ΓÇó You are Dead.???ΓÇó If you are revived after dying this way, you return to life with Exhaustion5.",
     "(Custom)": "Filler description for custom condition.",
   });
   
@@ -2617,10 +2617,6 @@ export default function MainCode() {
             </div>
           </div>
 
-          <div className="right-show-conditions" onClick={showMobileConditionsPanel}>
-            View Conditions →
-          </div>
-
           <div className="conditions-list">
             <img src={cornerBorder} alt="Corner Border" className="corner-border-image corner-top-left" />
             <img src={cornerBorder} alt="Corner Border" className="corner-border-image corner-top-right" />
@@ -2700,6 +2696,16 @@ export default function MainCode() {
             </div>
             </div>
         </div>
+
+        <div className="mobile-page-change">
+          <div className="right-show-conditions" onClick={showMobileConditionsPanel}>
+            View Conditions &rarr;
+          </div>
+          <div className="left-show-initiative" onClick={showMobileInitiativePanel}>
+            &larr; View Initiatives
+          </div>
+        </div>
+
         {isTutorialModalOpen && !isGuidedTutorialModalOpen && (
           <div className="modal-overlay tutorial-modal-overlay">
             <div className="tutorial-modal">
@@ -2719,17 +2725,17 @@ export default function MainCode() {
                 <p className="tutorial-modal-intro-text">
                   This is a <strong>free D&amp;D 5e initiative tracker</strong> built for Dungeon Masters and players
                   who want combat to move quickly and stay readable. Track turn order, rounds, conditions, and
-                  concentration during live play—without spreadsheets, clutter, or account setup.
+                  concentration during live playΓÇöwithout spreadsheets, clutter, or account setup.
                 </p>
 
                 <p className="tutorial-modal-intro-text-large">
                   Unlike many initiative trackers built only for the DM, this tracker is designed to be shared.
-                  Whether you’re casting it to a TV at the table or screen-sharing during a remote session,
+                  Whether youΓÇÖre casting it to a TV at the table or screen-sharing during a remote session,
                   everyone can see the turn order, conditions, and flow of combat at a glance.
                 </p>
 
                 <p className="tutorial-modal-intro-text-large">
-                  If you’re playing D&amp;D 5e, this will feel immediately familiar. If you’re playing another system, it
+                  If youΓÇÖre playing D&amp;D 5e, this will feel immediately familiar. If youΓÇÖre playing another system, it
                   still works great for tracking turn order, conditions, and combat flow.
                 </p>
 
@@ -2761,7 +2767,7 @@ export default function MainCode() {
                     <ul>
                       <li><strong>Speed:</strong> fewer clicks, less setup, more playing.</li>
                       <li><strong>Clarity:</strong> turn order and key info stays readable.</li>
-                      <li><strong>Focus:</strong> you should be running a scene—not managing a spreadsheet.</li>
+                      <li><strong>Focus:</strong> you should be running a sceneΓÇönot managing a spreadsheet.</li>
                       <li><strong>Shared clarity:</strong> <strong>Shared visibility:</strong> designed to be readable by the whole table, not just the DM.</li>
                     </ul>
                   </div>
@@ -2780,7 +2786,7 @@ export default function MainCode() {
                       <div>
                         <p className="tutorial-modal-faq-item">Is this free?</p>
                         <p>
-                          Yes. The Initiative Tracker is free to use. Over time we’ll add more tools and optional upgrades,
+                          Yes. The Initiative Tracker is free to use. Over time weΓÇÖll add more tools and optional upgrades,
                           but the goal is always: useful first.
                         </p>
                       </div>
@@ -2788,7 +2794,7 @@ export default function MainCode() {
                       <div>
                         <p className="tutorial-modal-faq-item">Does it work for D&amp;D 5e?</p>
                         <p>
-                          Yep. It’s built with D&amp;D 5e flow in mind, but it works for any tabletop system with initiative /
+                          Yep. ItΓÇÖs built with D&amp;D 5e flow in mind, but it works for any tabletop system with initiative /
                           turn order.
                         </p>
                       </div>
@@ -2885,10 +2891,6 @@ export default function MainCode() {
       contentKey="initiative"
     />
 
-      <div className="left-show-initiative" onClick={showMobileInitiativePanel}>
-          ← View Initiatives
-        </div>
-  
         {/* Add-Character Modal */}
       {isModalOpen !== null && (
         <div className="modal-overlay add-character-modal">
@@ -3507,10 +3509,10 @@ export default function MainCode() {
 
                       if (condition === '(Custom)') {
                         if (selectedConditions.includes('(Custom)')) {
-                          // If already selected, clicking again deselects it — so close the modal
+                          // If already selected, clicking again deselects it ΓÇö so close the modal
                           setIsCustomConditionModalOpen(false);
                         } else {
-                          // If not selected, clicking selects it — so open the modal
+                          // If not selected, clicking selects it ΓÇö so open the modal
                           setIsCustomConditionModalOpen(true);
                         }
                       }
@@ -4003,3 +4005,4 @@ export default function MainCode() {
     </div>
   );
 }
+
