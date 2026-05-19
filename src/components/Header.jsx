@@ -15,72 +15,56 @@ export default function Header({toggleSidebar}) {
   useEffect(() => {
     document.body.classList.add("kofi-overlay-custom-trigger");
 
-    const positionKofiLauncher = () => {
+    // Helper to hide Ko-fi widget on mobile
+    const hideKofiWidgetOnMobile = () => {
       const desktopIframe = document.getElementById(`kofi-wo-container${KOFI_WIDGET_CSS_ID}`);
       const desktopWrap = desktopIframe?.parentElement;
-
-      if (desktopWrap) {
-        desktopWrap.style.setProperty("position", "fixed", "important");
-        desktopWrap.style.setProperty("top", "2px", "important");
-        desktopWrap.style.setProperty("right", "44px", "important");
-        desktopWrap.style.setProperty("left", "auto", "important");
-        desktopWrap.style.setProperty("bottom", "auto", "important");
-        desktopWrap.style.setProperty("width", "140px", "important");
-        desktopWrap.style.setProperty("height", "56px", "important");
-        desktopWrap.style.setProperty("margin", "0", "important");
-        desktopWrap.style.setProperty("padding", "0", "important");
-        desktopWrap.style.setProperty("overflow", "visible", "important");
-        desktopWrap.style.setProperty("transform", "scale(0.8)", "important");
-        desktopWrap.style.setProperty("transform-origin", "top right", "important");
-        desktopWrap.style.setProperty("z-index", "20003", "important");
-        desktopWrap.style.setProperty("opacity", "1", "important");
-        desktopWrap.style.setProperty("pointer-events", "auto", "important");
-      }
-
-      if (desktopIframe) {
-        desktopIframe.style.setProperty("position", "static", "important");
-        desktopIframe.style.setProperty("width", "140px", "important");
-        desktopIframe.style.setProperty("height", "56px", "important");
-        desktopIframe.style.setProperty("margin", "0", "important");
-        desktopIframe.style.setProperty("padding", "0", "important");
-        desktopIframe.style.setProperty("overflow", "visible", "important");
-        desktopIframe.style.setProperty("border", "0", "important");
-        desktopIframe.style.setProperty("display", "block", "important");
-        desktopIframe.style.setProperty("transform", "none", "important");
-        desktopIframe.style.setProperty("z-index", "20003", "important");
-      }
-
       const mobileIframe = document.getElementById(`kofi-wo-container-mobi${KOFI_WIDGET_CSS_ID}`);
       const mobileWrap = mobileIframe?.parentElement;
-      if (mobileWrap) {
-        mobileWrap.style.setProperty("display", "none", "important");
-      }
-      if (mobileIframe) {
-        mobileIframe.style.setProperty("display", "none", "important");
-      }
-
-      // Hide the desktop widget entirely on mobile viewports
       if (window.innerWidth <= 767) {
-        if (desktopWrap) {
-          desktopWrap.style.setProperty("display", "none", "important");
-        }
-        if (desktopIframe) {
-          desktopIframe.style.setProperty("display", "none", "important");
-        }
+        // Catch-all selectors for any launcher variant the script injects.
+        const floatingWrappers = document.querySelectorAll(
+          '.floatingchat-container-wrap, [id^="kofi-wo-container"], [id^="kofi-wo-container-mobi"]'
+        );
+        if (desktopWrap) desktopWrap.style.setProperty("display", "none", "important");
+        if (desktopIframe) desktopIframe.style.setProperty("display", "none", "important");
+        if (mobileWrap) mobileWrap.style.setProperty("display", "none", "important");
+        if (mobileIframe) mobileIframe.style.setProperty("display", "none", "important");
+        floatingWrappers.forEach((el) => {
+          el.style.setProperty("display", "none", "important");
+          el.style.setProperty("visibility", "hidden", "important");
+          el.style.setProperty("pointer-events", "none", "important");
+        });
+      } else {
+        // Restore desktop widget on desktop
+        if (desktopWrap) desktopWrap.style.removeProperty("display");
+        if (desktopIframe) desktopIframe.style.removeProperty("display");
       }
     };
 
+    // MutationObserver to catch late-injected Ko-fi widget
+    const observer = new MutationObserver(() => {
+      hideKofiWidgetOnMobile();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    window.addEventListener("resize", hideKofiWidgetOnMobile);
+
+    // Ko-fi widget injection logic (unchanged)
     const drawKofiOverlay = () => {
-      if (window.__kofiOverlayInitialized) {
-        window.requestAnimationFrame(positionKofiLauncher);
-        window.setTimeout(positionKofiLauncher, 250);
+      if (window.innerWidth <= 767) {
+        hideKofiWidgetOnMobile();
         return;
       }
 
+      if (window.__kofiOverlayInitialized) {
+        window.requestAnimationFrame(hideKofiWidgetOnMobile);
+        window.setTimeout(hideKofiWidgetOnMobile, 250);
+        return;
+      }
       if (!window.kofiWidgetOverlay?.draw) {
         return;
       }
-
       window.kofiWidgetOverlay.draw('siteofmanythings', {
         'type': 'floating-chat',
         'floating-chat.cssId': KOFI_WIDGET_CSS_ID,
@@ -89,46 +73,35 @@ export default function Header({toggleSidebar}) {
         'floating-chat.donateButton.background-color': '#794bc4',
         'floating-chat.donateButton.text-color': '#fff'
       });
-
-      window.requestAnimationFrame(positionKofiLauncher);
-      window.setTimeout(positionKofiLauncher, 250);
-
+      window.requestAnimationFrame(hideKofiWidgetOnMobile);
+      window.setTimeout(hideKofiWidgetOnMobile, 250);
       window.__kofiOverlayInitialized = true;
     };
 
-    window.addEventListener("resize", positionKofiLauncher);
-
     if (window.kofiWidgetOverlay?.draw) {
       drawKofiOverlay();
-      return () => {
-        document.body.classList.remove("kofi-overlay-custom-trigger");
-        window.removeEventListener("resize", positionKofiLauncher);
-      };
+    } else {
+      const scriptId = "kofi-overlay-widget-script";
+      const existingScript = document.getElementById(scriptId);
+      if (existingScript) {
+        existingScript.addEventListener("load", drawKofiOverlay);
+      } else {
+        const script = document.createElement("script");
+        script.id = scriptId;
+        script.src = "https://storage.ko-fi.com/cdn/scripts/overlay-widget.js";
+        script.async = true;
+        script.onload = drawKofiOverlay;
+        document.body.appendChild(script);
+      }
     }
 
-    const scriptId = "kofi-overlay-widget-script";
-    const existingScript = document.getElementById(scriptId);
-
-    if (existingScript) {
-      existingScript.addEventListener("load", drawKofiOverlay);
-      return () => {
-        document.body.classList.remove("kofi-overlay-custom-trigger");
-        window.removeEventListener("resize", positionKofiLauncher);
-        existingScript.removeEventListener("load", drawKofiOverlay);
-      };
-    }
-
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.src = "https://storage.ko-fi.com/cdn/scripts/overlay-widget.js";
-    script.async = true;
-    script.onload = drawKofiOverlay;
-    document.body.appendChild(script);
+    // Initial hide in case widget is already present
+    hideKofiWidgetOnMobile();
 
     return () => {
       document.body.classList.remove("kofi-overlay-custom-trigger");
-      window.removeEventListener("resize", positionKofiLauncher);
-      script.onload = null;
+      window.removeEventListener("resize", hideKofiWidgetOnMobile);
+      observer.disconnect();
     };
   }, []);
 

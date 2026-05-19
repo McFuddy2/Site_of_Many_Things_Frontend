@@ -311,3 +311,14 @@ body.kofi-overlay-custom-trigger .floatingchat-container-wrap {
 	z-index: 20003 !important;
 }
 
+@media screen and (max-width: 767px) {
+	body.kofi-overlay-custom-trigger .floatingchat-container-wrap,
+	body.kofi-overlay-custom-trigger [id^="kofi-wo-container"],
+	body.kofi-overlay-custom-trigger [id^="kofi-wo-container-mobi"],
+	body.kofi-overlay-custom-trigger .floatingchat-container-wrap * {
+		display: none !important;
+		visibility: hidden !important;
+		pointer-events: none !important;
+	}
+}
+

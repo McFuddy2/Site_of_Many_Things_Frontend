@@ -74,6 +74,10 @@
 
 .spell-list-wrapper {
 	width: 75%;
+	height: 100% !important;
+	min-height: 0 !important;
+	align-items: flex-start !important;
+	justify-content: flex-start !important;
 }
 
 .spell-filter-wrapper {
@@ -103,7 +107,7 @@
 
 	/* Mirror initiative tracker .app-container sizing */
 	.app-container-spell-searcher {
-		height: 93%;
+		height: 88%;
 		min-height: 0;
 		flex-shrink: 0;
 		display: flex;
