@@ -58,6 +58,16 @@ export default function Header({toggleSidebar}) {
       if (mobileIframe) {
         mobileIframe.style.setProperty("display", "none", "important");
       }
+
+      // Hide the desktop widget entirely on mobile viewports
+      if (window.innerWidth <= 767) {
+        if (desktopWrap) {
+          desktopWrap.style.setProperty("display", "none", "important");
+        }
+        if (desktopIframe) {
+          desktopIframe.style.setProperty("display", "none", "important");
+        }
+      }
     };
 
     const drawKofiOverlay = () => {

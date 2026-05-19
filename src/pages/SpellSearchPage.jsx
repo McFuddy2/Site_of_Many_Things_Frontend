@@ -2209,6 +2209,7 @@ export default function SpellSearchPage() {
 		<div className="spell-search-page-container">
 		<div className="spell-search-page">
 			<div className="spell-list-wrapper" ref={spellListWrapperRef}>
+				<div className="app-container-spell-searcher">
 				<div className="spell-search-sort-bar">
 					<div className="column-view-section">
 						<button
@@ -2438,6 +2439,7 @@ export default function SpellSearchPage() {
 						<div className="spell-list-empty-state">{emptySpellMessage}</div>
 					) : null}
 				</div>
+				</div> {/* app-container-spell-searcher */}
 				{isMobileFiltersModalOpen ? (
 					<div className="mobile-filters-modal-backdrop" onClick={closeMobileFiltersModalAndClearList}>
 						<div
