@@ -1,3 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://siteofmanythings-production.up.railway.app";
+const isDev = import.meta.env.DEV;
+const devApiBaseUrl = import.meta.env.VITE_DEV_API_BASE_URL || "";
+const prodApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://siteofmanythings-production.up.railway.app";
 
-export const SPELL_SEARCH_URL = `${API_BASE}/api/v1`;
+const API_BASE = isDev ? devApiBaseUrl : prodApiBaseUrl;
+
+export const SPELL_SEARCH_URL = isDev && !devApiBaseUrl ? "/api/v1" : `${API_BASE}/api/v1`;
