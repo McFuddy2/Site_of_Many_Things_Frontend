@@ -1,7 +1,7 @@
-@import './1colors.css';
+﻿@import './1colors.css';
   
 .custom-condition-modal {
-  background-color: var(--condition-modal-background); /* ✅ this will now apply */
+  background-color: var(--condition-modal-background); /* âœ… this will now apply */
   padding: 15px;
   border-radius: 10px;
   width: 350px;
@@ -223,8 +223,8 @@ margin-left: 1%;
 .selectable-item {
   display: flex;
   align-items: flex-start;      /* align buttons to top of first line */
-  justify-content: flex-start;  /* ✅ keep items left-aligned */
-  text-align: left;             /* ✅ ensure text wraps left */
+  justify-content: flex-start;  /* âœ… keep items left-aligned */
+  text-align: left;             /* âœ… ensure text wraps left */
   gap: 0;                       /* remove any gap, buttons have their own margin */ 
 }
 
@@ -286,7 +286,7 @@ font-size: large;
   }
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .custom-condition-modal .modal-button-group {
     gap: 2%;
   }
