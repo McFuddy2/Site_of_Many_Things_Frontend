@@ -1,4 +1,4 @@
-@import './1colors.css';
+﻿@import './1colors.css';
 
 .spell-list-wrapper {
 	display: flex;
@@ -26,7 +26,7 @@
 	justify-content: center;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.column-view-section {
 		display: none;
 	}
@@ -57,7 +57,7 @@
 	box-sizing: border-box;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.sort-by-toggle-section {
 		width: 66.67%;
 		padding: 0.25rem 0;
@@ -76,7 +76,7 @@
 	width: 100%;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.text-and-toggles {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -115,11 +115,11 @@
 	}
 
 	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(2)::before {
-		content: "▲";
+		content: "â–²";
 	}
 
 	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(3)::before {
-		content: "▼";
+		content: "â–¼";
 	}
 }
 
@@ -138,7 +138,7 @@
 	display: none;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.page-of-spell-list {
 		width: 33.33%;
 	}
@@ -199,7 +199,7 @@
 	display: none;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.mobile-filters-button {
 		display: block;
 	}
@@ -519,7 +519,7 @@
 	height: 3rem;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.sort-by-toggle {
 		width: 88%;
 		min-width: auto;
@@ -530,7 +530,7 @@
 	}
 }
 
-@media screen and (min-width: 768px) {
+@media screen and (min-width: 1025px) {
 	.sort-by-toggle {
 		width: 15%;
 		min-width: 240px;
@@ -588,7 +588,7 @@
 	background-color: transparent;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.spell-search-spell-list {
 		height: auto;
 		flex: 0 1 auto;
@@ -596,7 +596,7 @@
 	}
 }
 
-@media screen and (min-width: 768px) {
+@media screen and (min-width: 1025px) {
 	.spell-list-wrapper {
 		gap: 1%;
 	}
@@ -692,7 +692,7 @@
 	display: none;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.spell-copy-info-button,
 	.spell-copy-description-button {
 		display: none !important;

@@ -1,10 +1,10 @@
-@import './1colors.css';
+﻿@import './1colors.css';
 
 .delete-confirm-modal {
   z-index: 2000;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .settings-modal {
     z-index: 1100;
   }
@@ -173,7 +173,7 @@
   width: 40%;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .settings-new-combat-button {
     font-size: 0.91rem;
   }
@@ -228,4 +228,5 @@
   margin-top: 10px;
   width: 100%;
 }
+
 

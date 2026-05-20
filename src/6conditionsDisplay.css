@@ -1,4 +1,4 @@
-@import './1colors.css';
+﻿@import './1colors.css';
   
   .conditions-list-banner {
     background-color: transparent;
@@ -259,7 +259,7 @@
   }
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .conditions-list-banner {
     min-height: 64px;
     max-height: 64px;

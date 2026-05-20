@@ -1,4 +1,4 @@
-@import '../1colors.css';
+﻿@import '../1colors.css';
 
 .sidebar {
   position: fixed;
@@ -184,12 +184,26 @@
   gap: 0.5rem;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .sidebar {
     display: none;
   }
 
   .sidebar-backdrop {
     display: none;
+  }
+}
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .mobile-header-menu-title {
+    font-size: 1.8rem; /* Increased font size for tablet */
+  }
+
+  .sidebar-button,
+  .sidebar-button-help,
+  .sidebar-button-initiative {
+    font-size: 2rem; /* Ensure larger font size */
+    height: 3rem; /* Increase button height for tablet */
+    padding: 0.75rem; /* Adjust padding for better spacing */
   }
 }

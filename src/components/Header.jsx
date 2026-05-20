@@ -150,6 +150,14 @@ export default function Header({toggleSidebar}) {
         </button>
 
         <div className="header-spacer"></div>
+        <a
+          href="https://ko-fi.com/siteofmanythings"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="header-support-btn"
+        >
+          Support Us
+        </a>
       </nav>
       <Link to="/" className="header-brand">
         {"Site of Many Things"}

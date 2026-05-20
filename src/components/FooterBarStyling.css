@@ -1,4 +1,4 @@
-/* Footer Bar Styling */
+﻿/* Footer Bar Styling */
 
 .footer-bar {
   position: fixed;
@@ -86,9 +86,10 @@
   opacity: 0.95;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .footer-bar,
   .footer-toggle-button {
     display: none !important;
   }
 }
+

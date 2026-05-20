@@ -1,4 +1,4 @@
-@import "1colors.css";
+﻿@import "1colors.css";
 
 /* Initiative Tracker Landing Page Styles */
 
@@ -44,7 +44,7 @@
   flex-wrap: wrap;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1025px) {
   .initiative-tracker-landing-page-top {
     flex-wrap: nowrap;
   }
@@ -179,7 +179,7 @@ ul {
   line-height: 1.25rem;
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .contact-page-wrapper {
     height: 90%;
     overflow-y: auto;
@@ -401,3 +401,4 @@ ul {
   gap: 12px;
   color: rgba(255,255,255,0.92);
 }
+

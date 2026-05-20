@@ -1,4 +1,4 @@
-@import './1colors.css';
+﻿@import './1colors.css';
 
 .modal-overlay {
     position: fixed;
@@ -324,7 +324,7 @@
   }
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .condition-modal {
     width: 90%;
     max-width: 90%;
