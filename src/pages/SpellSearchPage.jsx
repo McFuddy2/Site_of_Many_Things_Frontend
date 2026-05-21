@@ -761,7 +761,7 @@ export default function SpellSearchPage() {
 			case "School":
 				return ["Abjuration", "Conjuration", "Divination", "Enchantment", "Evocation", "Illusion", "Necromancy", "Transmutation"];
 			case "Class":
-				return ["Artificer", "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
+				return ["Artificer", "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Special", "Warlock", "Wizard"];
 			case "Ritual":
 				return ["Yes", "No"];
 			case "Concentration":
