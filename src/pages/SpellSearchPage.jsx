@@ -13,6 +13,8 @@ import { setMetaDescription, setCanonical } from "../utils/seo";
 
 const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
+const emptySpellMessage = "No spells match your current filters.";
+const loadSpellErrorMessage = "Unable to load spells right now. Please try again.";
 
 export default function SpellSearchPage() {
 	const filterFieldOptions = [
@@ -246,7 +248,7 @@ export default function SpellSearchPage() {
 			setTotalPages(Math.max(1, Math.ceil(total / pageSize)));
 		} catch (error) {
 			console.error("Failed to fetch advanced spells:", error);
-			setLoadError(emptySpellMessage);
+			setLoadError(loadSpellErrorMessage);
 			setSpells({ items: [], total: 0, page_size: 20 });
 			setTotalPages(1);
 		} finally {
@@ -2434,7 +2436,7 @@ export default function SpellSearchPage() {
 							</div>
 						</div>
 					))}
-					{loadError ? <div className="spell-list-empty-state">{emptySpellMessage}</div> : null}
+					{loadError ? <div className="spell-list-empty-state">{loadError}</div> : null}
 					{!loadError && spellItems.length === 0 ? (
 						<div className="spell-list-empty-state">{emptySpellMessage}</div>
 					) : null}

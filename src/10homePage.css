@@ -1,4 +1,4 @@
-@import './1colors.css';
+﻿@import './1colors.css';
 
 .home-page-wrapper {
   width: 100%;
@@ -318,7 +318,7 @@
   background-image: url('./media/SpellSearcherButton.png');
 }
 
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .home-page-map-background {
     display: none;
   }
@@ -353,5 +353,26 @@
     height: 70%;
     justify-content: center;
     width: 100%;
+  }
+}
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .home-page-title,
+  .home-page-site-name {
+    display: flex; /* Ensure visibility */
+  }
+
+  .home-page-title {
+    font-size: 3.5rem; /* Adjusted font size for tablets */
+  }
+
+  .home-page-site-name {
+    margin-bottom: 1%; /* Reduce space below site name */
+    font-size: 2.5rem;
+  }
+
+  .home-page-description {
+    font-size: 2.5rem; /* Increased font size */
+    margin-top: 2%; /* Adjusted top margin for less space */
   }
 }
