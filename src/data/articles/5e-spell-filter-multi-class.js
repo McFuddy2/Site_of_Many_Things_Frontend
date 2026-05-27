@@ -1,27 +1,14 @@
-// src/data/articles.js
-// All articles live here. To add a new article, add a new object to this array.
-// Fields:
-//   slug         — URL path: /articles/[slug]
-//   title        — Page title and H1
-//   metaTitle    — <title> tag (can differ from title for SEO)
-//   metaDescription — <meta description> tag
-//   category     — "tool-guide" | "dm-tips" | "deep-dive"
-//   publishedDate — "YYYY-MM-DD" string
-//   excerpt      — Short summary shown on the index page
-//   content      — Full article in markdown
+export const spellFilterMultiClass = {
+  slug: "5e-spell-filter-multi-class",
+  title: "The 5e Spell Filter That Handles Multi-Class Exclusions",
+  metaTitle: "5e Spell Filter for Multi-Class Characters | Site of Many Things",
+  metaDescription:
+    "Most 5e spell search tools show you every spell for every class. This one lets you exclude spells your other class already covers — built for multi-class or party optimizer characters.",
+  category: "deep-dive",
+  publishedDate: "2026-04-09",
+  excerpt: "Most spell filtering tools let you narrow by level or class — but what about filtering *out* a class entirely? If you're multi-classing, that changes everything. Here's how inclusion and exclusion filtering works, and why it matters for your build.",
 
-export const articles = [
-  {
-    slug: "5e-spell-filter-multi-class",
-    title: "The 5e Spell Filter That Handles Multi-Class Exclusions",
-    metaTitle: "5e Spell Filter for Multi-Class Characters | Site of Many Things",
-    metaDescription:
-      "Most 5e spell search tools show you every spell for every class. This one lets you exclude spells your other class already covers — built for multi-class or party optimizer characters.",
-    category: "deep-dive",
-    publishedDate: "2026-04-09",
-    excerpt: "Most spell filtering tools let you narrow by level or class — but what about filtering *out* a class entirely? If you're multi-classing, that changes everything. Here's how inclusion and exclusion filtering works, and why it matters for your build.",
-
-    content: `
+  content: `
 ## A Problem Worth Solving
 
 If you've built a multi-class spellcaster in 5e, you've probably felt it — that moment where you open a spell list, filter by Wizard, and get buried under 200+ spells. Scrolling. Scrolling. Cross-referencing your Cleric list by hand to figure out which ones you actually *need*.
@@ -55,7 +42,7 @@ Try it like this:
 
 That's your actual expansion. Those are the spells worth thinking about.
 
-## Example Two: The Sorcerer's Dilemma 
+## Example Two: The Sorcerer's Dilemma
 
 You just hit level 5 with your Sorcerer. Big moment — level 3 spells are finally on the table. But unlike your Cleric friend who can just swap spells after a long rest, your Sorcerer is locked in until next level. This pick matters.
 
@@ -83,15 +70,4 @@ Head to the [Spell Searcher](/spell-search) and pull it up on your next build. S
 
 Even if you already know it's going to be Fireball.
 `.trim(),
-  },
-];
-
-// Helper: get a single article by slug
-export function getArticleBySlug(slug) {
-  return articles.find((a) => a.slug === slug) ?? null;
-}
-
-// Helper: get articles by category
-export function getArticlesByCategory(category) {
-  return articles.filter((a) => a.category === category);
-}
+};
