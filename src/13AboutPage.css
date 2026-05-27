@@ -53,7 +53,7 @@
   }
 
   .about-page-wrapper h1 {
-    font-size: 1.5rem !important;
+    font-size: 2rem !important;
   }
 
   .about-page-wrapper h2 {
@@ -62,7 +62,7 @@
 
   .about-page-wrapper p,
   .about-page-wrapper li {
-    font-size: 0.88rem;
+    font-size: 1.5rem;
     line-height: 1.4;
   }
 }

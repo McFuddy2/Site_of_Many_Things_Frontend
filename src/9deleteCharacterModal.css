@@ -23,3 +23,17 @@
   color: black;
   margin-bottom: 20px;
 }
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .delete-confirm-modal p {
+    font-size: 1.5rem;
+    line-height: 1.5;
+    margin-bottom: 28px;
+  }
+
+  .character-delete-modal-button-group button {
+    font-size: 1.5rem;
+    padding: 14px 26px;
+    margin: 0 12px;
+  }
+}

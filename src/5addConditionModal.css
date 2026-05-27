@@ -329,6 +329,10 @@
     width: 90%;
     max-width: 90%;
     position: relative;
+    height: 100%;
+    min-height: 72vh;
+    display: flex;
+    flex-direction: column;
   }
 
   .condition-mobile-apply-summary {
@@ -410,6 +414,9 @@
 
   .dual-modal-wrapper {
     width: 100%;
+    min-height: 72vh;
+    flex: 1 1 auto;
+    align-items: stretch;
   }
 
   .condition-modal-header .tooltip {
@@ -418,5 +425,87 @@
 
   .tooltiptext {
     display: none;
+  }
+}
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .characters-section .conditions-form-group > label {
+    width: 100%;
+    text-align: left;
+  }
+
+  .conditions-label-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .conditions-label-row label {
+    margin: 0;
+  }
+
+  .add-con-inline-custom {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    font-size: 1rem;
+    line-height: 1.1;
+  }
+
+  .condition-modal {
+    font-size: 1.5rem;
+  }
+
+  .condition-modal-header h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .condition-mobile-apply-summary {
+    font-size: 1rem;
+  }
+
+  .condition-modal .form-group > label,
+  .checkbox-item label, .condition-expiration-label,
+  .condition-modal .selectable-item,
+  .summon-target-item {
+    font-size: 1.5rem;
+  }
+
+  .mobile-characters-dropdown option, .conditions-dropwdown-list option {
+    padding: 2px 8px;
+  }
+
+  .condition-expiration-dropdown {
+    font-size: 1.5rem;
+  }
+
+  .condition-expiration-selection .condition-expiration-dropdown {
+    flex: 0 0 80% !important;
+    width: 80% !important;
+    max-width: 80% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .condition-expiration-dropdown option {
+    font-size: 0.75rem;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .condition-modal .close-modal-button,
+  .mobile-add-condition-close-button {
+    font-size: 2rem;
+  }
+
+  .condition-mobile-step-actions button,
+  .condition-modal button {
+    font-size: 1.5rem;
   }
 }

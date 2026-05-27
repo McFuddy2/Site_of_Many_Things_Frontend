@@ -339,3 +339,110 @@
     }
   }
 
+  @media screen and (min-width: 600px) and (max-width: 1024px) {
+    .add-character-modal .modal {
+      width: 50vw;
+      max-width: 99%;
+      height: 48vh;
+      max-height: 48vh;
+      padding: 22px;
+      font-size: 1.5em;
+    }
+
+    .add-character-modal .close-modal-button {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 3;
+      font-size: 2rem;
+    }
+
+    .add-character-modal .summons-side-panel {
+      width: 330px;
+      padding: 22px;
+      font-size: 1.5em;
+    }
+
+    .add-character-modal .form-input,
+    .add-character-modal .summons-input {
+      font-size: 1em;
+    }
+
+    .add-character-modal .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .add-character-modal .radio-group input[type="radio"] {
+      width: 1em;
+      height: 1em;
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+    .add-character-modal .summons-input-row {
+      align-items: stretch;
+    }
+
+    .add-character-modal .summons-add-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      margin-top: 2px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background-color: var(--golden-highlight);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .add-character-modal .summons-add-button img {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+
+    .add-character-modal .summons-remove-button {
+      height: auto;
+      align-self: stretch;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .add-character-modal .submit-button,
+    .add-character-modal .mobile-character-detail-back-button,
+    .add-character-modal .mobile-character-detail-submit-button {
+      font-size: 1.1em;
+      padding: 11px 22px;
+    }
+
+    .add-character-modal .enemy-count-limit-message,
+    .add-character-modal .summons-limit-message {
+      font-size: 1em;
+    }
+
+     .add-character-modal h2{
+      font-size: 1.4em;
+      margin-bottom: 38px;
+    }
+
+    .add-character-modal .modal-button-group {
+      margin-top: 22px;
+      gap: 11px;
+    }
+  }
+
