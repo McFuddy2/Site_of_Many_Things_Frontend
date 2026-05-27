@@ -7,7 +7,7 @@ import quillInk from "../media/quill-n-ink.png";
 import bookStack from "../media/book-stack.png";
 import circleXDeleteIcon from "../media/Circle_X_Delete_Icon.png";
 import copyScrollIcon from "../media/copy-scroll.png";
-import { getSpells, getSpell, queryAdvancedSpells } from "../API/spell_search/spells";
+import { getSpells, getSpell, queryAdvancedSpells, getSources } from "../API/spell_search/spells";
 import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 
@@ -22,6 +22,7 @@ export default function SpellSearchPage() {
 		"Level",
 		"School",
 		"Class",
+		"Source",
 		"Casting Time",
 		"Range",
 		"Duration",
@@ -96,7 +97,9 @@ export default function SpellSearchPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [spells, setSpells] = useState({ items: [], total: 0, page_size: 20 });
 	const [loadError, setLoadError] = useState("");
+	const [availableSources, setAvailableSources] = useState([]);
 	const [currentSpellDescription, setCurrentSpellDescription] = useState("");
+	const [currentSpellDetail, setCurrentSpellDetail] = useState(null);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(10);
 	const [secretCode, setSecretCode] = useState("");
@@ -233,6 +236,14 @@ export default function SpellSearchPage() {
 	}, []);
 
 	useEffect(() => {
+		getSources()
+			.then((data) => setAvailableSources(Array.isArray(data) ? data : []))
+			.catch((error) => {
+				console.error("Failed to fetch sources:", error);
+			});
+	}, []);
+
+	useEffect(() => {
 		fetchAdvancedSpells();
 	}, [sortBy, sortDirection, includeSelections, excludeSelections, currentPage]);
 
@@ -261,6 +272,7 @@ export default function SpellSearchPage() {
 			includeLevels = [],
 			includeSchools = [],
 			includeClasses = [],
+			includeSources = [],
 			includeCastingTimes = [],
 			includeRanges = [],
 			includeDurations = [],
@@ -271,6 +283,7 @@ export default function SpellSearchPage() {
 			excludeLevels = [],
 			excludeSchools = [],
 			excludeClasses = [],
+			excludeSources = [],
 			excludeCastingTimes = [],
 			excludeRanges = [],
 			excludeDurations = [],
@@ -295,6 +308,13 @@ export default function SpellSearchPage() {
 				.filter((entry) => entry.field === "Class")
 				.filter((entry) => entry.value !== "ALL")
 				.map((entry) => entry.value);
+			includeSources = includeSelections
+				.filter((entry) => entry.field === "Source")
+				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => {
+					const src = availableSources.find((s) => s.name === entry.value);
+					return src ? src.abbreviation : entry.value;
+				});
 			includeCastingTimes = includeSelections
 				.filter((entry) => entry.field === "Casting Time")
 				.filter((entry) => entry.value !== "ALL")
@@ -338,6 +358,13 @@ export default function SpellSearchPage() {
 				.filter((entry) => entry.field === "Class")
 				.filter((entry) => entry.value !== "ALL")
 				.map((entry) => entry.value);
+			excludeSources = excludeSelections
+				.filter((entry) => entry.field === "Source")
+				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => {
+					const src = availableSources.find((s) => s.name === entry.value);
+					return src ? src.abbreviation : entry.value;
+				});
 			excludeCastingTimes = excludeSelections
 				.filter((entry) => entry.field === "Casting Time")
 				.filter((entry) => entry.value !== "ALL")
@@ -418,6 +445,13 @@ export default function SpellSearchPage() {
 				})),
 			);
 		}
+		if (includeSources.length > 0) {
+			pushIncludeGroup(
+				includeSources.map((sourceValue) => ({
+					term: { field: "source", value: sourceValue }
+				})),
+			);
+		}
 		if (includeCastingTimes.length > 0) {
 			pushIncludeGroup(
 				includeCastingTimes.map((castingTime) => ({
@@ -485,6 +519,13 @@ export default function SpellSearchPage() {
 			pushExcludeGroup(
 				excludeClasses.map((cls) => ({
 					term: { field: "class", value: cls }
+				})),
+			);
+		}
+		if (excludeSources.length > 0) {
+			pushExcludeGroup(
+				excludeSources.map((sourceValue) => ({
+					term: { field: "source", value: sourceValue }
 				})),
 			);
 		}
@@ -764,6 +805,8 @@ export default function SpellSearchPage() {
 				return ["Abjuration", "Conjuration", "Divination", "Enchantment", "Evocation", "Illusion", "Necromancy", "Transmutation"];
 			case "Class":
 				return ["Artificer", "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Special", "Warlock", "Wizard"];
+			case "Source":
+				return availableSources.map((s) => s.name);
 			case "Ritual":
 				return ["Yes", "No"];
 			case "Concentration":
@@ -789,6 +832,8 @@ export default function SpellSearchPage() {
 				return "Select School";
 			case "Class":
 				return "Select Class";
+			case "Source":
+				return "Select Source";
 			case "Ritual":
 				return "Select Ritual";
 			case "Concentration":
@@ -1421,13 +1466,20 @@ export default function SpellSearchPage() {
 	};
 
 	const handleSpellNameClick = async (spellId) => {
+		if (expandedSpellId === spellId) {
+			setExpandedSpellId(null);
+			setCurrentSpellDetail(null);
+			return;
+		}
 		try {
 			const spell = await getSpell(spellId, ownerKey);
 			setCurrentSpellDescription(spell.description);
+			setCurrentSpellDetail(spell);
 		} catch (error) {
 			console.error("Error fetching spell details:", error);
+			setCurrentSpellDetail(null);
 		} finally {
-			setExpandedSpellId((previousId) => (previousId === spellId ? null : spellId));
+			setExpandedSpellId(spellId);
 		}
 	};
 
@@ -2396,6 +2448,9 @@ export default function SpellSearchPage() {
 									<div className="spell-accordion-description-body">
 										{renderDescriptionWithKeywordHighlights(spell.name, currentSpellDescription)}
 									</div>
+									{!currentSpellDescription?.startsWith("This spell is not in Creative Commons") && (
+										<div className="spell-source-label">Source: {currentSpellDetail?.source}</div>
+									)}
 									<div className="mobile-accordion-details-grid" role="group" aria-label={`${spell.name} mobile spell details`}>
 										<div className="mobile-accordion-cell">
 											<div className="spell-column-header">School</div>

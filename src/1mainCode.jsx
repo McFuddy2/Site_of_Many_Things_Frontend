@@ -89,7 +89,7 @@ export default function MainCode() {
   const initiativeListContentRef = useRef(null);
   const pendingActiveRowDataIndexRef = useRef(null);
 
-  const [round, setRound] = useState(JSON.parse(localStorage.getItem('round')) ?? 0);
+  const [round, setRound] = useState(JSON.parse(localStorage.getItem('round')) ?? 1);
 
   const [rowVisibility, setRowVisibility] = useState(JSON.parse(localStorage.getItem('row-visibility')) ??
     Array(20).fill(false).map((_, index) => index === 0)
@@ -831,7 +831,7 @@ export default function MainCode() {
     setRowData(updatedData);
     setRowVisibility(updatedVisibility);
     setOverlayActive(updatedOverlay);
-    setRound(0);
+    setRound(1);
     setShiftedRowIndex(null);
     setViewCharacterIndex(null);
     resetSettingsCheckboxes();
@@ -933,7 +933,7 @@ export default function MainCode() {
     );
     setRowVisibility(Array(30).fill(false).map((_, idx) => idx === 0));
     setOverlayActive(Array(30).fill(false).map((_, idx) => idx === 0));
-    setRound(0);
+    setRound(1);
     setShiftedRowIndex(null);
     setViewCharacterIndex(null);
     setIsSettingsModalOpen(false);
@@ -945,7 +945,7 @@ export default function MainCode() {
         setShowArmorClass(viewArmorClassToggle);
         setShowHitPoints(viewHitPointsToggle);
       }
-      if (resetRound) setRound(0);
+      if (resetRound) setRound(1);
       if (resetInitiative) {
         setRowData(prev =>
           prev.map(row => ({ ...row, initiative: 0 }))
@@ -1332,10 +1332,11 @@ export default function MainCode() {
         }
 
         setViewCharacterIndex(null);
-    
+        setViewedSummon(null);
+
         // Update the shifted row
         setShiftedRowIndex(nextRowIndex);
-    
+
         // Increment the round counter only if we loop back to the first row
         return nextRowIndex === 0 ? prevRound + 1 : prevRound;
       });
@@ -1370,7 +1371,7 @@ export default function MainCode() {
       setShiftedRowIndex(previousRowIndex);
   
       // Decrement the round counter only if we loop back to the last row
-      return previousRowIndex === sortedRows.length - 1 ? Math.max(prevRound - 1, 0) : prevRound;
+      return previousRowIndex === sortedRows.length - 1 ? Math.max(prevRound - 1, 1) : prevRound;
     });
   };
   
@@ -2442,6 +2443,7 @@ export default function MainCode() {
                     setIsSettingsModalOpen(true);
                   }}
                   aria-label="Open Settings"
+                  title="Settings"
                 >
                   <img src={gearIcon} alt="Settings" className="gear-icon-img" />
                 </button>
@@ -2547,7 +2549,7 @@ export default function MainCode() {
                   <div className="row-actions">
                     {!isMobileLayout && !isTabletLayout && (
                       <div className="view-character-conditions">
-                        <button className="view-button" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
+                        <button className="view-button" title="View" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
                           <img src={viewIcon} alt="View Icon" className="view-icon" />
                         </button>
                       </div>
@@ -2555,6 +2557,7 @@ export default function MainCode() {
                     <div className="edit-character">
                       <button
                         className="editCharacterButton"
+                        title="Edit"
                         onClick={() => {
                           setEditCharacterIndex(index);
                           setCharacterName(rowData[index].name);
@@ -2594,6 +2597,7 @@ export default function MainCode() {
                     <div className="delete-character">
                       <button
                         className="deleteCharacterButton"
+                        title="Delete"
                         onClick={() => {
                           setDeleteConfirmIndex(index);
                         }}
@@ -3019,8 +3023,8 @@ export default function MainCode() {
 
         {/* Add-Character Modal */}
       {isModalOpen !== null && (
-        <div className="modal-overlay add-character-modal">
-          <div className="add-character-modal-layout">
+        <div className="modal-overlay add-character-modal" onClick={handleCloseModal}>
+          <div className="add-character-modal-layout" onClick={(e) => e.stopPropagation()}>
             <div className="modal">
               <h2>Add New Character</h2>
               <form onSubmit={handleSubmit}>
@@ -3033,6 +3037,7 @@ export default function MainCode() {
                     className="form-input"
                     value={characterName}
                     onChange={(e) => setCharacterName(e.target.value)}
+                    placeholder="Enter character name"
                     required
                   />
                 </div>
@@ -3518,8 +3523,8 @@ export default function MainCode() {
       )}
 
 {deleteConfirmIndex !== null && (
-  <div className="modal-overlay delete-confirm-modal">
-    <div className="modal">
+  <div className="modal-overlay delete-confirm-modal" onClick={() => setDeleteConfirmIndex(null)}>
+    <div className="modal" onClick={(e) => e.stopPropagation()}>
       <p>
         Are you sure you want to delete{' '}
         <span style={{ color: 'red' }}>

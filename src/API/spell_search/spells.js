@@ -26,6 +26,16 @@ export const getSpell = async (spellId, ownerKey = "") => {
   }
 };
 
+export const getSources = async () => {
+  try {
+    const response = await axios.get(`${SPELL_SEARCH_URL}/spells/sources`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching sources:", error);
+    throw error;
+  }
+};
+
 export const queryAdvancedSpells = async (query) => {
   try {
     const response = await axios.post(`${SPELL_SEARCH_URL}/spells/query`, query);
