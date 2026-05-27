@@ -1,6 +1,24 @@
 Roadmap — The Site of Many Things
 A living strategic document. Sprint-level detail lives in tasks.md.
-Last updated: April 2026.
+Last updated: May 2026.
+
+# Milestone Log
+
+A running record of meaningful milestones hit. Updated each sprint review.
+
+| Date | Milestone |
+|---|---|
+| May 2026 | Bug report pipeline live — Google Form routes directly to ClickUp |
+| May 2026 | First Reddit post made — r/DungeonMasters |
+| May 2026 | Two SEO articles published |
+| May 2026 | Artificer spell QC complete — 99 spells tagged |
+| May 2026 | Mobile and tablet layouts live on both tools |
+| May 2026 | admin@thesiteofmanythings.com domain email set up |
+| May 2026 | Docs moved to public frontend repo for open source contributors |
+| Apr 2026 | Ko-fi live and visible on both tool pages |
+| Apr 2026 | Articles section live |
+| Apr 2026 | QC system established |
+| Jan 2026 | Site launched with Initiative Tracker and Spell Searcher |
 
 Where We Are
 Two live, differentiated tools exist and no competitor matches either of them:

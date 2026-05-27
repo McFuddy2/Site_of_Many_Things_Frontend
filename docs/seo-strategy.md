@@ -143,11 +143,11 @@ Body: Brief description of the problem, what you built, link, honest ask for fee
 Do not: oversell, use marketing language, post the same thing twice in the same community.
 
 ### Post History
-| Date | Community | Tool | Result |
+| Date | Community | Tool | Link | Result |
 |---|---|---|---|
-| — | — | — | Nothing posted yet |
+| 2026-05-26 | r/DungeonMasters | Initiative Tracker + Spell Searcher | https://www.reddit.com/r/DungeonMasters/comments/1totp33/i_built_a_free_initiative_tracker_and_spell/ |  | 
 
-Update this table after each post.
+Update this table after each post, paste results after at least 1 week of the post being up.
 
 ### Published Articles
 | Date | Title | Slug |

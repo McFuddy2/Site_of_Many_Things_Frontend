@@ -1,6 +1,8 @@
 {
   "redirects": [
-    { "source": "/initiative-tracker", "destination": "/initiative", "permanent": true }
+    { "source": "/initiative-tracker", "destination": "/initiative", "permanent": true },
+    { "source": "/(.*)", "destination": "https://thesiteofmanythings.com/:1", "permanent": true, "has": [{ "type": "host", "value": "www.thesiteofmanythings.com" }] },
+    { "source": "/(.*)", "destination": "https://thesiteofmanythings.com/:1", "permanent": true, "has": [{ "type": "header", "key": "x-forwarded-proto", "value": "http" }] }
   ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
