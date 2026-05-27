@@ -212,6 +212,23 @@
   flex-direction: column;
   flex: 1;                     /* Make text content expand to fill remaining space */
 }
+
+.condition-description.condition-description-inline-expiration {
+  width: 100%;
+}
+
+.condition-expiration-inline {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px 0;
+  padding: 0;
+  background: transparent;
+  background-image: none;
+  color: var(--initiative-banner);
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 600;
+}
   
 .condition-expiration {
   background-color: var(--conditions-expiration-background);
@@ -222,8 +239,18 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 10px;
+  padding: 0px;
   font-weight: bold;
+  font-size: 0.75rem;
+}
+
+.condition-expiration.condition-expiration-inline {
+  width: 100%;
+  background: transparent;
+  background-image: none;
+  color: var(--initiative-banner);
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .condition-expiration.condition-expiration-na {
@@ -259,7 +286,42 @@
   }
 }
 
-@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .conditions-list-banner {
+    font-size: 2.45rem;
+  }
+
+  .add-condition-button {
+    font-size: 1.15rem;
+  }
+
+  .conditions-list-content {
+    font-size: 1.15rem;
+  }
+
+  .conditions-main-title {
+    font-size: 1.5rem;
+  }
+
+  .conditions-subsection-title {
+    font-size: 1.5rem;
+  }
+
+  .condition-description {
+    width: 100%;
+    font-size: 1.5rem;
+  }
+
+  .condition-expiration {
+    font-size: 1.04rem;
+  }
+
+  .individual-enemy-delete-button {
+    font-size: 1.06rem;
+  }
+}
+
+@media screen and (max-width: 599px) {
   .conditions-list-banner {
     min-height: 64px;
     max-height: 64px;

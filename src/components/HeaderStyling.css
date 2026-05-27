@@ -32,6 +32,10 @@
 	display: none;
 }
 
+.header-bug-report-button {
+	display: none;
+}
+
 .header-brand {
 	font-size: 1.8rem;
 	font-weight: 600; /* font-semibold */
@@ -97,7 +101,7 @@
 }
 
 .header-mobile-menu {
-	background-color: rgba(224, 204, 242, 0.5);
+	background-color: var(--header-secondary-background);
 	width: 40px;
 	height: 40px;
 	position: absolute;
@@ -204,6 +208,31 @@
 	}
 }
 
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+	.mobile-header-menu-support-section {
+		flex: 0 0 10%;
+	}
+
+	.mobile-header-menu-title-section {
+		flex: 0 0 3%;	}
+
+	.mobile-header-menu-tools-section {
+		flex: 0 0 20%;
+	}
+
+	.mobile-header-menu-links-section {
+		flex: 0 0 67%;
+	}
+
+	.mob-menu-button {
+		height: clamp(2.9rem, 8vh, 6rem);
+		min-height: clamp(2.9rem, 8vh, 6rem);
+		padding-top: 0;
+		padding-bottom: 0;
+		font-size: clamp(0.9rem, 3vw, 3.08rem);
+	}
+}
+
 @media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
 	.header {
 		background-color: var(--menu-bar-background);
@@ -276,6 +305,27 @@
   .header-brand {
     font-size: 2.2rem; /* Increased font size for tablet */
   }
+
+	.header-bug-report-button {
+		display: inline-flex;
+		position: absolute;
+		right: 5%;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 44px;
+		height: 44px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		background: transparent;
+		z-index: 20004;
+	}
+
+	.header-bug-report-button img {
+		width: 90%;
+		height: 90%;
+		object-fit: contain;
+	}
 }
 
 .header-nav-link {
@@ -322,35 +372,6 @@
 .header-menu-icon {
 	width: 1.5rem; /* 24px */
 	height: 1.5rem; /* 24px */
-}
-
-body.kofi-overlay-custom-trigger .floatingchat-container-wrap {
-	position: fixed !important;
-	top: 2px !important;
-	right: 44px !important;
-	left: auto !important;
-	bottom: auto !important;
-	width: 140px !important;
-	height: 56px !important;
-	margin: 0 !important;
-	padding: 0 !important;
-	overflow: visible !important;
-	transform: scale(0.8) !important;
-	transform-origin: top right !important;
-	opacity: 1 !important;
-	pointer-events: auto !important;
-	z-index: 20003 !important;
-}
-
-@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
-	body.kofi-overlay-custom-trigger .floatingchat-container-wrap,
-	body.kofi-overlay-custom-trigger [id^="kofi-wo-container"],
-	body.kofi-overlay-custom-trigger [id^="kofi-wo-container-mobi"],
-	body.kofi-overlay-custom-trigger .floatingchat-container-wrap * {
-		display: none !important;
-		visibility: hidden !important;
-		pointer-events: none !important;
-	}
 }
 
 

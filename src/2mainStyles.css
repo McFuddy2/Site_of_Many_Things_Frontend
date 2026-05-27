@@ -40,14 +40,12 @@ html, body {
     max-width: 100%;
     padding: 2vh 2vw; /* 2% padding around the edges */
     box-sizing: border-box; /* Includes padding in the total size */
-    background-color: transparent;
     overflow: hidden; /* Prevent any overflow/scrollbars */
     position: relative;
   }
 
   .help-n-ad-section {
     width: 100%;
-    height: var(--header-height);
     min-height: var(--header-height);
     background-color: transparent;
     display: flex;
@@ -163,7 +161,7 @@ html, body {
     height: 50px;
     width: 50px;
     border-radius: 50%;
-}
+  }
 
 .left-show-initiative {
   display: none;
@@ -198,7 +196,7 @@ html, body {
     grid-template-rows: 1fr;
     grid-template-areas: "initiative";
     gap: 0;
-    height: 90%;
+    height: 86%;
     align-content: start;
   }
 
@@ -263,8 +261,8 @@ html, body {
     background-color: var(--condition-list-banner-background);
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
-    padding: 8px 14px;
+    font-size: 0.98rem;
+    padding: 10px 16px;
     border-radius: 8px;
     height: auto;
     width: auto;
@@ -286,8 +284,8 @@ html, body {
     background-color: var(--initiative-banner);
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
-    padding: 8px 14px;
+    font-size: 1.08rem;
+    padding: 12px 18px;
     border-radius: 8px;
     height: auto;
     width: auto;
@@ -336,7 +334,7 @@ html, body {
     grid-template-rows: 1fr;
     grid-template-areas: "initiative";
     gap: 0;
-    height: 90%;
+    height: 85%;
     align-content: start;
   }
 
@@ -383,7 +381,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.75rem;
+    min-height: 5rem;
   }
 
   .right-show-conditions {
@@ -401,8 +399,8 @@ html, body {
     background-color: var(--condition-list-banner-background);
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
-    padding: 8px 14px;
+    font-size: 1.15rem;
+    padding: 13px 22px;
     border-radius: 8px;
     height: auto;
     width: auto;
@@ -424,8 +422,8 @@ html, body {
     background-color: var(--initiative-banner);
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
-    padding: 8px 14px;
+    font-size: 1.15rem;
+    padding: 13px 22px;
     border-radius: 8px;
     height: auto;
     width: auto;

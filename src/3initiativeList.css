@@ -958,7 +958,78 @@
     }
   }
 
-@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .initiative-list {
+    --view-col-width: 0%;
+    --name-col-width-base: 30%;
+    --conditions-col-width-base: 34%;
+  }
+
+  .initiative-banner {
+    border-bottom: 3px solid rgba(0, 0, 0);
+  }
+
+  .next-back {
+    padding-bottom: 0;
+  }
+
+  .back-button,
+  .next-button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 64px;
+    justify-self: stretch;
+    align-self: center;
+  }
+
+  .back-button::before,
+  .next-button::before {
+    top: 50%;
+    width: 120%;
+    height: 120%;
+  }
+
+  .initiative-list-column-headers {
+    display: none;
+  }
+
+  .column-header-view,
+  .view-character-conditions {
+    display: none;
+  }
+
+  .round-counter {
+    font-size: 2rem;
+  }
+
+  .initiative-title {
+    font-size: 2.45rem;
+  }
+
+  .initiative-textbox {
+    font-size: 1.35rem;
+  }
+
+  .name-input-main {
+    font-size: 1.9rem;
+  }
+
+  .name-input-summon-item {
+    font-size: 0.95rem;
+  }
+
+  .personal-conditions {
+    cursor: pointer;
+    font-size: 1.05rem;
+  }
+
+  .condition-section {
+    font-size: 1.05rem;
+  }
+}
+
+@media screen and (max-width: 599px) {
   .initiative-banner {
     display: grid;
     grid-template-columns: 50% 25% 25%;

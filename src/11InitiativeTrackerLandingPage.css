@@ -193,20 +193,28 @@ ul {
   }
 
   .contact-page-wrapper .initiative-tracker-landing-page-title {
-    font-size: 1.35rem;
-    line-height: 1.65rem;
+    font-size: 2rem !important;
+    line-height: 1.2;
   }
 
   .contact-page-wrapper p,
   .contact-page-wrapper li,
   .contact-page-wrapper a,
   .contact-page-wrapper .faq-item {
-    font-size: 0.88rem;
+    font-size: 1.5rem;
     line-height: 1.38;
   }
 
   .contact-page-wrapper .btn-secondary {
     font-size: 0.88rem;
+  }
+
+  .about-page-wrapper button,
+  .about-page-wrapper a.inline-flex,
+  .privacy-page-wrapper button,
+  .terms-page-wrapper button,
+  .contact-page-wrapper button {
+    font-size: 1.5rem !important;
   }
 }
 

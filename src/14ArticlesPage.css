@@ -279,3 +279,13 @@
     padding: 1.25rem;
   }
 }
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .articles-page-wrapper h1 {
+    font-size: 2rem !important;
+  }
+
+  .articles-page-wrapper p {
+    font-size: 1.5rem;
+  }
+}

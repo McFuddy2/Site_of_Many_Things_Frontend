@@ -320,3 +320,70 @@ font-size: large;
     align-self: center;
   }
 }
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .custom-condition-modal {
+    width: 480px;
+    max-width: 480px;
+    height: 700px;
+    max-height: 80vh;
+    padding: 20px;
+  }
+
+  .custom-condition-modal,
+  .custom-condition-modal * {
+    font-size: 1.5rem;
+  }
+
+  .custom-condition-modal .form-group,
+  .custom-condition-modal .form-group label,
+  .custom-condition-modal .form-group textarea,
+  .custom-condition-modal .form-group button,
+  .custom-condition-modal .form-group .affect-buttons button {
+    font-size: 1.5rem;
+  }
+
+  .mob-custom-title {
+    font-size: 2rem;
+    margin-bottom: 20px;
+  }
+
+  .custom-condition-modal .new-custom-condition-button {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .custom-condition-modal .affect-buttons {
+    align-items: stretch;
+  }
+
+  .custom-condition-modal .affect-buttons button.positive,
+  .custom-condition-modal .affect-buttons button.neutral,
+  .custom-condition-modal .affect-buttons button.negative,
+  .custom-condition-modal .modal-button-group button[type="submit"],
+  .custom-condition-modal .modal-button-group button[type="button"],
+  .custom-condition-modal .close-custom-modal-button {
+    height: 58px;
+    min-height: 58px;
+    font-size: 1.5rem;
+  }
+
+  .custom-condition-modal .close-custom-modal-button {
+    font-size: 1.8rem;
+  }
+
+  .custom-mob-condition-modal .custom-condition-modal > .close-custom-modal-button {
+    width: 250px !important;
+    max-width: none !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    line-height: 1 !important;
+    padding: 0 12px !important;
+    font-size: 1.8rem !important;
+    background-color: black;
+  }
+
+
+
+}
