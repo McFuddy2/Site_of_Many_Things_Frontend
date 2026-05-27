@@ -39,7 +39,7 @@ Multiply that moment by every player, every round, every session. That's where s
 
 The [Initiative Tracker](/initiative) was built with the whole table in mind — not just the DM. Here's what it tracks:
 
-**Conditions** — add conditions like Poisoned, Stunned, or Restrained directly to any combatant. Everyone sees them. No more "wait, am I still frightened?"
+**Conditions** — add conditions like Concentration, Poisoned, Stunned, or Restrained directly to any combatant and you can include when the condition expires. Everyone sees them. No more "wait, am I still frightened?"
 
 **Round counter** — displayed clearly so players always know where they are in the fight, not just whose turn it is.
 
@@ -55,7 +55,7 @@ The goal is one screen that answers every "wait, what's happening?" question bef
 
 The tracker is free and runs in any browser — no account, no install. Open it on a tablet or laptop and angle it so your players can see. Or pull it up on a second monitor if you're running a digital setup.
 
-Add combatants at the start of the encounter, roll initiative, drag to reorder, and start the first round. Everything else follows naturally.
+Add combatants at the start of the encounter, roll initiative, enter the numbers and watch it automatically reorder, and start the first round. Everything else follows naturally.
 
 [Open the Initiative Tracker →](/initiative)
 
