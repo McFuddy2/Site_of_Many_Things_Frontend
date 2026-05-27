@@ -11,7 +11,7 @@ The Site of Many Things feels like stepping into a wizard's study — organized,
 The brand earns its whimsy through restraint. Magic appears in the details: a glow on the active combatant, a shimmer on hover, a button label that says "Begin the Hunt" instead of "Search." Everything else is clean, readable, and fast.
 
 ---
-
+ 
 ## Color Palette
 
 | Name | Usage | Value |
