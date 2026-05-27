@@ -142,12 +142,18 @@ Title: "I built a free [tool] because [specific problem it solves] — feedback 
 Body: Brief description of the problem, what you built, link, honest ask for feedback.
 Do not: oversell, use marketing language, post the same thing twice in the same community.
 
-### Post history
+### Post History
 | Date | Community | Tool | Result |
 |---|---|---|---|
 | — | — | — | Nothing posted yet |
 
 Update this table after each post.
+
+### Published Articles
+| Date | Title | Slug |
+|---|---|---|
+| 2026-04-09 | The 5e Spell Filter That Handles Multi-Class Exclusions | 5e-spell-filter-multi-class |
+| 2026-05-26 | Why Your Initiative Tracker Should Face the Whole Table, Not Just the DM | initiative-tracker-whole-table |
 
 ---
 
