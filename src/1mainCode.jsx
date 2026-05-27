@@ -31,6 +31,11 @@ export default function MainCode() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   );
+  const [isTabletLayout, setIsTabletLayout] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(min-width: 600px) and (max-width: 1024px)').matches
+      : false
+  );
   const [showArmorClass, setShowArmorClass] = useState(
     JSON.parse(localStorage.getItem('show-armor-class')) ?? true
   );
@@ -1481,6 +1486,15 @@ export default function MainCode() {
     promoteNextSummonInput(index, true);
   };
 
+  const addTabletSummonInput = () => {
+    if (summonNames.length >= 10) {
+      return;
+    }
+
+    nextSummonFocusIndexRef.current = summonNames.length;
+    setSummonNames((prev) => [...prev, '']);
+  };
+
   const removeSummonInput = (index) => {
     setSummonNames((prev) => {
       if (prev.length === 1) {
@@ -1699,7 +1713,7 @@ export default function MainCode() {
   }
 
   const showMobileConditionsPanel = () => {
-    if (!isMobileLayout) {
+    if (!isMobileLayout && !isTabletLayout) {
       return;
     }
 
@@ -1725,7 +1739,7 @@ export default function MainCode() {
   };
 
   const showMobileInitiativePanel = () => {
-    if (!isMobileLayout) {
+    if (!isMobileLayout && !isTabletLayout) {
       return;
     }
 
@@ -1866,7 +1880,7 @@ export default function MainCode() {
 
         {displayedConditions.map((condition, i) => (
           <div key={`main-${realIndex}-${i}`} className="conditions-row">
-            <div className="condition-description">
+            <div className={`condition-description${!isMobileLayout ? ' condition-description-inline-expiration' : ''}`}>
               <button
                 className="remove-condition-button"
                 onClick={() => removeDisplayedCondition(realIndex, condition)}
@@ -1878,6 +1892,11 @@ export default function MainCode() {
                 <div>
                   <strong>{typeof condition === "object" ? condition.name : condition}</strong>
                 </div>
+                {!isMobileLayout && !isExpirationUnknown(condition) && (
+                  <div className="condition-expiration condition-expiration-inline">
+                    {getConditionExpirationText(condition)}
+                  </div>
+                )}
                 <div>
                   {(conditionDescriptions[typeof condition === "object" ? condition.name : condition] || "Filler description for this condition.")
                     .split('???')
@@ -1890,11 +1909,13 @@ export default function MainCode() {
                 </div>
               </div>
             </div>
-            <div
-              className={`condition-expiration${isExpirationUnknown(condition) ? ' condition-expiration-na' : ''}`}
-            >
-              {getConditionExpirationText(condition)}
-            </div>
+            {isMobileLayout && (
+              <div
+                className={`condition-expiration${isExpirationUnknown(condition) ? ' condition-expiration-na' : ''}`}
+              >
+                {getConditionExpirationText(condition)}
+              </div>
+            )}
           </div>
         ))}
 
@@ -1903,7 +1924,7 @@ export default function MainCode() {
             <div className="conditions-subsection-title">{summonName}'s Condition(s)</div>
             {conditions.map((condition, i) => (
               <div key={`attached-${realIndex}-${summonName}-${i}`} className="conditions-row">
-                <div className="condition-description">
+                <div className={`condition-description${!isMobileLayout ? ' condition-description-inline-expiration' : ''}`}>
                   <button
                     className="remove-condition-button"
                     onClick={() => removeSummonCondition(realIndex, summonName, condition)}
@@ -1915,6 +1936,11 @@ export default function MainCode() {
                     <div>
                       <strong>{typeof condition === "object" ? condition.name : condition}</strong>
                     </div>
+                    {!isMobileLayout && !isExpirationUnknown(condition) && (
+                      <div className="condition-expiration condition-expiration-inline">
+                        {getConditionExpirationText(condition)}
+                      </div>
+                    )}
                     <div>
                       {(conditionDescriptions[typeof condition === "object" ? condition.name : condition] || "Filler description for this condition.")
                         .split('???')
@@ -1927,11 +1953,13 @@ export default function MainCode() {
                     </div>
                   </div>
                 </div>
-                <div
-                  className={`condition-expiration${isExpirationUnknown(condition) ? ' condition-expiration-na' : ''}`}
-                >
-                  {getConditionExpirationText(condition)}
-                </div>
+                {isMobileLayout && (
+                  <div
+                    className={`condition-expiration${isExpirationUnknown(condition) ? ' condition-expiration-na' : ''}`}
+                  >
+                    {getConditionExpirationText(condition)}
+                  </div>
+                )}
               </div>
             ))}
           </React.Fragment>
@@ -1995,6 +2023,75 @@ export default function MainCode() {
 
   const getConditionBackgroundColor = (condition) => {
     return conditionColors[condition] || 'var(--neutral-condition-background)'; // Default to neutral condition background
+  };
+
+  const getConditionName = (condition) => (
+    typeof condition === 'object' ? condition?.name : condition
+  );
+
+  const getPersonalConditionEntries = (row, shouldAggregateMinionConditions = false) => {
+    const baseConditions = Array.isArray(row?.conditions) ? row.conditions : [];
+
+    if (!(shouldAggregateMinionConditions && row?.affiliation === 'Enemy' && row?.multipleEnemiesType)) {
+      return baseConditions
+        .map((condition, idx) => {
+          const conditionName = getConditionName(condition);
+          if (!conditionName) {
+            return null;
+          }
+
+          return {
+            key: `${conditionName}-${idx}`,
+            conditionName,
+            displayText: conditionName,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    const summonNames = Array.isArray(row?.summons) ? row.summons : [];
+    const summonConditions = row?.summonConditions || {};
+    const conditionCounts = new Map();
+
+    summonNames.forEach((summonName) => {
+      const minionConditions = Array.isArray(summonConditions[summonName])
+        ? summonConditions[summonName]
+        : [];
+      const uniqueConditionsForMinion = new Set();
+
+      minionConditions.forEach((condition) => {
+        const conditionName = getConditionName(condition);
+        if (!conditionName || uniqueConditionsForMinion.has(conditionName)) {
+          return;
+        }
+
+        uniqueConditionsForMinion.add(conditionName);
+        conditionCounts.set(conditionName, (conditionCounts.get(conditionName) || 0) + 1);
+      });
+    });
+
+    if (conditionCounts.size > 0) {
+      return Array.from(conditionCounts.entries()).map(([conditionName, count]) => ({
+        key: `${conditionName}-${count}`,
+        conditionName,
+        displayText: `${conditionName} x${count}`,
+      }));
+    }
+
+    return baseConditions
+      .map((condition, idx) => {
+        const conditionName = getConditionName(condition);
+        if (!conditionName) {
+          return null;
+        }
+
+        return {
+          key: `${conditionName}-${idx}`,
+          conditionName,
+          displayText: conditionName,
+        };
+      })
+      .filter(Boolean);
   };
 
   const getMappedColorType = (affectType) => {
@@ -2129,20 +2226,35 @@ export default function MainCode() {
       return undefined;
     }
 
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const mobileMediaQuery = window.matchMedia('(max-width: 767px)');
+    const tabletMediaQuery = window.matchMedia('(min-width: 600px) and (max-width: 1024px)');
+
     const updateMobileLayout = (event) => {
       setIsMobileLayout(event.matches);
     };
 
-    setIsMobileLayout(mediaQuery.matches);
+    const updateTabletLayout = (event) => {
+      setIsTabletLayout(event.matches);
+    };
 
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', updateMobileLayout);
-      return () => mediaQuery.removeEventListener('change', updateMobileLayout);
+    setIsMobileLayout(mobileMediaQuery.matches);
+    setIsTabletLayout(tabletMediaQuery.matches);
+
+    if (typeof mobileMediaQuery.addEventListener === 'function') {
+      mobileMediaQuery.addEventListener('change', updateMobileLayout);
+      tabletMediaQuery.addEventListener('change', updateTabletLayout);
+      return () => {
+        mobileMediaQuery.removeEventListener('change', updateMobileLayout);
+        tabletMediaQuery.removeEventListener('change', updateTabletLayout);
+      };
     }
 
-    mediaQuery.addListener(updateMobileLayout);
-    return () => mediaQuery.removeListener(updateMobileLayout);
+    mobileMediaQuery.addListener(updateMobileLayout);
+    tabletMediaQuery.addListener(updateTabletLayout);
+    return () => {
+      mobileMediaQuery.removeListener(updateMobileLayout);
+      tabletMediaQuery.removeListener(updateTabletLayout);
+    };
   }, []);
 
   const characterRows = sortedRowData.filter((row) => !overlayActive[row.index]);
@@ -2350,7 +2462,7 @@ export default function MainCode() {
             </div>
             <div className="initiative-list-column-headers">
               <div className="column-header-initiative">Initiative</div>
-              <div className="column-header-view">View</div>
+              {!isTabletLayout && <div className="column-header-view">View</div>}
               <div className="column-header-edit">Edit</div>
               <div className="column-header-delete">Delete</div>
               {showArmorClass && <div className="column-header-ac">AC</div>}
@@ -2371,6 +2483,10 @@ export default function MainCode() {
                 const displayName = isEnemyWithIndividuals && !shouldShowEnemyIndividuals
                   ? `${rowData[index].name || 'No Name'} x${(rowData[index].summons || []).length}`
                   : (rowData[index].name || 'No Name');
+                const personalConditionEntries = getPersonalConditionEntries(
+                  rowData[index],
+                  !isMobileLayout || isTabletLayout
+                );
                 const isRoundDividerTarget = lowestInitiativeRowIndex !== null && index === lowestInitiativeRowIndex;
 
                 return (
@@ -2429,7 +2545,7 @@ export default function MainCode() {
                     />
                   </div>
                   <div className="row-actions">
-                    {!isMobileLayout && (
+                    {!isMobileLayout && !isTabletLayout && (
                       <div className="view-character-conditions">
                         <button className="view-button" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
                           <img src={viewIcon} alt="View Icon" className="view-icon" />
@@ -2527,7 +2643,7 @@ export default function MainCode() {
 
                               setViewCharacterIndex(shiftedIndex);
                               setViewedSummon({ rowIndex: index, summonName });
-                              if (isMobileLayout) {
+                              if (isMobileLayout || isTabletLayout) {
                                 showMobileConditionsPanel();
                               }
                             }}
@@ -2570,7 +2686,7 @@ export default function MainCode() {
 
                               setViewCharacterIndex(shiftedIndex);
                               setViewedSummon({ rowIndex: index, summonName });
-                              if (isMobileLayout) {
+                              if (isMobileLayout || isTabletLayout) {
                                 showMobileConditionsPanel();
                               }
                             }}
@@ -2594,20 +2710,30 @@ export default function MainCode() {
                       </div>
                     </div>
                   )}
-                  <div className="personal-conditions">
-                    {rowData[index].conditions.length > 0
-                      ? rowData[index].conditions.map((condition, i) => (
+                  <div
+                    className="personal-conditions"
+                    onClick={() => {
+                      if (!isTabletLayout || overlayActive[index]) {
+                        return;
+                      }
+
+                      updateViewCharacterIndex(shiftedIndex);
+                      showMobileConditionsPanel();
+                    }}
+                  >
+                    {personalConditionEntries.length > 0
+                      ? personalConditionEntries.map((conditionEntry) => (
                         <div
-                          key={(typeof condition === "object" ? condition.name : condition) + i}
+                          key={conditionEntry.key}
                           className="condition-section"
                           style={{
                             backgroundColor: getConditionBackgroundColor(
-                              typeof condition === "object" ? condition.name : condition
+                              conditionEntry.conditionName
                             ),
                             color: 'black',
                           }}
                         >
-                          {typeof condition === "object" ? condition.name : condition}
+                          {conditionEntry.displayText}
                         </div>
                       ))
                       : '[No Conditions]'}
@@ -3050,8 +3176,17 @@ export default function MainCode() {
                           summonInputRefs.current[index] = el;
                         }}
                         onChange={(e) => handleSummonNameChange(index, e.target.value)}
-                        onBlur={() => promoteNextSummonInput(index)}
+                        onBlur={() => {
+                          if (!isTabletLayout) {
+                            promoteNextSummonInput(index);
+                          }
+                        }}
                         onKeyDown={(e) => {
+                          if (isTabletLayout && e.key === 'Enter') {
+                            e.preventDefault();
+                            return;
+                          }
+
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             handleSummonEnter(index);
@@ -3069,6 +3204,16 @@ export default function MainCode() {
                     </div>
                   ))}
                 </div>
+                {isTabletLayout && summonNames.length < 10 && (
+                  <button
+                    type="button"
+                    className="summons-add-button"
+                    aria-label="Add summon input"
+                    onClick={addTabletSummonInput}
+                  >
+                    <img src={plusIcon} alt="Add summon input" />
+                  </button>
+                )}
                 {summonNames.length >= 10 && (
                   <p className="summons-limit-message">
                     You can only have a maximum of 10 summons at a time.
@@ -3179,8 +3324,17 @@ export default function MainCode() {
                             summonInputRefs.current[index] = el;
                           }}
                           onChange={(e) => handleSummonNameChange(index, e.target.value)}
-                          onBlur={() => promoteNextSummonInput(index)}
+                          onBlur={() => {
+                            if (!isTabletLayout) {
+                              promoteNextSummonInput(index);
+                            }
+                          }}
                           onKeyDown={(e) => {
+                            if (isTabletLayout && e.key === 'Enter') {
+                              e.preventDefault();
+                              return;
+                            }
+
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               handleSummonEnter(index);
@@ -3197,6 +3351,16 @@ export default function MainCode() {
                         </button>
                       </div>
                     ))}
+                      {isTabletLayout && summonNames.length < 10 && (
+                        <button
+                          type="button"
+                          className="summons-add-button"
+                          aria-label="Add summon input"
+                          onClick={addTabletSummonInput}
+                        >
+                          <img src={plusIcon} alt="Add summon input" />
+                        </button>
+                      )}
                   </div>
                   {summonNames.length >= 10 && (
                     <p className="summons-limit-message">
@@ -3493,7 +3657,18 @@ export default function MainCode() {
           {(!isMobileLayout || showMobileConditionStep) && (
           <div className="conditions-section">
             <div className="form-group conditions-form-group">
-              <label htmlFor="conditions">Choose Condition(s):</label>
+              <div className="conditions-label-row">
+                <label htmlFor="conditions">Choose Condition(s):</label>
+                {isTabletLayout && (
+                  <button
+                    type="button"
+                    className="submit-button add-con-inline-custom"
+                    onClick={() => setMobCustomOpen(true)}
+                  >
+                    Custom
+                  </button>
+                )}
+              </div>
               <div className="conditions-checkbox-group">
                 {[
                   'Blinded', 'Charmed', 'Deafened', 'Frightened', 'Grappled', 'Incapacitated',
@@ -3534,13 +3709,15 @@ export default function MainCode() {
               </div>
               {isMobileLayout && showMobileConditionStep && (
                 <div className="condition-mobile-step-actions">
-                  <button
-                    type="button"
-                    className="submit-button"
-                    onClick={() => setMobCustomOpen(true)}
-                  >
-                    Custom
-                  </button>
+                  {!isTabletLayout && (
+                    <button
+                      type="button"
+                      className="submit-button"
+                      onClick={() => setMobCustomOpen(true)}
+                    >
+                      Custom
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="submit-button"
@@ -3659,7 +3836,7 @@ export default function MainCode() {
               <div className="submit-button-container">
                 <button className="submit-button">Submit</button>
               </div>
-              {!isMobileLayout && (
+              {!isMobileLayout && !isTabletLayout && (
                 <div className="submit-button-container add-con-close-container">
                   <button type="button" className="submit-button add-con-close" onClick={() => setMobCustomOpen(true)}>Custom</button>
                 </div>

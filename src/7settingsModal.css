@@ -32,6 +32,25 @@
     background-color: var(--initiative-banner);
     border-radius: 999px;
   }
+
+  .delete-confirm-modal .modal {
+    width: 44vw;
+    min-width: 440px;
+    max-width: 760px;
+    padding: 36px 38px;
+  }
+
+  .delete-confirm-modal p {
+    font-size: 1.75rem;
+    line-height: 1.5;
+    margin-bottom: 30px;
+  }
+
+  .delete-confirm-modal .character-delete-modal-button-group button {
+    font-size: 1.25rem;
+    padding: 14px 28px;
+    margin: 0 12px;
+  }
 }
 
 
@@ -227,6 +246,39 @@
   color: black;
   margin-top: 10px;
   width: 100%;
+}
+
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+  .settings-view-options {
+    display: none;
+  }
+
+  .settings-subtitle {
+    display: none;
+  }
+
+  .settings-modal .modal {
+    width: 60vw;
+    max-width: 99%;
+    height: 50vh;
+    max-height: 50vh;
+    padding: 22px;
+    font-size: 1.5rem;
+  }
+
+  .settings-modal .modal,
+  .settings-modal .modal * {
+    font-size: 1.5rem;
+  }
+
+  .settings-modal .modal h2 {
+    font-size: 2rem;
+  }
+
+  .settings-modal .settings-caution-text {
+    font-size: 1.2rem;
+  }
+
 }
 
 
