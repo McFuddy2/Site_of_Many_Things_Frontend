@@ -2426,6 +2426,20 @@ export default function SpellSearchPage() {
 										</div>
 									) : null}
 								</div>
+								<div className="tablet-row-details-grid" role="group" aria-label={`${spell.name} tablet spell details`}>
+									<div className="spell-list-cell">
+										<div className="spell-column-header">Level</div>
+										<div className="spell-cell-value">{spell.level}</div>
+									</div>
+									<div className="spell-list-cell">
+										<div className="spell-column-header">School</div>
+										<div className="spell-cell-value">{spell.school}</div>
+									</div>
+									<div className="spell-list-cell">
+										<div className="spell-column-header">Classes</div>
+										<div className="spell-cell-value spell-cell-value-classes">{formatClassList(spell.classes)}</div>
+									</div>
+								</div>
 							</div>
 							<div
 								id={`spell-accordion-${spell.id}`}
@@ -2445,6 +2459,28 @@ export default function SpellSearchPage() {
 									>
 										<img src={copyScrollIcon} alt="" className="spell-copy-description-icon" />
 									</button>
+									<div className="tablet-accordion-details-grid" role="group" aria-label={`${spell.name} tablet accordion details`}>
+										<div className="tablet-accordion-cell">
+											<div className="spell-column-header">Casting Time</div>
+											<div className="spell-cell-value">{spell.castingTime}</div>
+										</div>
+										<div className="tablet-accordion-cell">
+											<div className="spell-column-header">Range</div>
+											<div className="spell-cell-value">{spell.range}</div>
+										</div>
+										<div className="tablet-accordion-cell">
+											<div className="spell-column-header">Duration</div>
+											<div className="spell-cell-value">{getDurationDisplayValue(spell)}</div>
+										</div>
+										<div className="tablet-accordion-cell">
+											<div className="spell-column-header">Components</div>
+											<div className="spell-cell-value">{spell.components}</div>
+										</div>
+										<div className="tablet-accordion-cell">
+											<div className="spell-column-header">Ritual</div>
+											<div className="spell-cell-value">{spell.ritual}</div>
+										</div>
+									</div>
 									<div className="spell-accordion-description-body">
 										{renderDescriptionWithKeywordHighlights(spell.name, currentSpellDescription)}
 									</div>
