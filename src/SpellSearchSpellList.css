@@ -588,7 +588,7 @@
 	background-color: transparent;
 }
 
-@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
+@media screen and (max-width: 599px) {
 	.spell-search-spell-list {
 		height: auto;
 		flex: 0 1 auto;
@@ -692,7 +692,7 @@
 	display: none;
 }
 
-@media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
+@media screen and (max-width: 599px) {
 	.spell-copy-info-button,
 	.spell-copy-description-button {
 		display: none !important;
@@ -899,6 +899,21 @@
 	display: none;
 }
 
+.tablet-row-details-grid,
+.tablet-accordion-details-grid {
+	display: none;
+}
+
+.tablet-accordion-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	gap: 0.2rem;
+	padding: 0.2rem 0.15rem;
+}
+
 .spell-keyword-highlight {
 	background-color: hotpink;
 	color: #111111;
@@ -1031,5 +1046,162 @@
 		        drop-shadow(0 0 6px rgba(255, 230, 0, 0.65))
 		        drop-shadow(0 0 10px rgba(255, 230, 0, 0.40))
 		        brightness(1.08) saturate(1.10);
+	}
+}
+
+/* Final tablet overrides: placed at end so they win over base declarations above. */
+@media screen and (min-width: 600px) and (max-width: 1024px) {
+	.spell-copy-info-button,
+	.spell-copy-description-button {
+		display: none !important;
+	}
+
+	.spell-list-row {
+		display: grid;
+		grid-template-columns: 3.25rem 16rem minmax(0, 1fr);
+		align-items: center;
+		padding-left: 0.75rem;
+		column-gap: 0.6rem;
+	}
+
+	.spell-search-spell-list {
+		height: 86% !important;
+		flex: 0 0 86%;
+	}
+
+	.spell-list-checkbox-cell {
+		grid-column: 1;
+		justify-self: center;
+	}
+
+	.spell-list-name-cell {
+		grid-column: 2;
+		min-width: 0;
+		width: 100%;
+	}
+
+	.spell-name-button {
+		display: block;
+		width: 100%;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.spell-search-sort-bar {
+		height: 13%;
+		min-height: 8.25rem;
+	}
+
+	.sort-by-toggle-section {
+		padding: 0.5rem 0;
+	}
+
+	.sort-by-toggle {
+		height: 4rem;
+		padding: 0.28rem;
+	}
+
+	.text-and-toggles .sort-by-label {
+		font-size: 1.95rem;
+	}
+
+	.text-and-toggles .sort-by-toggle .sort-by-option::before {
+		font-size: 1.55rem;
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(2)::before {
+		content: "\25B2";
+	}
+
+	.text-and-toggles .sort-by-toggle:nth-child(3) .sort-by-option:nth-child(3)::before {
+		content: "\25BC";
+	}
+
+	.mobile-filters-button {
+		font-size: 1.72rem;
+		padding: 0.72rem 1.45rem;
+		min-height: 3.35rem;
+	}
+
+	.page-of-spell-list-mobile {
+		width: 30%;
+		padding: 0.35rem 0;
+	}
+
+	.page-of-spell-list-mobile .page-of-spell-list-left,
+	.page-of-spell-list-mobile .page-of-spell-list-right {
+		height: 5.5rem;
+	}
+
+	.page-of-spell-list-text {
+		font-size: 1.75rem;
+	}
+
+	.spell-column-header {
+		font-size: 1.24rem;
+	}
+
+	.spell-list-name-cell {
+		font-size: 2.25rem;
+	}
+
+	.spell-cell-value {
+		font-size: 1.4rem;
+	}
+
+	.spell-list-details-grid {
+		display: none !important;
+	}
+
+	.tablet-row-details-grid {
+		display: grid;
+		grid-column: 3;
+		flex: 1 1 0;
+		grid-template-columns: minmax(0, 0.5fr) minmax(0, 0.85fr) minmax(0, 1.65fr);
+		grid-template-rows: 1fr;
+		gap: 0.5rem;
+		width: 100%;
+	}
+
+	.mobile-row-level-cell {
+		display: none;
+	}
+
+	.spell-row-accordion-content {
+		font-size: 1.42rem;
+		line-height: 1.68;
+	}
+
+	.tablet-accordion-details-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-rows: repeat(2, auto);
+		gap: 0.6rem;
+		margin-top: 0.75rem;
+	}
+
+	.mobile-accordion-details-grid {
+		display: none !important;
+	}
+
+	.mobile-filter-selected-empty,
+	.mobile-filter-item-text {
+		font-size: 1.32rem;
+	}
+
+	.mobile-filter-item-icon {
+		font-size: 1.5rem;
+	}
+
+	.mobile-filter-delete-button {
+		font-size: 1.2rem;
+	}
+
+	.mobile-filters-modal-apply {
+		font-size: 1.42rem;
+	}
+
+	.mobile-filters-modal-close {
+		font-size: 1.35rem;
 	}
 }

@@ -41,5 +41,9 @@ html, body, #root {
     min-height: 0;
     padding: 2% 1%;
   }
+
+  .page-content:has(.spell-search-page-root) {
+    padding: 0;
+  }
 }
 
