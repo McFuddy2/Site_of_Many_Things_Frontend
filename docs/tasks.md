@@ -301,6 +301,7 @@ Ship at least one small visible improvement
 Review GA traffic and GSC impressions — write the numbers down
 Write down the current monthly revenue number
 Celebrate any milestones hit
+Update the release notes page at /release-notes with anything that shipped this sprint
 
 
 Long-Term Backlog (Not Scheduled Yet)
