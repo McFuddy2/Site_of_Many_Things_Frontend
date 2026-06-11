@@ -4,6 +4,7 @@
 
 .about-page-wrapper {
   background-color: var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
   padding: 2% 2% 3% 2%;
   margin-left: 5%;
   margin-right: 5%;

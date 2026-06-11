@@ -4,6 +4,7 @@
 
 .articles-page-wrapper {
   background-color: var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
   padding: 2% 2% 3% 2%;
   margin-left: 5%;
   margin-right: 5%;
@@ -27,6 +28,7 @@
   background-color: rgb(79, 70, 229);
   border-radius: 10px;
   border: 2px solid var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
 }
 
 .articles-page-wrapper::-webkit-scrollbar-thumb:hover {
@@ -59,6 +61,7 @@
 }
 
 .article-card {
+  background-color: var(--header-secondary-background);
   border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -162,8 +165,11 @@
 
 /* Markdown body styles */
 .article-body {
+  background-color: var(--release-notes-background);
   font-size: 1rem;
   line-height: 1.75;
+  padding: 2rem;
+  border-radius: 10px;
 }
 
 .article-body h2 {

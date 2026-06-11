@@ -56,6 +56,15 @@ export default function Header({toggleSidebar}) {
 
         <div className="header-spacer"></div>
         <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLScfTZJf-0mJFXCdnGfaPcoypZFUPLXzDLfC9i6-5ndEanGURw/viewform"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="header-bug-report-button"
+          aria-label="Report a bug"
+        >
+          <img src={bugIcon} alt="Report bug" />
+        </a>
+        <a
           href="https://ko-fi.com/siteofmanythings"
           target="_blank"
           rel="noopener noreferrer"
@@ -74,7 +83,7 @@ export default function Header({toggleSidebar}) {
         href="https://docs.google.com/forms/d/e/1FAIpQLScfTZJf-0mJFXCdnGfaPcoypZFUPLXzDLfC9i6-5ndEanGURw/viewform"
         target="_blank"
         rel="noopener noreferrer"
-        className="header-bug-report-button"
+        className="header-bug-report-button-mobile-tablet"
         aria-label="Report a bug"
       >
         <img src={bugIcon} alt="Report bug" />

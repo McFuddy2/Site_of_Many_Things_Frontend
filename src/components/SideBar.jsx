@@ -31,6 +31,9 @@ export default function SideBar({ isOpen, toggleSidebar }) {
               <Link to="/about" className="sidebar-button-help" onClick={toggleSidebar}>About</Link>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Link to="/articles" className="sidebar-button-help" onClick={toggleSidebar}>Blog</Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
               <a 
                 href="https://buttondown.com/SiteofManyThings" 
                 target="_blank" 

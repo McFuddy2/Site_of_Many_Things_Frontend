@@ -59,7 +59,7 @@ export default function ReleaseNotesPage() {
       <p className="faq-text">
         If something breaks during a session, a screenshot plus what you clicked helps us fix it faster.
         Send feedback using the email listed on the{" "}
-        <Link to="/about" className="btn-secondary">About page</Link>.
+        <Link to="/about" className="release-notes-text-link">About page</Link>.
       </p>
       <p className="faq-item">Feature requests</p>
       <p className="faq-text">
@@ -126,7 +126,7 @@ export default function ReleaseNotesPage() {
       <p className="faq-text">
         If something breaks during a session, a screenshot plus what you clicked helps us fix it faster.
         Send feedback using the email listed on the{" "}
-        <Link to="/about" className="btn-secondary">About page</Link>.
+        <Link to="/about" className="release-notes-text-link">About page</Link>.
       </p>
       <p className="faq-item">Feature requests</p>
       <p className="faq-text">
@@ -214,7 +214,7 @@ export default function ReleaseNotesPage() {
             <p className="faq-text">
               If something breaks during a session, a screenshot plus what you clicked helps us fix it faster.
               Send feedback using the email listed on the{" "}
-              <Link to="/about" className="btn-secondary">About page</Link>.
+              <Link to="/about" className="release-notes-text-link">About page</Link>.
             </p>
 
             <p className="faq-item">Feature requests</p>

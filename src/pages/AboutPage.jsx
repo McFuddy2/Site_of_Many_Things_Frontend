@@ -48,7 +48,7 @@ export default function AboutPage() {
   </li>
 
   <li>
-    <strong>McFuddy (Glenn)</strong> — the DM who keeps asking “what if…” and the project manager trying
+    <strong>Glenn (McFuddy)</strong> — the DM who keeps asking “what if…” and the project manager trying
     to keep the long-term vision on track. He builds the rough versions, then Jess and Caleb make them
     beautiful, stable, and mobile-friendly. He also handles backend and business work (spells databases,
     APIs, future character sheet features)… and is always waiting for his turn to DM again.
@@ -66,8 +66,23 @@ export default function AboutPage() {
         <Link to="/initiative" className="text-purple-600 hover:underline">
           Initiative Tracker
         </Link>{" "}
-        is the first tool in the suite. More tools are planned over time, including encounter manager,
-        spell search, generators, and character-focused utilities—always focused on speed, clarity, and 
+        is the first tool in the suite. It's a sleek tool for both DM and player and includes options to not 
+        only track who's next in initiative, but also which conditions affect them. There are also features to
+        track armor class, hit points, minions, and summons, and the whole thing is designed to be shared 
+        at the table on a tablet or laptop.
+        <br/>
+        <br/>
+        The{" "}<Link to="/spell-search" className="text-purple-600 hover:underline">
+          Spell Searcher
+        </Link>{" "}
+        is a fast, intuitive spell database built for quick lookups at the table. It includes filters for class, 
+        level, and school, and presents spell details in a clear, easy-to-read format. The filters are not only for
+        what should be included, but also excluded from the results, making it easy to find the perfect 
+        spell in a pinch.
+        <br/> 
+        <br/>
+         More tools are planned over time, including an encounter manager,
+        generators, and character-focused utilities—always focused on speed, clarity, and 
         practical use during play.
       </p>
 
