@@ -17,67 +17,21 @@ export default function ContactPage() {
       <h1 className="initiative-tracker-landing-page-title">Contact Us</h1>
 
         <p className="intro-text">
-        Found a bug, have an idea, or want to partner with us? Choose an option below so your message lands
-        in the right place.
+        Found a bug, have an idea, or want to partner with us? 
+        <br/>
+        Fill out the form below and we will route it to
+        the right place.
         </p>
 
-
-      <div className="faq-section">
-        <div>
-          <p className="faq-item">Bug Report</p>
-          <p>
-            <a
-              className="faq-link"
-              href="https://forms.gle/gdirbKhYCeJSCg3y9"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report a bug
-            </a>
-          </p>
-        </div>
-
-        <div>
-          <p className="faq-item">Feature Request</p>
-          <p>
-            <a
-              className="faq-link"
-              href="https://forms.gle/gdirbKhYCeJSCg3y9"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Submit a feature request
-            </a>
-          </p>
-        </div>
-
-        <div>
-          <p className="faq-item">Partnerships</p>
-          <p>
-            <a
-              className="faq-link"
-              href="https://forms.gle/gdirbKhYCeJSCg3y9"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Interested in working together?
-            </a>
-          </p>
-        </div>
-
-        <div>
-          <p className="faq-item">Questions</p>
-          <p>
-            <a
-              className="faq-link"
-              href="https://forms.gle/gdirbKhYCeJSCg3y9"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Get in touch
-            </a>
-          </p>
-        </div>
+      <div className="contact-form-embed-shell">
+        <iframe
+          className="contact-form-embed"
+          src="https://docs.google.com/forms/d/e/1FAIpQLScfTZJf-0mJFXCdnGfaPcoypZFUPLXzDLfC9i6-5ndEanGURw/viewform?embedded=true"
+          title="Contact Form"
+          loading="lazy"
+        >
+          Loading...
+        </iframe>
       </div>
 
         <p className="footer-note">

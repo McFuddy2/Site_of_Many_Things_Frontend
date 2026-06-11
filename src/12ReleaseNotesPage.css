@@ -2,6 +2,7 @@
 
 .release-notes-page-wrapper {
   background-color: var(--page-background);
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
   padding: 2%;
   padding-bottom: 5%;
   margin-left: 5%;
@@ -62,11 +63,11 @@
 
 .release-notes-card {
   width: 100%;
-  margin: 0 auto;
+  margin: 0 auto 1rem auto;
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   padding: 18px;
-  background: rgba(65, 42, 133, 0.3);
+  background: var(--release-notes-background);
   box-sizing: border-box;
 }
 
@@ -137,6 +138,16 @@
   gap: 12px;
   margin: 18px auto 0 auto;
   flex-wrap: wrap;
+}
+
+.release-notes-text-link {
+  color: rgb(147, 51, 234);
+  text-decoration: none;
+  transition: text-decoration 0.2s ease;
+}
+
+.release-notes-text-link:hover {
+  text-decoration: underline;
 }
 
 .btn-primary {

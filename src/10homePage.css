@@ -114,8 +114,12 @@
 }
 
 .home-page-map-background {
-  background-color: var(--page-background);
-  width: 84%;
+  background-color: transparent;
+  background-image: url('./media/Scroll_Background.png');
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 65%;
   height: 84%;
   border-radius: 10px;
   box-sizing: border-box;
@@ -193,6 +197,20 @@
 }
 
 @media screen and (min-width: 1025px) {
+  .home-page-map-background {
+    align-items: center;
+  }
+
+  .home-page-image-grid {
+    height: 90%;
+    width: auto;
+    max-height: none;
+    max-width: none;
+    aspect-ratio: 1 / 1;
+    align-self: center;
+    justify-self: center;
+  }
+
   .home-page-grid-cell-top-mid {
     cursor: pointer;
   }

@@ -2,10 +2,10 @@
 
 .sidebar {
   position: fixed;
-  top: 8vh;
+  top: var(--header-height);
   left: 0;
   width: 12%;
-  height: calc(var(--app-vh) - 8vh);
+  height: calc(var(--app-vh) - var(--header-height));
   background-color: var(--menu-bar-background);
   transform: translateX(-100%);
   transition: transform 0.3s ease-in-out;
