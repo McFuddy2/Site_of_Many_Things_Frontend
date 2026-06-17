@@ -13,6 +13,10 @@
   transition: background 0.2s;
 }
 
+.character-delete-modal-button-group .character-delete-cancel-button {
+  background-color: var(--condition-list-banner-background);
+}
+
 .character-delete-modal-button-group button:hover {
   background-color: black;
 }

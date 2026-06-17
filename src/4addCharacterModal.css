@@ -114,6 +114,26 @@
   background-color: #6d0000;
 }
 
+.summons-add-text-button {
+  margin-top: 10px;
+  align-self: flex-start;
+  width: 50%;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--initiative-banner);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.summons-add-text-button:hover {
+  filter: brightness(0.92);
+}
+
 .summons-input::placeholder {
   color: rgba(0, 0, 0, 0.45);
 }
@@ -255,6 +275,21 @@
  
   .close-modal-button:hover {
     background-color: #e53935;
+  }
+
+  @media screen and (min-width: 1025px) {
+    .add-character-modal .radio-group label,
+    .add-character-modal .accordion-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .add-character-modal .radio-group input[type="radio"],
+    .add-character-modal .accordion-checkbox {
+      margin: 0;
+      flex: 0 0 auto;
+    }
   }
 
   @media screen and (max-width: 900px) {
