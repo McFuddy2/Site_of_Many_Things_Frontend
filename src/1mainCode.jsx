@@ -7,11 +7,9 @@ import './4addCharacterModal.css';
 import './5addConditionModal.css';
 import './6conditionsDisplay.css';
 import plusIcon from './media/plus-icon.png';
-import viewIcon from './media/Eye_View_Icon.png';
 import rightArrow from './media/right.png'
 import leftArrow from './media/left.png'
 import './7settingsModal.css';
-import minusIcon from './media/minus-icon.png';
 import gearIcon from './media/gear-icon.png';
 import './8customConditionModal.css';
 import pencilIcon from './media/Quill_Edit_Icon.png';
@@ -88,6 +86,8 @@ export default function MainCode() {
   const nextSummonFocusIndexRef = useRef(null);
   const initiativeListContentRef = useRef(null);
   const pendingActiveRowDataIndexRef = useRef(null);
+  const supportsGroupedIndividuals = (selectedAffiliation) =>
+    ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
   const [round, setRound] = useState(JSON.parse(localStorage.getItem('round')) ?? 1);
 
@@ -216,7 +216,7 @@ export default function MainCode() {
     (
       <>
         When a character is created, you&apos;ll see several new text boxes and icons. Each of these is identified by
-        the headers at the top (Initiative, View, Edit, Delete, etc).
+        the headers at the top (Initiative, Edit, Delete, etc).
       </>
     ),
     (
@@ -228,7 +228,8 @@ export default function MainCode() {
     ),
     (
       <>
-        The eye icon is how you can view the conditions of characters other than the active player.
+        Clicking the Name or Conditions area is how you can view the conditions of characters other than the active
+        player.
         <br /><br />
         The feather quill icon is how you can edit the character&apos;s name or affiliation after they&apos;ve been created.
         <br /><br />
@@ -496,7 +497,7 @@ export default function MainCode() {
         const rows = document.querySelectorAll('.initiative-list-content .row');
         const targetRow = firstVisibleIndex >= 0 ? rows[firstVisibleIndex] : null;
         const icons = targetRow
-          ? Array.from(targetRow.querySelectorAll('.view-icon, .edit-icon, .delete-icon'))
+          ? Array.from(targetRow.querySelectorAll('.name-input, .personal-conditions, .edit-icon, .delete-icon'))
           : [];
 
         if (icons.length === 0) {
@@ -797,7 +798,7 @@ export default function MainCode() {
 
     for (let i = updatedData.length - 1; i >= 0; i--) {
       const aff = updatedData[i].affiliation;
-      if (aff === 'Enemy' || aff === 'Ally' || aff === 'Neutral/Environmental') {
+      if (aff === 'Enemy' || aff === 'Neutral/Environmental') {
         updatedData.splice(i, 1);
         updatedVisibility.splice(i, 1);
         updatedOverlay.splice(i, 1);
@@ -806,7 +807,6 @@ export default function MainCode() {
 
     updatedData = updatedData.map(row => ({
       ...row,
-      conditions: [],
       initiative: null
     }));
 
@@ -948,7 +948,7 @@ export default function MainCode() {
       if (resetRound) setRound(1);
       if (resetInitiative) {
         setRowData(prev =>
-          prev.map(row => ({ ...row, initiative: 0 }))
+          prev.map(row => ({ ...row, initiative: null }))
         );
       }
       if (removeAllConditions) {
@@ -1487,7 +1487,7 @@ export default function MainCode() {
     promoteNextSummonInput(index, true);
   };
 
-  const addTabletSummonInput = () => {
+  const addSummonInput = () => {
     if (summonNames.length >= 10) {
       return;
     }
@@ -1497,10 +1497,15 @@ export default function MainCode() {
   };
 
   const removeSummonInput = (index) => {
+    if (summonNames.length === 1) {
+      setAddSummons(false);
+      setSummonNames(['']);
+      setMobileSummonsConfirmed(false);
+      setMobileCharacterDetailModal(null);
+      return;
+    }
+
     setSummonNames((prev) => {
-      if (prev.length === 1) {
-        return [''];
-      }
       const updated = prev.filter((_, i) => i !== index);
       return updated.length > 0 ? updated : [''];
     });
@@ -1576,10 +1581,10 @@ export default function MainCode() {
       return;
     }
 
-    if (affiliation === 'Enemy' && multipleEnemiesType) {
+    if (supportsGroupedIndividuals(affiliation) && multipleEnemiesType) {
       const parsedCount = Number.parseInt(enemyTypeCount, 10);
       if (!Number.isFinite(parsedCount) || parsedCount < 1) {
-        setErrorMessage('Please input the number of enemies for this type.');
+        setErrorMessage('Please input the number of characters for this type.');
         return;
       }
     }
@@ -1595,16 +1600,16 @@ export default function MainCode() {
     const safeEnemyCount = Number.isFinite(parsedEnemyCount) && parsedEnemyCount > 0
       ? Math.min(parsedEnemyCount, 30)
       : 0;
-    const cleanedEnemyIndividualNames = affiliation === 'Enemy' && multipleEnemiesType && nameIndividualEnemies
+    const cleanedEnemyIndividualNames = supportsGroupedIndividuals(affiliation) && multipleEnemiesType && nameIndividualEnemies
       ? Array.from({ length: safeEnemyCount }, (_, index) => {
           const typedName = (enemyIndividualNames[index] || '').trim();
           return typedName || `${characterName} ${index + 1}`;
         })
       : [];
-    const generatedEnemyIndividualNames = affiliation === 'Enemy' && multipleEnemiesType && !nameIndividualEnemies
+    const generatedEnemyIndividualNames = supportsGroupedIndividuals(affiliation) && multipleEnemiesType && !nameIndividualEnemies
       ? Array.from({ length: safeEnemyCount }, (_, index) => `${characterName} ${index + 1}`)
       : [];
-    const companionNames = affiliation === 'Enemy'
+    const companionNames = supportsGroupedIndividuals(affiliation)
       ? (multipleEnemiesType ? (nameIndividualEnemies ? cleanedEnemyIndividualNames : generatedEnemyIndividualNames) : [])
       : cleanedSummons;
 
@@ -1622,10 +1627,10 @@ export default function MainCode() {
         affiliation: affiliation,
         summons: companionNames,
         summonConditions: nextSummonConditions,
-        multipleEnemiesType: affiliation === 'Enemy' ? multipleEnemiesType : false,
-        enemyTypeCount: affiliation === 'Enemy' && multipleEnemiesType ? safeEnemyCount : 0,
-        nameIndividualEnemies: affiliation === 'Enemy' ? nameIndividualEnemies : false,
-        enemyIndividualNames: affiliation === 'Enemy' ? cleanedEnemyIndividualNames : [],
+        multipleEnemiesType: supportsGroupedIndividuals(affiliation) ? multipleEnemiesType : false,
+        enemyTypeCount: supportsGroupedIndividuals(affiliation) && multipleEnemiesType ? safeEnemyCount : 0,
+        nameIndividualEnemies: supportsGroupedIndividuals(affiliation) ? nameIndividualEnemies : false,
+        enemyIndividualNames: supportsGroupedIndividuals(affiliation) ? cleanedEnemyIndividualNames : [],
       };
       setRowData(updatedData);
       setEditCharacterIndex(null);
@@ -1642,10 +1647,10 @@ export default function MainCode() {
         affiliation: affiliation,
         summons: companionNames,
         summonConditions: newSummonConditions,
-        multipleEnemiesType: affiliation === 'Enemy' ? multipleEnemiesType : false,
-        enemyTypeCount: affiliation === 'Enemy' && multipleEnemiesType ? safeEnemyCount : 0,
-        nameIndividualEnemies: affiliation === 'Enemy' ? nameIndividualEnemies : false,
-        enemyIndividualNames: affiliation === 'Enemy' ? cleanedEnemyIndividualNames : [],
+        multipleEnemiesType: supportsGroupedIndividuals(affiliation) ? multipleEnemiesType : false,
+        enemyTypeCount: supportsGroupedIndividuals(affiliation) && multipleEnemiesType ? safeEnemyCount : 0,
+        nameIndividualEnemies: supportsGroupedIndividuals(affiliation) ? nameIndividualEnemies : false,
+        enemyIndividualNames: supportsGroupedIndividuals(affiliation) ? cleanedEnemyIndividualNames : [],
       };
       setRowData(updatedData);
 
@@ -1887,7 +1892,7 @@ export default function MainCode() {
                 onClick={() => removeDisplayedCondition(realIndex, condition)}
                 aria-label={`Remove ${condition}`}
               >
-                <img src={minusIcon} alt="Remove Condition" />
+                <img src={trashcanIcon} alt="Remove Condition" />
               </button>
               <div>
                 <div>
@@ -1931,7 +1936,7 @@ export default function MainCode() {
                     onClick={() => removeSummonCondition(realIndex, summonName, condition)}
                     aria-label={`Remove ${condition}`}
                   >
-                    <img src={minusIcon} alt="Remove Condition" />
+                    <img src={trashcanIcon} alt="Remove Condition" />
                   </button>
                   <div>
                     <div>
@@ -1974,7 +1979,7 @@ export default function MainCode() {
       viewedSummon &&
       viewedSummon.rowIndex === realIndex &&
       viewedSummon.summonName &&
-      rowData[realIndex]?.affiliation === 'Enemy' &&
+      supportsGroupedIndividuals(rowData[realIndex]?.affiliation) &&
       rowData[realIndex]?.multipleEnemiesType
     );
   };
@@ -2033,7 +2038,7 @@ export default function MainCode() {
   const getPersonalConditionEntries = (row, shouldAggregateMinionConditions = false) => {
     const baseConditions = Array.isArray(row?.conditions) ? row.conditions : [];
 
-    if (!(shouldAggregateMinionConditions && row?.affiliation === 'Enemy' && row?.multipleEnemiesType)) {
+    if (!(shouldAggregateMinionConditions && supportsGroupedIndividuals(row?.affiliation) && row?.multipleEnemiesType)) {
       return baseConditions
         .map((condition, idx) => {
           const conditionName = getConditionName(condition);
@@ -2326,8 +2331,18 @@ export default function MainCode() {
             Caution: these actions cannot be undone!
           </div>
           <div className="settings-parent-buttons">
-            <button className="settings-new-combat-button" onClick={handleNewCombat}>New Combat</button>
-            <button className="settings-full-reset-button" onClick={handleFullReset}>Full Reset</button>
+            <div className="settings-action-group">
+              <button className="settings-new-combat-button" onClick={handleNewCombat}>New Combat</button>
+              <div className="settings-action-description">
+                Removes enemies and neutral / environmental characters, clears initiative, and resets the round to 1.
+              </div>
+            </div>
+            <div className="settings-action-group">
+              <button className="settings-full-reset-button" onClick={handleFullReset}>Full Reset</button>
+              <div className="settings-action-description">
+                Removes all characters, conditions, and initiative values and resets the round to 1.
+              </div>
+            </div>
           </div>
           <form
             onSubmit={handleSettingsSubmit}
@@ -2339,7 +2354,7 @@ export default function MainCode() {
                   checked={resetRound}
                   onChange={e => setResetRound(e.target.checked)}
                 />
-                Reset Round Count to 0
+                Reset Round Count to 1
               </label>
               <label>
                 <input
@@ -2347,7 +2362,7 @@ export default function MainCode() {
                   checked={resetInitiative}
                   onChange={e => setResetInitiative(e.target.checked)}
                 />
-                Set Initiative Values to 0
+                Clear Initiative Values
               </label>
               <label>
                 <input
@@ -2395,7 +2410,7 @@ export default function MainCode() {
                   checked={fillCharacters}
                   onChange={e => setFillCharacters(e.target.checked)}
                 />
-                Fill Characters
+                Fill with Random Characters
               </label>
             </div>
             <div className="modal-button-group" style={{ marginTop: 16 }}>
@@ -2464,7 +2479,6 @@ export default function MainCode() {
             </div>
             <div className="initiative-list-column-headers">
               <div className="column-header-initiative">Initiative</div>
-              {!isTabletLayout && <div className="column-header-view">View</div>}
               <div className="column-header-edit">Edit</div>
               <div className="column-header-delete">Delete</div>
               {showArmorClass && <div className="column-header-ac">AC</div>}
@@ -2475,7 +2489,7 @@ export default function MainCode() {
             <div className="initiative-list-content" ref={initiativeListContentRef}>
               {displayedSortedRowData.map(({ index }, shiftedIndex) => {
                 const isEnemyWithIndividuals =
-                  rowData[index].affiliation === 'Enemy' &&
+                  supportsGroupedIndividuals(rowData[index].affiliation) &&
                   rowData[index].multipleEnemiesType &&
                   (rowData[index].summons || []).length > 0;
                 const isActiveRow = shiftedRowIndex !== null && sortedRowData[shiftedRowIndex]?.index === index;
@@ -2495,7 +2509,6 @@ export default function MainCode() {
                 <div
                   key={index}
                   className={`row ${isMobileLayout ? 'row-mobile-viewable' : ''} ${isActiveRow ? 'shifted-row' : ''} ${isWiggleRow ? 'shifted-row-wiggle' : ''} ${isRoundDividerTarget ? 'round-divider-target' : ''}`}
-                  data-round-label={isRoundDividerTarget ? `Round ${round + 1}` : undefined}
                   onClick={(e) => {
                     if (!isMobileLayout || overlayActive[index]) {
                       return;
@@ -2545,15 +2558,11 @@ export default function MainCode() {
                       value={rowData[index].initiative ?? ''}
                       onChange={(e) => handleInitiativeChange(index, e.target.value)}
                     />
+                    {isRoundDividerTarget && (
+                      <div className="round-inline-counter">Round {round + 1}</div>
+                    )}
                   </div>
                   <div className="row-actions">
-                    {!isMobileLayout && !isTabletLayout && (
-                      <div className="view-character-conditions">
-                        <button className="view-button" title="View" onClick={() => { updateViewCharacterIndex(shiftedIndex); }}>
-                          <img src={viewIcon} alt="View Icon" className="view-icon" />
-                        </button>
-                      </div>
-                    )}
                     <div className="edit-character">
                       <button
                         className="editCharacterButton"
@@ -2570,7 +2579,7 @@ export default function MainCode() {
                             setSummonNames(['']);
                           }
 
-                          if (rowData[index].affiliation === 'Enemy' && rowData[index].multipleEnemiesType) {
+                          if (supportsGroupedIndividuals(rowData[index].affiliation) && rowData[index].multipleEnemiesType) {
                             setMultipleEnemiesType(true);
                             setEnemyTypeCount(String(rowData[index].enemyTypeCount || ''));
                             setEnemyCountExceededLimit(false);
@@ -2625,7 +2634,24 @@ export default function MainCode() {
                     </div>
                   )}
                   {/* Remove the character-menu and dropdown */}
-                  <div className="name-input">
+                  <div
+                    className="name-input"
+                    onClick={(e) => {
+                      e.stopPropagation();
+
+                      if (overlayActive[index]) {
+                        return;
+                      }
+
+                      const interactiveTarget = e.target.closest('.name-input-summon-item');
+                      if (interactiveTarget) {
+                        return;
+                      }
+
+                      updateViewCharacterIndex(shiftedIndex);
+                      showMobileConditionsPanel();
+                    }}
+                  >
                     <div className="name-input-main" style={{ color: getTextColor(rowData[index].affiliation) }}>
                       {displayName}
                     </div>
@@ -2634,7 +2660,7 @@ export default function MainCode() {
                         {rowData[index].summons.map((summonName, summonIdx) => (
                           <div
                             key={`${summonName}-${summonIdx}`}
-                            className={`name-input-summon-item${rowData[index].affiliation === 'Enemy' ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
+                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
                             onClick={() => {
                               const isSameSummonSelected =
                                 viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName;
@@ -2677,7 +2703,7 @@ export default function MainCode() {
                         {rowData[index].summons.map((summonName, summonIdx) => (
                           <div
                             key={`${summonName}-${summonIdx}`}
-                            className={`name-input-summon-item${rowData[index].affiliation === 'Enemy' ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
+                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
                             onClick={() => {
                               const isSameSummonSelected =
                                 viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName;
@@ -2716,8 +2742,10 @@ export default function MainCode() {
                   )}
                   <div
                     className="personal-conditions"
-                    onClick={() => {
-                      if (!isTabletLayout || overlayActive[index]) {
+                    onClick={(e) => {
+                      e.stopPropagation();
+
+                      if (overlayActive[index]) {
                         return;
                       }
 
@@ -3057,7 +3085,7 @@ export default function MainCode() {
                               setAddSummons(false);
                               setSummonNames(['']);
                             }
-                            if (e.target.value !== 'Enemy') {
+                            if (!supportsGroupedIndividuals(e.target.value)) {
                               setMultipleEnemiesType(false);
                               setEnemyTypeCount('');
                               setEnemyCountExceededLimit(false);
@@ -3108,7 +3136,7 @@ export default function MainCode() {
                     )}
                   </div>
                 )}
-                {affiliation === 'Enemy' && (
+                {supportsGroupedIndividuals(affiliation) && (
                   <div className="accordion-panel">
                     {isMobileLayout && mobileEnemiesConfirmed ? (
                       <div className="mobile-character-summary">
@@ -3122,9 +3150,9 @@ export default function MainCode() {
                                 if (namedEnemies.length > 0) {
                                   return namedEnemies.join(', ');
                                 }
-                                return `${enemyTypeCount || 0} enemies of this type`;
+                                return `${enemyTypeCount || 0} characters of this type`;
                               })()
-                            : `${enemyTypeCount || 0} enemies of this type`}
+                            : `${enemyTypeCount || 0} characters of this type`}
                         </span>
                       </div>
                     ) : (
@@ -3149,7 +3177,7 @@ export default function MainCode() {
                           }}
                           className="accordion-checkbox"
                         />
-                        Multiple Enemies of this Type?
+                        Multiple Characters of this Type?
                       </label>
                     )}
                   </div>
@@ -3208,13 +3236,22 @@ export default function MainCode() {
                       </button>
                     </div>
                   ))}
+                  {!isTabletLayout && summonNames.length < 10 && (
+                    <button
+                      type="button"
+                      className="summons-add-text-button"
+                      onClick={addSummonInput}
+                    >
+                      Add Summon
+                    </button>
+                  )}
                 </div>
                 {isTabletLayout && summonNames.length < 10 && (
                   <button
                     type="button"
                     className="summons-add-button"
                     aria-label="Add summon input"
-                    onClick={addTabletSummonInput}
+                    onClick={addSummonInput}
                   >
                     <img src={plusIcon} alt="Add summon input" />
                   </button>
@@ -3227,9 +3264,9 @@ export default function MainCode() {
               </div>
             )}
 
-            {!isMobileLayout && affiliation === 'Enemy' && multipleEnemiesType && (
+            {!isMobileLayout && supportsGroupedIndividuals(affiliation) && multipleEnemiesType && (
               <div className="summons-side-panel">
-                <h3>Input the number of this enemy type:</h3>
+                <h3>Input the number of this character type:</h3>
                 <input
                   type="number"
                   min="1"
@@ -3257,7 +3294,7 @@ export default function MainCode() {
                 />
                 {enemyCountExceededLimit && (
                   <div className="enemy-count-limit-message">
-                    You can only have a maximum of 30 enemies of this type
+                    You can only have a maximum of 30 characters of this type
                   </div>
                 )}
 
@@ -3273,7 +3310,7 @@ export default function MainCode() {
                     }}
                     className="accordion-checkbox"
                   />
-                  Name Individual Enemies of this Type?
+                  Name Individual Characters of this Type?
                 </label>
 
                 {nameIndividualEnemies && (
@@ -3287,7 +3324,7 @@ export default function MainCode() {
                         key={`enemy-name-${index}`}
                         type="text"
                         className="summons-input"
-                        placeholder={`Enemy ${index + 1} Name`}
+                        placeholder={`${affiliation || 'Character'} ${index + 1} Name`}
                         value={enemyIndividualNames[index] || ''}
                         ref={(el) => {
                           enemyNameInputRefs.current[index] = el;
@@ -3361,7 +3398,7 @@ export default function MainCode() {
                           type="button"
                           className="summons-add-button"
                           aria-label="Add summon input"
-                          onClick={addTabletSummonInput}
+                          onClick={addSummonInput}
                         >
                           <img src={plusIcon} alt="Add summon input" />
                         </button>
@@ -3392,12 +3429,12 @@ export default function MainCode() {
               </div>
             )}
 
-            {isMobileLayout && mobileCharacterDetailModal === 'enemies' && affiliation === 'Enemy' && multipleEnemiesType && (
+            {isMobileLayout && mobileCharacterDetailModal === 'enemies' && supportsGroupedIndividuals(affiliation) && multipleEnemiesType && (
               <div className="mobile-character-detail-overlay">
                 <div className="summons-side-panel mobile-character-detail-modal">
                   {mobileEnemyModalStep === 'setup' ? (
                     <>
-                      <h3>Input the number of this enemy type:</h3>
+                      <h3>Input the number of this character type:</h3>
                       <input
                         type="number"
                         min="1"
@@ -3425,7 +3462,7 @@ export default function MainCode() {
                       />
                       {enemyCountExceededLimit && (
                         <div className="enemy-count-limit-message">
-                          You can only have a maximum of 30 enemies of this type
+                          You can only have a maximum of 30 characters of this type
                         </div>
                       )}
 
@@ -3442,7 +3479,7 @@ export default function MainCode() {
                           }}
                           className="accordion-checkbox"
                         />
-                        Name Individual Enemies of this Type?
+                        Name Individual Characters of this Type?
                       </label>
 
                       <div className="mobile-character-detail-actions">
@@ -3464,14 +3501,14 @@ export default function MainCode() {
                     </>
                   ) : (
                     <>
-                      <h3>Name Individual Enemies of this Type</h3>
+                      <h3>Name Individual Characters of this Type</h3>
                       <div className="summons-input-list enemy-input-list">
                         {(enemyIndividualNames.length > 0 ? enemyIndividualNames : ['']).map((enemyName, index) => (
                           <div key={`enemy-name-${index}`} className="summons-input-row">
                             <input
                               type="text"
                               className="summons-input"
-                              placeholder={`Enemy ${index + 1} Name`}
+                              placeholder={`${affiliation || 'Character'} ${index + 1} Name`}
                               value={enemyName || ''}
                               ref={(el) => {
                                 enemyNameInputRefs.current[index] = el;

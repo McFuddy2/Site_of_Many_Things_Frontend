@@ -56,24 +56,26 @@
 
 .settings-modal h2 {
   font-size: 1.75rem;
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .settings-view-options {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
 .settings-view-toggle {
-  width: 100%;
+  width: calc(50% - 8px);
   display: flex;
   align-items: center;
   justify-content: flex-start;
   font-size: 1.1rem;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   gap: 12px;
 }
 
@@ -162,6 +164,11 @@
   width: 100%;
 }
 
+.settings-modal .modal {
+  width: 62vw;
+  max-width: 720px;
+}
+
 .settings-caution-text {
   color: red;
   font-weight: bold;
@@ -176,6 +183,20 @@
   display: flex;
   flex-direction: row;
   justify-content: space-around;
+  gap: 1px;
+  align-items: flex-start;
+}
+
+.settings-action-group {
+  width: 49%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  box-sizing: border-box;
 }
 
 .settings-new-combat-button, .settings-full-reset-button {
@@ -189,7 +210,15 @@
   font-weight: 400;
   transition: background 0.2s;
   height: 50px;
-  width: 40%;
+  width: 100%;
+}
+
+.settings-action-description {
+  color: var(--text-color, #222);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: center;
+  width: 100%;
 }
 
 @media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
@@ -199,6 +228,10 @@
 }
 
 .settings-checkbox-group {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 5px;
   text-align: left;
   align-items: flex-start;
   justify-content: flex-start;
@@ -211,6 +244,24 @@
   display: block;
   margin-bottom: 10px;
   font-size: 1.1rem;
+}
+
+@media screen and (max-width: 599px) {
+  .settings-view-options {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .settings-view-toggle {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .settings-checkbox-group {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+  }
 }
 
 .settings-checkbox-group input[type="checkbox"] {
@@ -234,6 +285,20 @@
   transition: background 0.2s;
   height: 50px;
   width: 100%;
+}
+
+.settings-modal .modal-button-group {
+  align-items: center;
+}
+
+.settings-modal .settings-submit-button {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.settings-modal .close-modal-button {
+  display: inline-block;
+  flex: 0 0 auto;
 }
 
 .settings-submit-button:hover {

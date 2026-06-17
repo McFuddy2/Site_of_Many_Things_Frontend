@@ -176,21 +176,23 @@
   border-top: 1px solid rgba(0, 0, 0, 0.25);
 }
   
-.remove-condition-button {
+.conditions-list-content .remove-condition-button {
   background: none;
   border: none;
-  padding: 0;
+  padding: 0px;
   cursor: pointer;
-  display: flex;  
+  display: flex;
   align-items: flex-start;
   justify-content: center;
-  margin-right: 8px;
+  margin-right: 0px;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
 }
 
-.remove-condition-button img {
-  width: 16px;
-  height: 16px;
+.conditions-list-content .remove-condition-button img {
+  width: 24px !important;
+  height: 24px !important;
   object-fit: contain;
   pointer-events: none; /* Prevents accidental drag of the image */
 }
