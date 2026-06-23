@@ -32,10 +32,11 @@
 
 .new-custom-condition-button {
     justify-content: center;
+  align-self: center;
 }
 
 .new-custom-condition-button {
-background-color: #002366;
+background-color: var(--condition-dark-blue);
 color: white;
 border: none;
 border-radius: 5px;
@@ -79,7 +80,7 @@ background-color: #0056b3;
 .affect-buttons button.positive,
 .affect-buttons button.neutral,
 .affect-buttons button.negative {
-background-color: #002366;
+background-color: var(--condition-dark-blue);
 color: white;
 border: none;
 border-radius: 5px;
@@ -117,7 +118,7 @@ margin-left: 1%;
 
 .custom-condition-modal .modal-button-group button[type="submit"], .custom-condition-modal .close-custom-modal-button,
 .custom-condition-modal .modal-button-group button[type="button"] {
-  background-color: #002366;
+  background-color: var(--condition-dark-blue);
   color: white;
   border: none;
   border-radius: 6px;
@@ -181,42 +182,46 @@ margin-left: 1%;
 .selectable-item.neutral { color: gray; }
 .selectable-item.negative { color: red; }
 
-.condition-icon {
-  width: 16px !important;      /* override any inline or SVG file sizing */
-  height: 16px !important;
+.custom-condition-modal .condition-icon {
+  width: 18px !important;      /* override any inline or SVG file sizing */
+  height: 18px !important;
   flex-shrink: 0;               /* prevents it from squishing in flex layouts */
   display: inline-block;
   object-fit: contain;          /* keep proportions */
 }
 
 
-.remove-condition-button {
+.custom-condition-modal .remove-condition-button {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
-  width: 16px;
-  height: 16px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   margin-right: 8px;
+  align-self: center;
   vertical-align: middle;
 }
 
-.remove-condition-button:hover .condition-icon {
+.custom-condition-modal .remove-condition-button:hover .condition-icon {
   filter: brightness(0.8);
 }
 
-.edit-custom-condition {
+.custom-condition-modal .edit-custom-condition {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
-  width: 16px;
-  height: 16px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   margin-right: 8px;
+  align-self: center;
   vertical-align: middle;
 }
 
@@ -256,6 +261,66 @@ font-size: large;
 
 .custom-condition-name-button:hover {
   text-decoration: underline;
+}
+
+.custom-condition-name-button:disabled {
+  opacity: 0.9;
+  cursor: default;
+  text-decoration: none;
+}
+
+.edit-custom-condition-checkbox {
+  width: 20px;
+  height: 20px;
+  margin: 0 8px 0 0;
+  align-self: center;
+  cursor: pointer;
+  accent-color: #002366;
+}
+
+.custom-delete-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border-radius: 10px;
+}
+
+.custom-delete-confirm-modal {
+  width: 85%;
+  max-width: 280px;
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.custom-delete-confirm-modal p {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.custom-delete-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-delete-confirm-actions button {
+  border: none;
+  border-radius: 6px;
+  background-color: var(--condition-dark-blue);
+  color: #fff;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.custom-delete-confirm-actions button:hover {
+  background-color: #0056b3;
 }
 
 .custom-mob-condition-modal {

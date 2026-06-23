@@ -10,13 +10,14 @@ export default function ToolPageFooter({
   setLearnMoreOpen,
   contentKey,
   summaryLabel = "Learn How to Use this Tool ↓",
+  hideAd = false,
   children,
 }) {
   const registryContent = contentKey ? TOOL_FOOTER_CONTENT_REGISTRY[contentKey]?.() : null;
   const content = children ?? registryContent;
 
   return (
-    <div className={`help-n-ad-section ${learnMoreOpen ? "tool-learn-more-is-open" : ""}`}>
+    <div className={`help-n-ad-section ${hideAd ? "no-ad" : ""} ${learnMoreOpen ? "tool-learn-more-is-open" : ""}`}>
       <div className="help-section">
         {!helpHidden ? (
           <div className={`tool-learn-more-wrapper ${learnMoreOpen ? "tool-learn-more-is-open" : ""}`}>
@@ -61,9 +62,11 @@ export default function ToolPageFooter({
         )}
       </div>
 
-      <div className="ad-section">
-        <AdSlot />
-      </div>
+      {!hideAd && (
+        <div className="ad-section">
+          <AdSlot />
+        </div>
+      )}
     </div>
   );
 }

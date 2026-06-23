@@ -77,6 +77,14 @@ html, body {
     box-sizing: border-box;
   }
 
+  .help-n-ad-section.no-ad {
+    justify-content: center;
+  }
+
+  .help-n-ad-section.no-ad .help-section {
+    width: 70%;
+  }
+
   .seo-only {
     position: absolute;
     width: 1px;

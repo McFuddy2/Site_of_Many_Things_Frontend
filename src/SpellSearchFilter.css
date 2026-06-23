@@ -45,7 +45,7 @@
   transform: translateX(-50%);
   width: 80%;
   height: 2px;
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
 }
 
 .basic-advanced-toggle .sort-by-toggle {
@@ -78,7 +78,7 @@
   bottom: 0.2rem;
   left: 0.2rem;
   width: calc(50% - 0.2rem);
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
   border-radius: 999px;
   transition: transform 0.2s ease;
   pointer-events: none;
@@ -94,6 +94,36 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+}
+
+.advanced-filters-disabled-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background-color: rgba(0, 0, 0, 0.15);
+  pointer-events: all;
+}
+
+.advanced-filters-coming-soon-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 4rem;
+  background-color: var(--header-secondary-background);
+  border: 2px solid var(--dark-purple-text);
+  border-radius: 10px;
+  color: black;
+  font-weight: 700;
+  font-size: 2em;
+  -webkit-text-stroke: 2px white;
+  paint-order: stroke fill;
 }
 
 .advanced-formula-display {
@@ -127,7 +157,7 @@
   border: none;
   border-radius: 6px;
   background-color: #000000;
-  color: hotpink;
+  color: var(--light-purple-text);
   padding: 0.35rem 0.75rem;
   font-weight: 700;
   cursor: pointer;
@@ -200,7 +230,7 @@
   transform: translateX(-50%);
   width: 80%;
   height: 2px;
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
 }
 
 .advanced-formula-pieces-dropdowns {
@@ -342,7 +372,7 @@
   transform: translateX(-50%);
   width: 80%;
   height: 2px;
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
 }
 
 .basic-filter-include-title,
@@ -367,17 +397,40 @@
   padding: 0.2rem;
 }
 
-.basic-filter-include-secondary-dropdown,
-.basic-filter-exclude-secondary-dropdown {
-  flex: 1;
+.secondary-dropdown-row {
+  display: flex;
+  align-items: center;
   width: 90%;
   align-self: center;
-	margin-top: 8px;
+  gap: 1%;
+  margin-top: 8px;
+}
+
+.basic-filter-include-secondary-dropdown,
+.basic-filter-exclude-secondary-dropdown {
+  flex: 0 0 70%;
+  width: 70%;
 	background-color: rgb(244, 230, 250);
 	font-size: inherit;
   border-radius: 5px;
   padding: 0.2rem;
   position: relative;
+}
+
+.secondary-multi-select-submit-button {
+  flex: 0 0 29%;
+  width: 29%;
+  background-color: var(--light-purple-text);
+  border: none;
+  border-radius: 5px;
+  padding: 0.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-multi-select-submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .secondary-multi-select {
@@ -441,7 +494,7 @@
 
 .secondary-multi-select-option input[type="checkbox"] {
   margin: 0;
-  accent-color: hotpink;
+  accent-color: var(--light-purple-text);
 }
 
 .basic-filter-include-list,
@@ -487,7 +540,7 @@
   right: 0;
   top: 50%;
   height: 2px;
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
   transform: scaleX(0);
   transform-origin: right center;
   transition: transform 240ms ease;
@@ -562,7 +615,13 @@
   transform: translateX(-50%);
   width: 80%;
   height: 2px;
-  background-color: hotpink;
+  background-color: var(--light-purple-text);
+}
+
+.spellbook-buttons-coming-soon-wrapper {
+  flex: 2;
+  position: relative;
+  display: flex;
 }
 
 .main-spell-searcher-page-spellbook-buttons-left,
@@ -574,6 +633,22 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.4rem 0;
+}
+
+.spellbook-buttons-coming-soon-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-color: var(--header-secondary-background);
+  border: 2px solid var(--dark-purple-text);
+  border-radius: 10px;
+  color: black;
+  font-weight: 700;
+  -webkit-text-stroke: 2px white;
+  paint-order: stroke fill;
 }
 
 .main-spell-searcher-page-spellbook-buttons-left .spellbook-action-button,
@@ -641,7 +716,7 @@
 
 .secret-code-input-field:focus {
   outline: none;
-  border-color: hotpink;
+  border-color: var(--light-purple-text);
   box-shadow: 0 0 4px rgba(255, 105, 180, 0.3);
 }
 
@@ -725,7 +800,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: hotpink;
+  background: var(--light-purple-text);
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
@@ -740,7 +815,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: hotpink;
+  background: var(--light-purple-text);
   cursor: pointer;
   border: none;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);

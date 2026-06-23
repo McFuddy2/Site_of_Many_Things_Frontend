@@ -304,7 +304,12 @@
 .guided-tutorial-modal-overlay {
 	 position: fixed;
 	 inset: 0;
-	 z-index: 1000;
+	 z-index: 5000;
+}
+
+.guided-tutorial-modal-overlay--shift-left {
+	 justify-content: flex-start;
+	 padding-left: 3%;
 }
 
 .guided-tutorial-spotlight {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import "../SpellSearchMainStyles.css";
 import "../SpellSearchSpellList.css";
 import "../SpellSearchColumnViewModal.css";
@@ -15,6 +15,52 @@ const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft",
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
 const emptySpellMessage = "No spells match your current filters.";
 const loadSpellErrorMessage = "Unable to load spells right now. Please try again.";
+
+// Keeps typing keystrokes local to this small component instead of re-rendering
+// the entire spell search page (filter UI + spell list) on every character.
+const KeywordFilterInput = forwardRef(function KeywordFilterInput(
+	{ placeholder, ariaLabel, disabled, onSubmit, onHasTextChange },
+	ref,
+) {
+	const [value, setValue] = useState("");
+	const hasText = value.trim().length > 0;
+
+	useImperativeHandle(ref, () => ({
+		submit: () => {
+			if (!value.trim()) {
+				return;
+			}
+			onSubmit(value);
+			setValue("");
+		},
+	}));
+
+	useEffect(() => {
+		onHasTextChange(hasText);
+	}, [hasText, onHasTextChange]);
+
+	return (
+		<input
+			type="text"
+			className="basic-filter-input"
+			value={value}
+			onChange={(event) => setValue(event.target.value)}
+			placeholder={placeholder}
+			disabled={disabled}
+			onKeyDown={(event) => {
+				if (event.key === "Enter") {
+					event.preventDefault();
+					if (!value.trim()) {
+						return;
+					}
+					onSubmit(value);
+					setValue("");
+				}
+			}}
+			aria-label={ariaLabel}
+		/>
+	);
+});
 
 export default function SpellSearchPage() {
 	const filterFieldOptions = [
@@ -41,6 +87,8 @@ export default function SpellSearchPage() {
 		ritual: true,
 		classes: true,
 	});
+	const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
+	const isCompactSpellRow = visibleColumnCount <= 4;
 	const [sortBy, setSortBy] = useState("level");
 	const isAlphabetical = sortBy === "alphabetical";
 	const [sortDirection, setSortDirection] = useState("ascending");
@@ -51,6 +99,10 @@ export default function SpellSearchPage() {
 	const [excludeFilterField, setExcludeFilterField] = useState("");
 	const [includeFilterValue, setIncludeFilterValue] = useState("");
 	const [excludeFilterValue, setExcludeFilterValue] = useState("");
+	const [includeHasKeywordText, setIncludeHasKeywordText] = useState(false);
+	const [excludeHasKeywordText, setExcludeHasKeywordText] = useState(false);
+	const includeKeywordInputRef = useRef(null);
+	const excludeKeywordInputRef = useRef(null);
 	const [includeSelections, setIncludeSelections] = useState([]);
 	const [excludeSelections, setExcludeSelections] = useState([]);
 	const [advancedFilterField, setAdvancedFilterField] = useState("");
@@ -95,6 +147,7 @@ export default function SpellSearchPage() {
 	const [mobileExcludeRangeLow, setMobileExcludeRangeLow] = useState(0);
 	const [mobileExcludeRangeHigh, setMobileExcludeRangeHigh] = useState(RANGE_SLIDER_MAX);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isApplyingFilters, setIsApplyingFilters] = useState(false);
 	const [spells, setSpells] = useState({ items: [], total: 0, page_size: 20 });
 	const [loadError, setLoadError] = useState("");
 	const [availableSources, setAvailableSources] = useState([]);
@@ -250,6 +303,7 @@ export default function SpellSearchPage() {
 	const fetchAdvancedSpells = async () => {
 		try {
 			setLoadError("");
+			setIsApplyingFilters(true);
 			const query = advancedQueryBuilder();
 			const response = await queryAdvancedSpells(query);
 			const items = Array.isArray(response?.items) ? response.items : [];
@@ -264,6 +318,7 @@ export default function SpellSearchPage() {
 			setTotalPages(1);
 		} finally {
 			setIsLoading(false);
+			setIsApplyingFilters(false);
 		}
 	}
 
@@ -621,12 +676,25 @@ export default function SpellSearchPage() {
 			<>
 				You can sort these spells using our simple sort options. You can choose Level or Alphabetical and then Ascending or Descending.
 				<br /><br />
-				Whichever is highlighted pink with the white text is the effect that is currently active.
+				Whichever is highlighted purple with the white text is the effect that is currently active.
 			</>
 		),
 		(
 			<>
-				20 spells are displayed on the page at a time. You can click on the pink arrow to the right of this book icon to go to the next page. Then you can click on the pink arrow to the left of this book icon to go back to a previous page.
+				20 spells are displayed on the page at a time. You can click on the purple arrow to the right of this book icon to go to the next page. 
+				Then you can click on the purple arrow to the left of this book icon to go back to a previous page.
+			</>
+		),
+		(
+			<>
+				Click almost anywhere in a row to open the spell description below it.
+			</>
+		),
+		(
+			<>
+				You can click either of these copy buttons to copy information about the spell to paste somewhere else.
+				<br /><br />
+				If you click the copy button in the spell row, it will copy everything about the spell. If you click the copy button in the spell description section, it will only copy the description of the spell.
 			</>
 		),
 		(
@@ -642,7 +710,8 @@ export default function SpellSearchPage() {
 				<br /><br />
 				After a category has been selected, the secondary drop down will become available and will offer options within that category.
 				<br /><br />
-				When a selection is made, it will apear in a list below the drop down menus. To remove that filter, simply click on the word in the list.
+				When a selection is made, click on the "submit" button to make it appear in a list below the drop down menus. 
+				To remove that filter, simply click on the word in the list.
 			</>
 		),
 		(
@@ -2034,7 +2103,7 @@ export default function SpellSearchPage() {
 			return;
 		}
 
-		if (guidedTutorialStep >= 9) {
+		if (guidedTutorialStep >= 11) {
 			setFilterView("advanced");
 			setOpenSecondaryMenu(null);
 			return;
@@ -2048,7 +2117,22 @@ export default function SpellSearchPage() {
 			return;
 		}
 
-		if (guidedTutorialStep === 6) {
+		if (guidedTutorialStep !== 5 && guidedTutorialStep !== 6) {
+			return;
+		}
+
+		const firstSpellId = spellItems[0]?.id;
+		if (firstSpellId && expandedSpellId !== firstSpellId) {
+			handleSpellNameClick(firstSpellId);
+		}
+	}, [guidedTutorialStep, isGuidedTutorialModalOpen, spellItems, expandedSpellId]);
+
+	useEffect(() => {
+		if (!isGuidedTutorialModalOpen) {
+			return;
+		}
+
+		if (guidedTutorialStep === 8) {
 			setIncludeSelections([{ field: "Class", value: "Bard" }]);
 			setExcludeSelections([]);
 			setIncludeFilterField("Class");
@@ -2061,7 +2145,7 @@ export default function SpellSearchPage() {
 			return;
 		}
 
-		if (guidedTutorialStep === 7) {
+		if (guidedTutorialStep === 9) {
 			setExcludeSelections([{ field: "Level", value: "Cantrip" }]);
 			setExcludeFilterField("Level");
 			setExcludeFilterValue("");
@@ -2071,7 +2155,7 @@ export default function SpellSearchPage() {
 	}, [guidedTutorialStep, isGuidedTutorialModalOpen]);
 
 	useEffect(() => {
-		if (!isGuidedTutorialModalOpen || guidedTutorialStep !== 10) {
+		if (!isGuidedTutorialModalOpen || guidedTutorialStep !== 12) {
 			return;
 		}
 
@@ -2091,7 +2175,7 @@ export default function SpellSearchPage() {
 	}, [guidedTutorialStep, isGuidedTutorialModalOpen]);
 
 	useEffect(() => {
-		if (!isGuidedTutorialModalOpen || guidedTutorialStep !== 11 || !spellListWrapperRef.current) {
+		if (!isGuidedTutorialModalOpen || guidedTutorialStep !== 13 || !spellListWrapperRef.current) {
 			return;
 		}
 
@@ -2123,13 +2207,21 @@ export default function SpellSearchPage() {
 			2: ['.column-view-section'],
 			3: ['.sort-by-toggle-section'],
 			4: ['.page-of-spell-list'],
-			5: ['.spell-filter-wrapper'],
-			6: ['.basic-filter-include'],
-			7: ['.basic-filter-exclude'],
-			8: ['.main-spell-searcher-page-spellbook-buttons'],
-			9: ['.advanced-formula-pieces'],
-			10: ['.advanced-formula-display'],
-			11: ['.filter-bubble-delete-box'],
+			5: [
+				'.spell-search-spell-list > .spell-list-item:first-child .spell-list-row',
+				'.spell-search-spell-list > .spell-list-item:first-child .spell-row-accordion.is-open',
+			],
+			6: [
+				'.spell-search-spell-list > .spell-list-item:first-child .spell-copy-info-button',
+				'.spell-search-spell-list > .spell-list-item:first-child .spell-copy-description-button',
+			],
+			7: ['.spell-filter-wrapper'],
+			8: ['.basic-filter-include'],
+			9: ['.basic-filter-exclude'],
+			10: ['.main-spell-searcher-page-spellbook-buttons'],
+			11: ['.advanced-formula-pieces'],
+			12: ['.advanced-formula-display'],
+			13: ['.filter-bubble-delete-box'],
 		};
 
 		const selectors = highlightSelectors[guidedTutorialStep];
@@ -2161,11 +2253,15 @@ export default function SpellSearchPage() {
 		const firstFrameId = window.requestAnimationFrame(() => {
 			window.requestAnimationFrame(updateSpotlights);
 		});
+		// .spell-row-accordion animates open/closed over 0.35s (see SpellSearchSpellList.css),
+		// so its true size isn't known until that transition finishes.
+		const accordionTransitionTimeoutId = window.setTimeout(updateSpotlights, 400);
 
 		return () => {
 			window.cancelAnimationFrame(firstFrameId);
+			window.clearTimeout(accordionTransitionTimeoutId);
 		};
-	}, [deleteBoxBounds, filterView, guidedTutorialStep, isGuidedTutorialModalOpen]);
+	}, [deleteBoxBounds, expandedSpellId, filterView, guidedTutorialStep, isGuidedTutorialModalOpen]);
 
 	useEffect(() => {
 		const handleOpenTutorial = () => {
@@ -2190,6 +2286,10 @@ export default function SpellSearchPage() {
 			const scrollContainer = document.querySelector('.spell-search-page-scroll');
 			if (scrollContainer) {
 				scrollContainer.scrollTop = 0;
+			}
+			const spellListContainer = document.querySelector('.spell-search-spell-list');
+			if (spellListContainer) {
+				spellListContainer.scrollTop = 0;
 			}
 			window.scrollTo({ top: 0, behavior: 'auto' });
 			setIsGuidedTutorialModalOpen(true);
@@ -2232,6 +2332,10 @@ export default function SpellSearchPage() {
 
 		const handlePointerDownOutside = (event) => {
 			if (activeRef && !activeRef.contains(event.target)) {
+				if (openSecondaryMenu === "include" || openSecondaryMenu === "exclude") {
+					setOpenSecondaryMenu(null);
+					return;
+				}
 				commitSecondaryMenuSelections(openSecondaryMenu);
 			}
 		};
@@ -2336,7 +2440,10 @@ export default function SpellSearchPage() {
 				<div className="spell-search-spell-list">
 					{spellItems.map((spell) => (
 						<div key={spell.id} className="spell-list-item">
-							<div className="spell-list-row" onClick={() => handleSpellNameClick(spell.id)}>
+							<div
+								className={`spell-list-row${isCompactSpellRow ? " spell-list-row-compact" : ""}`}
+								onClick={() => handleSpellNameClick(spell.id)}
+							>
 								<button
 									type="button"
 									className={`spell-copy-info-button${copiedSpellInfoId === spell.id ? " is-copied" : ""}`}
@@ -2757,6 +2864,12 @@ export default function SpellSearchPage() {
 					</button>
 				</div>
 				<div className="spell-filter-options">
+					{isAdvancedView && !isGuidedTutorialModalOpen ? (
+						<>
+							<div className="advanced-filters-disabled-overlay" aria-hidden="true" />
+							<div className="advanced-filters-coming-soon-overlay">Feature<br/> Coming Soon</div>
+						</>
+					) : null}
 					{isAdvancedView ? (
 						<>
 							<div className="advanced-formula-display">
@@ -3011,91 +3124,104 @@ export default function SpellSearchPage() {
 										))}
 									</select>
 								</div>
-								<div className="basic-filter-include-secondary-dropdown">
-									{!includeFilterField ? (
-										<select className="basic-filter-select basic-filter-select-disabled-placeholder" disabled aria-label="Include filter value unavailable">
-											<option>---</option>
-										</select>
-									) : includeFilterField === "Range" ? (
-										renderRangeSlider(
-											includeRangeLow, setIncludeRangeLow,
-											includeRangeHigh, setIncludeRangeHigh,
-											(low, high) => applyRangeToSelections(setIncludeSelections, low, high),
-										)
-									) : isTextEntryField(includeFilterField) ? (
-										<input
-											type="text"
-											className="basic-filter-input"
-											value={includeFilterValue}
-											onChange={(event) => setIncludeFilterValue(event.target.value)}
-											placeholder={`type ${includeFilterField.toLowerCase()}`}
-											onKeyDown={(event) => {
-												if (event.key === "Enter") {
-													event.preventDefault();
-													addSelection(setIncludeSelections, includeFilterField, includeFilterValue);
-													setIncludeFilterValue("");
-												}
-											}}
-											aria-label={`Include ${includeFilterField.toLowerCase()} value`}
-										/>
-									) : usesDeferredSecondaryMenu(includeFilterField) ? (
-										<div className="secondary-multi-select" ref={includeSecondaryDropdownRef}>
-											<button
-												type="button"
-												className={`secondary-multi-select-trigger${openSecondaryMenu === "include" ? " is-open" : ""}`}
-												onClick={() => {
-													if (openSecondaryMenu === "include") {
-														commitSecondaryMenuSelections("include");
-														return;
-													}
-													setPendingIncludeSecondaryValues(getSelectionValuesForField(includeSelections, includeFilterField));
-													setOpenSecondaryMenu("include");
+								<div className="secondary-dropdown-row">
+									<div className="basic-filter-include-secondary-dropdown">
+										{!includeFilterField ? (
+											<select className="basic-filter-select basic-filter-select-disabled-placeholder" disabled aria-label="Include filter value unavailable">
+												<option>---</option>
+											</select>
+										) : includeFilterField === "Range" ? (
+											renderRangeSlider(
+												includeRangeLow, setIncludeRangeLow,
+												includeRangeHigh, setIncludeRangeHigh,
+												(low, high) => applyRangeToSelections(setIncludeSelections, low, high),
+											)
+										) : isTextEntryField(includeFilterField) ? (
+											<KeywordFilterInput
+												key={includeFilterField}
+												ref={includeKeywordInputRef}
+												placeholder={`type ${includeFilterField.toLowerCase()}`}
+												ariaLabel={`Include ${includeFilterField.toLowerCase()} value`}
+												disabled={isApplyingFilters}
+												onSubmit={(value) => addSelection(setIncludeSelections, includeFilterField, value)}
+												onHasTextChange={setIncludeHasKeywordText}
+											/>
+										) : usesDeferredSecondaryMenu(includeFilterField) ? (
+											<div className="secondary-multi-select" ref={includeSecondaryDropdownRef}>
+												<button
+													type="button"
+													className={`secondary-multi-select-trigger${openSecondaryMenu === "include" ? " is-open" : ""}`}
+													onClick={() => {
+														if (openSecondaryMenu === "include") {
+															setOpenSecondaryMenu(null);
+															return;
+														}
+														setPendingIncludeSecondaryValues(getSelectionValuesForField(includeSelections, includeFilterField));
+														setOpenSecondaryMenu("include");
+													}}
+													aria-expanded={openSecondaryMenu === "include"}
+													aria-label="Select include filter values"
+												>
+													<span>{getSecondaryMenuButtonLabel(includeFilterField, pendingIncludeSecondaryValues)}</span>
+													<span className="secondary-multi-select-arrow" aria-hidden="true">▾</span>
+												</button>
+												{openSecondaryMenu === "include" ? (
+													<div className="secondary-multi-select-menu">
+														{includeSecondaryDropdownOptions.map((option) => {
+															const isChecked = pendingIncludeSecondaryValues.includes(option);
+															return (
+																<label key={option} className="secondary-multi-select-option">
+																	<input
+																		type="checkbox"
+																		checked={isChecked}
+																		onChange={() => togglePendingSecondaryOption("include", includeFilterField, option)}
+																	/>
+																	<span>{option}</span>
+																</label>
+															);
+														})}
+													</div>
+												) : null}
+											</div>
+										) : (
+											<select
+												className="basic-filter-select"
+												value={includeFilterValue}
+												onChange={(event) => {
+													const nextValue = event.target.value;
+													setIncludeFilterValue(nextValue);
+													addSelection(setIncludeSelections, includeFilterField, nextValue);
 												}}
-												aria-expanded={openSecondaryMenu === "include"}
-												aria-label="Select include filter values"
+												aria-label="Select include filter value"
 											>
-												<span>{getSecondaryMenuButtonLabel(includeFilterField, pendingIncludeSecondaryValues)}</span>
-												<span className="secondary-multi-select-arrow" aria-hidden="true">▾</span>
-											</button>
-											{openSecondaryMenu === "include" ? (
-												<div className="secondary-multi-select-menu">
-													{includeSecondaryDropdownOptions.map((option) => {
-														const isChecked = pendingIncludeSecondaryValues.includes(option);
-														return (
-															<label key={option} className="secondary-multi-select-option">
-																<input
-																	type="checkbox"
-																	checked={isChecked}
-																	onChange={() => togglePendingSecondaryOption("include", includeFilterField, option)}
-																/>
-																<span>{option}</span>
-															</label>
-														);
-													})}
-												</div>
-											) : null}
-										</div>
-									) : (
-										<select
-											className="basic-filter-select"
-											value={includeFilterValue}
-											onChange={(event) => {
-												const nextValue = event.target.value;
-												setIncludeFilterValue(nextValue);
-												addSelection(setIncludeSelections, includeFilterField, nextValue);
+												<option value="" disabled>
+													{getSecondaryPlaceholder(includeFilterField)}
+												</option>
+												{includeSecondaryDropdownOptions.map((option) => (
+													<option key={option} value={option}>{option}</option>
+												))}
+											</select>
+										)}
+									</div>
+									{pendingIncludeSecondaryValues.length > 0 || (isTextEntryField(includeFilterField) && includeHasKeywordText) ? (
+										<button
+											type="button"
+											className="secondary-multi-select-submit-button"
+											onClick={() => {
+												if (isTextEntryField(includeFilterField)) {
+													includeKeywordInputRef.current?.submit();
+													return;
+												}
+												commitSecondaryMenuSelections("include");
 											}}
-											aria-label="Select include filter value"
+											disabled={isApplyingFilters}
+											aria-label="Apply selected include filter values"
 										>
-											<option value="" disabled>
-												{getSecondaryPlaceholder(includeFilterField)}
-											</option>
-											{includeSecondaryDropdownOptions.map((option) => (
-												<option key={option} value={option}>{option}</option>
-											))}
-										</select>
-									)}
+											{isApplyingFilters ? "applying..." : "submit"}
+										</button>
+									) : null}
 								</div>
-								<div className="basic-filter-include-list">
+							<div className="basic-filter-include-list">
 									{includeSelections.map((entry) => (
 										<div
 											key={selectionKey(entry.field, entry.value)}
@@ -3139,89 +3265,102 @@ export default function SpellSearchPage() {
 										))}
 									</select>
 								</div>
-								<div className="basic-filter-exclude-secondary-dropdown">
-									{!excludeFilterField ? (
-										<select className="basic-filter-select basic-filter-select-disabled-placeholder" disabled aria-label="Exclude filter value unavailable">
-											<option>---</option>
-										</select>
-									) : excludeFilterField === "Range" ? (
-										renderRangeSlider(
-											excludeRangeLow, setExcludeRangeLow,
-											excludeRangeHigh, setExcludeRangeHigh,
-											(low, high) => applyRangeToSelections(setExcludeSelections, low, high),
-										)
-									) : isTextEntryField(excludeFilterField) ? (
-										<input
-											type="text"
-											className="basic-filter-input"
-											value={excludeFilterValue}
-											onChange={(event) => setExcludeFilterValue(event.target.value)}
-											placeholder={`type ${excludeFilterField.toLowerCase()}`}
-											onKeyDown={(event) => {
-												if (event.key === "Enter") {
-													event.preventDefault();
-													addSelection(setExcludeSelections, excludeFilterField, excludeFilterValue);
-													setExcludeFilterValue("");
-												}
-											}}
-											aria-label={`Exclude ${excludeFilterField.toLowerCase()} value`}
-										/>
-									) : usesDeferredSecondaryMenu(excludeFilterField) ? (
-										<div className="secondary-multi-select" ref={excludeSecondaryDropdownRef}>
-											<button
-												type="button"
-												className={`secondary-multi-select-trigger${openSecondaryMenu === "exclude" ? " is-open" : ""}`}
-												onClick={() => {
-													if (openSecondaryMenu === "exclude") {
-														commitSecondaryMenuSelections("exclude");
-														return;
-													}
-													setPendingExcludeSecondaryValues(getSelectionValuesForField(excludeSelections, excludeFilterField));
-													setOpenSecondaryMenu("exclude");
+								<div className="secondary-dropdown-row">
+									<div className="basic-filter-exclude-secondary-dropdown">
+										{!excludeFilterField ? (
+											<select className="basic-filter-select basic-filter-select-disabled-placeholder" disabled aria-label="Exclude filter value unavailable">
+												<option>---</option>
+											</select>
+										) : excludeFilterField === "Range" ? (
+											renderRangeSlider(
+												excludeRangeLow, setExcludeRangeLow,
+												excludeRangeHigh, setExcludeRangeHigh,
+												(low, high) => applyRangeToSelections(setExcludeSelections, low, high),
+											)
+										) : isTextEntryField(excludeFilterField) ? (
+											<KeywordFilterInput
+												key={excludeFilterField}
+												ref={excludeKeywordInputRef}
+												placeholder={`type ${excludeFilterField.toLowerCase()}`}
+												ariaLabel={`Exclude ${excludeFilterField.toLowerCase()} value`}
+												disabled={isApplyingFilters}
+												onSubmit={(value) => addSelection(setExcludeSelections, excludeFilterField, value)}
+												onHasTextChange={setExcludeHasKeywordText}
+											/>
+										) : usesDeferredSecondaryMenu(excludeFilterField) ? (
+											<div className="secondary-multi-select" ref={excludeSecondaryDropdownRef}>
+												<button
+													type="button"
+													className={`secondary-multi-select-trigger${openSecondaryMenu === "exclude" ? " is-open" : ""}`}
+													onClick={() => {
+														if (openSecondaryMenu === "exclude") {
+															setOpenSecondaryMenu(null);
+															return;
+														}
+														setPendingExcludeSecondaryValues(getSelectionValuesForField(excludeSelections, excludeFilterField));
+														setOpenSecondaryMenu("exclude");
+													}}
+													aria-expanded={openSecondaryMenu === "exclude"}
+													aria-label="Select exclude filter values"
+												>
+													<span>{getSecondaryMenuButtonLabel(excludeFilterField, pendingExcludeSecondaryValues)}</span>
+													<span className="secondary-multi-select-arrow" aria-hidden="true">▾</span>
+												</button>
+												{openSecondaryMenu === "exclude" ? (
+													<div className="secondary-multi-select-menu">
+														{excludeSecondaryDropdownOptions.map((option) => {
+															const isChecked = pendingExcludeSecondaryValues.includes(option);
+															return (
+																<label key={option} className="secondary-multi-select-option">
+																	<input
+																		type="checkbox"
+																		checked={isChecked}
+																		onChange={() => togglePendingSecondaryOption("exclude", excludeFilterField, option)}
+																	/>
+																	<span>{option}</span>
+																</label>
+															);
+														})}
+													</div>
+												) : null}
+											</div>
+										) : (
+											<select
+												className="basic-filter-select"
+												value={excludeFilterValue}
+												onChange={(event) => {
+													const nextValue = event.target.value;
+													setExcludeFilterValue(nextValue);
+													addSelection(setExcludeSelections, excludeFilterField, nextValue);
 												}}
-												aria-expanded={openSecondaryMenu === "exclude"}
-												aria-label="Select exclude filter values"
+												aria-label="Select exclude filter value"
 											>
-												<span>{getSecondaryMenuButtonLabel(excludeFilterField, pendingExcludeSecondaryValues)}</span>
-												<span className="secondary-multi-select-arrow" aria-hidden="true">▾</span>
-											</button>
-											{openSecondaryMenu === "exclude" ? (
-												<div className="secondary-multi-select-menu">
-													{excludeSecondaryDropdownOptions.map((option) => {
-														const isChecked = pendingExcludeSecondaryValues.includes(option);
-														return (
-															<label key={option} className="secondary-multi-select-option">
-																<input
-																	type="checkbox"
-																	checked={isChecked}
-																	onChange={() => togglePendingSecondaryOption("exclude", excludeFilterField, option)}
-																/>
-																<span>{option}</span>
-															</label>
-														);
-													})}
-												</div>
-											) : null}
-										</div>
-									) : (
-										<select
-											className="basic-filter-select"
-											value={excludeFilterValue}
-											onChange={(event) => {
-												const nextValue = event.target.value;
-												setExcludeFilterValue(nextValue);
-												addSelection(setExcludeSelections, excludeFilterField, nextValue);
+												<option value="" disabled>
+													{getSecondaryPlaceholder(excludeFilterField)}
+												</option>
+												{excludeSecondaryDropdownOptions.map((option) => (
+													<option key={option} value={option}>{option}</option>
+												))}
+											</select>
+										)}
+									</div>
+									{pendingExcludeSecondaryValues.length > 0 || (isTextEntryField(excludeFilterField) && excludeHasKeywordText) ? (
+										<button
+											type="button"
+											className="secondary-multi-select-submit-button"
+											onClick={() => {
+												if (isTextEntryField(excludeFilterField)) {
+													excludeKeywordInputRef.current?.submit();
+													return;
+												}
+												commitSecondaryMenuSelections("exclude");
 											}}
-											aria-label="Select exclude filter value"
+											disabled={isApplyingFilters}
+											aria-label="Apply selected exclude filter values"
 										>
-											<option value="" disabled>
-												{getSecondaryPlaceholder(excludeFilterField)}
-											</option>
-											{excludeSecondaryDropdownOptions.map((option) => (
-												<option key={option} value={option}>{option}</option>
-											))}
-										</select>
-									)}
+											{isApplyingFilters ? "applying..." : "submit"}
+										</button>
+									) : null}
 								</div>
 								<div className="basic-filter-exclude-list">
 									{excludeSelections.map((entry) => (
@@ -3252,25 +3391,30 @@ export default function SpellSearchPage() {
 					)}
 				</div>
 				<div className="main-spell-searcher-page-spellbook-buttons">
-					<div className="main-spell-searcher-page-spellbook-buttons-left">
-						<button
-							type="button"
-							className="spellbook-action-button"
-							aria-label="Save selected as spellbook"
-						>
-							<img src={quillInk} alt="Quill and ink" />
-						</button>
-						<span className="spellbook-action-label">Save selected as spellbook</span>
-					</div>
-					<div className="main-spell-searcher-page-spellbook-buttons-right">
-						<button
-							type="button"
-							className="spellbook-action-button"
-							aria-label="View spellbooks"
-						>
-							<img src={bookStack} alt="Stacked books" />
-						</button>
-						<span className="spellbook-action-label">View spellbooks</span>
+					<div className="spellbook-buttons-coming-soon-wrapper">
+						<div className="main-spell-searcher-page-spellbook-buttons-left">
+							<button
+								type="button"
+								className="spellbook-action-button"
+								aria-label="Save selected as spellbook"
+							>
+								<img src={quillInk} alt="Quill and ink" />
+							</button>
+							<span className="spellbook-action-label">Save selected as spellbook</span>
+						</div>
+						<div className="main-spell-searcher-page-spellbook-buttons-right">
+							<button
+								type="button"
+								className="spellbook-action-button"
+								aria-label="View spellbooks"
+							>
+								<img src={bookStack} alt="Stacked books" />
+							</button>
+							<span className="spellbook-action-label">View spellbooks</span>
+						</div>
+						{isGuidedTutorialModalOpen && (guidedTutorialStep === 7 || guidedTutorialStep === 10) ? null : (
+						<div className="spellbook-buttons-coming-soon-overlay">Features<br/> Coming Soon</div>
+					)}
 					</div>
 					<div className="secret-code-input">
 						<form onSubmit={handleSecretCodeSubmit}>
@@ -3364,7 +3508,7 @@ export default function SpellSearchPage() {
 				className="modal-overlay guided-tutorial-modal-overlay"
 				style={guidedTutorialSpotlights.length ? { background: 'transparent' } : undefined}
 			>
-				{guidedTutorialStep === 11 ? (
+				{guidedTutorialStep === 13 ? (
 					<div
 						className="filter-bubble-delete-box"
 						ref={filterBubbleDeleteBoxRef}
@@ -3436,6 +3580,7 @@ export default function SpellSearchPage() {
 			learnMoreOpen={learnMoreOpen}
 			setLearnMoreOpen={setLearnMoreOpen}
 			contentKey="spellSearch"
+			hideAd
 		/>
 		</div>
 		</div>
