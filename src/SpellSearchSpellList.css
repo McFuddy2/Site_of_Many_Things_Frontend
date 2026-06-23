@@ -10,6 +10,7 @@
 	height: 10%;
 	width: 100%;
 	background-color: var(--page-background);
+	background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
 	display: flex;
 	align-items: center;
     justify-content: center;
@@ -428,11 +429,11 @@
 }
 
 .page-of-spell-list-arrow-button.is-left::before {
-	border-right: 0.9rem solid hotpink;
+	border-right: 0.9rem solid var(--light-purple-text);
 }
 
 .page-of-spell-list-arrow-button.is-right::before {
-	border-left: 0.9rem solid hotpink;
+	border-left: 0.9rem solid var(--light-purple-text);
 }
 
 .page-of-spell-list-arrow-button:disabled {
@@ -489,7 +490,8 @@
 
 .spell-column-header {
 	font-size: 0.7rem;
-	font-weight: 600;
+	font-weight: 1000;
+	text-decoration: underline;
 	text-align: center;
 }
 
@@ -561,7 +563,7 @@
 	bottom: 0.2rem;
 	left: 0.2rem;
 	width: calc(50% - 0.2rem);
-	background-color: hotpink;
+	background-color: var(--light-purple-text);
 	border-radius: 999px;
 	transition: transform 0.2s ease;
 	pointer-events: none;
@@ -686,6 +688,7 @@
 	border-radius: 10px;
 	cursor: pointer;
 	position: relative;
+	background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
 }
 
 .mobile-row-level-cell {
@@ -824,6 +827,14 @@
 	background-color: rgb(244, 230, 250);
 }
 
+.spell-search-spell-list > .spell-list-item:nth-child(odd) .spell-column-header {
+	color: var(--condition-dark-blue);
+}
+
+.spell-search-spell-list > .spell-list-item:nth-child(even) .spell-column-header {
+	color: var(--dark-purple-text);
+}
+
 .spell-list-cell {
 	flex: 1 1 0;
 	display: flex;
@@ -850,6 +861,14 @@
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	grid-template-rows: repeat(2, minmax(0, 1fr));
 	gap: 0.35rem;
+}
+
+.spell-list-row-compact {
+	min-height: 3.75rem;
+}
+
+.spell-list-row-compact .spell-list-details-grid {
+	grid-template-rows: minmax(0, 1fr);
 }
 
 .spell-name-button {
@@ -915,7 +934,7 @@
 }
 
 .spell-keyword-highlight {
-	background-color: hotpink;
+	background-color: var(--light-purple-text);
 	color: #111111;
 	font-weight: 700;
 	padding: 0 0.1em;

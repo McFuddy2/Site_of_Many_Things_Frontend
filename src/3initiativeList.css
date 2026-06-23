@@ -832,6 +832,14 @@
     border-color: #b89595;
   }
 
+  .name-input-summon-item.ally-individual-item {
+    background-color: #ffffe6;
+  }
+
+  .name-input-summon-item.neutral-individual-item {
+    background-color: #bebebe;
+  }
+
   .name-input-summon-item.selected-summon {
     box-shadow: 0 0 0 2px #002366 inset;
   }

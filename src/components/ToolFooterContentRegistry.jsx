@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const TOOL_FOOTER_CONTENT_REGISTRY = {
   initiative: () => (
     <>
@@ -70,7 +72,7 @@ const TOOL_FOOTER_CONTENT_REGISTRY = {
       </p>
 
       <p className="tool-learn-more-text"><strong>Where can I send feedback?</strong><br />
-        Email us from the address listed on the About page.
+        Submit your feedback in our form <Link to="/contact" className="tool-learn-more-highlight-link">HERE</Link>.
       </p>
     </>
   ),

@@ -67,7 +67,7 @@
 .column-view-option-item input[type="checkbox"] {
 	width: 1rem;
 	height: 1rem;
-	accent-color: hotpink;
+	accent-color: var(--light-purple-text);
 	cursor: pointer;
 }
 

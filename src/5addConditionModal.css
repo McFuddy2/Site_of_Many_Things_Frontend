@@ -74,7 +74,7 @@
 }
 
 .selectable-item.selected {
-  background: #002366; /* dark blue */
+  background: var(--condition-dark-blue); /* dark blue */
   color: white;
 }
 
@@ -125,8 +125,57 @@
   gap: 8px;
   margin-top: 10px;
   scrollbar-width: thin;
-  scrollbar-color: var(--condition-list-banner-background, #333) transparent;
+  scrollbar-color: var(--condition-dark-blue, #333) transparent;
   width: 100%;
+}
+
+.characters-checkbox-group::-webkit-scrollbar {
+  width: 6px;
+}
+
+.characters-checkbox-group::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.characters-checkbox-group::-webkit-scrollbar-thumb {
+  background-color: var(--condition-dark-blue);
+  border-radius: 999px;
+}
+
+.characters-conditions-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--condition-dark-blue, #333) transparent;
+}
+
+.characters-conditions-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.characters-conditions-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.characters-conditions-list::-webkit-scrollbar-thumb {
+  background-color: var(--condition-dark-blue);
+  border-radius: 999px;
+}
+
+.mobile-characters-dropdown select {
+  scrollbar-width: thin;
+  scrollbar-color: var(--condition-dark-blue, #333) transparent;
+}
+
+.mobile-characters-dropdown select::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mobile-characters-dropdown select::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mobile-characters-dropdown select::-webkit-scrollbar-thumb {
+  background-color: var(--condition-dark-blue);
+  border-radius: 999px;
 }
 
   .conditions-checkbox-group {
@@ -184,7 +233,7 @@
 }
 
   .submit-button {
-    background-color: #002366;
+    background-color: var(--condition-dark-blue);
     color: white;
     border: none;
     border-radius: 5px;
@@ -218,11 +267,19 @@
 
 .tooltip {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 0 16px;
+  cursor: help;
+}
+
+.tooltip img {
   width: 18px;
   height: 18px;
-  margin: 0 0 0 25px;
-  cursor: help;
+  display: block;
 }
 
 .tooltiptext {
@@ -254,6 +311,12 @@
   display: none;
 }
 
+.characters-conditions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .conditions-dropwdown-list {
   display: none;
 }
@@ -266,7 +329,7 @@
   display: none;
 }
 
-@media screen and (max-width: 1500px) {
+@media screen and (max-width: 1024px) {
   .condition-modal {
     overflow: scroll;
     height: 660px;

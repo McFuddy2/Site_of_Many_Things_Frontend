@@ -8,6 +8,7 @@
     --character-modal-background: #e3bfbf;
     --condition-modal-background: #bfd1e3;
     --condition-list-banner-background: #0045d9;
+    --condition-dark-blue: #002366;
     --condition-modal-section-background: #77b3bb;
     --condition-background-texture: url("https://www.transparenttextures.com/patterns/gold-scale.png");
     --bad-condition-background: #ff0000;
@@ -17,7 +18,7 @@
     --view-character-background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
     --player-character-text-color: #3400f1;
     --enemy-character-text-color: #ff0000;
-    --ally-character-text-color: #feffad;
+    --ally-character-text-color: #fcff3a;
     --neutral-character-text-color: #403a42;
     --menu-bar-background: rgba(95, 42, 131, 0.7);
     --golden-highlight: rgb(224, 166, 58);

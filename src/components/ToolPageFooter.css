@@ -23,3 +23,8 @@
 .tool-learn-more-cta-btn:hover {
   filter: brightness(1.08);
 }
+
+.tool-learn-more-highlight-link {
+  color: var(--golden-highlight, rgb(224, 166, 58));
+  text-decoration: underline;
+}

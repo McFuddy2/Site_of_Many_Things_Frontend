@@ -188,6 +188,9 @@ export default function MainCode() {
   const [customConditionName, setCustomConditionName] = useState('');
   const [customConditionAffect, setCustomConditionAffect] = useState('');
   const [customConditionDescription, setCustomConditionDescription] = useState('');
+  const [pendingCustomConditionDelete, setPendingCustomConditionDelete] = useState(null);
+  const [isCustomConditionMultiDeleteMode, setIsCustomConditionMultiDeleteMode] = useState(false);
+  const [multiDeleteCustomConditionIndexes, setMultiDeleteCustomConditionIndexes] = useState([]);
 
   const [editCustomConditionIndex, setEditCustomConditionIndex] = useState(null);
 
@@ -228,9 +231,6 @@ export default function MainCode() {
     ),
     (
       <>
-        Clicking the Name or Conditions area is how you can view the conditions of characters other than the active
-        player.
-        <br /><br />
         The feather quill icon is how you can edit the character&apos;s name or affiliation after they&apos;ve been created.
         <br /><br />
         The circled x icon is how you can delete a character. If you click this, a warning will pop up to make sure
@@ -248,10 +248,13 @@ export default function MainCode() {
     ),
     (
       <>
-        The &quot;Name&quot; column will display the character name after you&apos;ve entered it. If you want to edit the name,
-        you can click on the feather quill icon.
+        The &quot;Name&quot; column will display the character name after you&apos;ve entered it. If you added any minions or summons, those will
+        appear beneath the character's name.
         <br /><br />
         The &quot;Conditions&quot; column will display any conditions you&apos;ve added to the character (discussed later).
+        <br /><br />
+        You can click on the name of the character or any condition in the conditions column and that will open the
+        condition view on the right for that character.
       </>
     ),
     (
@@ -268,11 +271,11 @@ export default function MainCode() {
     ),
     (
       <>
-        The left and right pointing arrows indicate the active character&apos;s turn.<br/ ><br/ > 
-        Clicking the right arrow will
-        move the hightlight down while the left arrow will move the highlight up. <br/ ><br/ > 
-        If the highlight reaches the end
-        of the list, it will loop back around to the top or bottom, depending on which arrow you click.
+        The left and right pointing arrows are how you progress through initiative. <br/ ><br/ > 
+        Clicking the right arrow will take the current character at the top of the list and move them to the bottom of the list
+        while also moving the character in the second spot up to the top and so forth. Clicking the left arrow will do the opposite.  
+        <br/ ><br/ >  This will always keep the active player at the top of the list, while also being able to see who is up next. 
+        
       </>
     ),
     (
@@ -290,9 +293,21 @@ export default function MainCode() {
         After a condition has been applied, the name and full description will show on the right side, in the
         &quot;Conditions&quot; area while just the name will appear in the Initiative List, next to the name of the character
         who holds that condition.
+        <br/><br/>
+        You can click on the circle X to the left of the condition's name to remove that condition from the character. 
       </>
     )
   ];
+
+  useEffect(() => {
+    setIsSettingsModalOpen(isGuidedTutorialModalOpen && guidedTutorialStep === 8);
+  }, [isGuidedTutorialModalOpen, guidedTutorialStep]);
+
+  useEffect(() => {
+    const isStep10 = isGuidedTutorialModalOpen && guidedTutorialStep === 10;
+    setIsAddConditionModalOpen(isStep10 ? 0 : null);
+    setIsCustomConditionModalOpen(isStep10);
+  }, [isGuidedTutorialModalOpen, guidedTutorialStep]);
 
   useEffect(() => {
     const isHighlightStep = guidedTutorialStep >= 2 && guidedTutorialStep <= 10;
@@ -497,7 +512,7 @@ export default function MainCode() {
         const rows = document.querySelectorAll('.initiative-list-content .row');
         const targetRow = firstVisibleIndex >= 0 ? rows[firstVisibleIndex] : null;
         const icons = targetRow
-          ? Array.from(targetRow.querySelectorAll('.name-input, .personal-conditions, .edit-icon, .delete-icon'))
+          ? Array.from(targetRow.querySelectorAll('.edit-icon, .delete-icon'))
           : [];
 
         if (icons.length === 0) {
@@ -591,23 +606,7 @@ export default function MainCode() {
       }
 
       if (guidedTutorialStep === 8) {
-        const gearIcon = document.querySelector('.gear-icon-img');
-        if (!gearIcon) {
-          setGuidedTutorialSpotlights([]);
-          return;
-        }
-
-        const rect = gearIcon.getBoundingClientRect();
-        const size = Math.max(rect.width, rect.height) * 2.1;
-        setGuidedTutorialSpotlights([
-          {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2,
-            width: size,
-            height: size,
-            shape: 'circle'
-          }
-        ]);
+        setGuidedTutorialSpotlights([]);
         return;
       }
 
@@ -642,23 +641,7 @@ export default function MainCode() {
       }
 
       if (guidedTutorialStep === 10) {
-        const addConditionButton = document.querySelector('.conditions-list-banner .add-condition-button');
-        if (!addConditionButton) {
-          setGuidedTutorialSpotlights([]);
-          return;
-        }
-
-        const rect = addConditionButton.getBoundingClientRect();
-        const size = Math.max(rect.width, rect.height) * 0.7;
-        setGuidedTutorialSpotlights([
-          {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2,
-            width: size,
-            height: size,
-            shape: 'circle'
-          }
-        ]);
+        setGuidedTutorialSpotlights([]);
         return;
       }
     };
@@ -941,6 +924,16 @@ export default function MainCode() {
 
   const handleSettingsSubmit = (e) => {
     e.preventDefault();
+      const shouldResetInitiativeOrder =
+        resetRound ||
+        resetInitiative ||
+        removeAllConditions ||
+        removeNeutral ||
+        removeEnemies ||
+        removeAllies ||
+        removePlayers ||
+        fillCharacters;
+
       if (!isMobileLayout) {
         setShowArmorClass(viewArmorClassToggle);
         setShowHitPoints(viewHitPointsToggle);
@@ -1069,7 +1062,9 @@ export default function MainCode() {
       if (fillCharacters) handleFillCharacters();
       setIsSettingsModalOpen(false);
     resetSettingsCheckboxes();
-    setShiftedRowIndex(0);
+    if (shouldResetInitiativeOrder) {
+      setShiftedRowIndex(0);
+    }
   }
 
   const handleCloseAddConditionModal = () => {
@@ -1304,6 +1299,92 @@ export default function MainCode() {
     setCustomConditionDescription('');
     setEditCustomConditionIndex(null);
   };
+
+  const requestDeleteCustomCondition = (deleteIndex, conditionName) => {
+    setPendingCustomConditionDelete({ index: deleteIndex, name: conditionName });
+  };
+
+  const closeCustomConditionDeletePrompt = () => {
+    setPendingCustomConditionDelete(null);
+  };
+
+  const confirmSingleCustomConditionDelete = () => {
+    if (!pendingCustomConditionDelete) {
+      return;
+    }
+
+    handleDeleteCustomCondition(pendingCustomConditionDelete.index, pendingCustomConditionDelete.name);
+    setPendingCustomConditionDelete(null);
+  };
+
+  const enterCustomConditionMultiDeleteMode = () => {
+    setPendingCustomConditionDelete(null);
+    setIsCustomConditionMultiDeleteMode(true);
+    setMultiDeleteCustomConditionIndexes([]);
+    setShowCustomConditionForm(false);
+    setEditCustomConditionIndex(null);
+  };
+
+  const toggleCustomConditionMultiDeleteSelection = (conditionIndex) => {
+    setMultiDeleteCustomConditionIndexes((prevIndexes) =>
+      prevIndexes.includes(conditionIndex)
+        ? prevIndexes.filter((index) => index !== conditionIndex)
+        : [...prevIndexes, conditionIndex]
+    );
+  };
+
+  const confirmMultiDeleteCustomConditions = () => {
+    if (multiDeleteCustomConditionIndexes.length < 1) {
+      setIsCustomConditionMultiDeleteMode(false);
+      return;
+    }
+
+    const indexesToDelete = new Set(multiDeleteCustomConditionIndexes);
+    const conditionNamesToDelete = customConditions
+      .map((condition, index) => ({ condition, index }))
+      .filter(({ index }) => indexesToDelete.has(index))
+      .map(({ condition }) => condition.name);
+
+    const namesToDeleteSet = new Set(conditionNamesToDelete);
+
+    setCustomConditions((prevConditions) =>
+      prevConditions.filter((_, index) => !indexesToDelete.has(index))
+    );
+
+    setConditionDescriptions((prevDescriptions) => {
+      const updatedDescriptions = { ...prevDescriptions };
+      conditionNamesToDelete.forEach((conditionName) => {
+        delete updatedDescriptions[conditionName];
+      });
+      return updatedDescriptions;
+    });
+
+    setConditionColors((prevColors) => {
+      const updatedColors = { ...prevColors };
+      conditionNamesToDelete.forEach((conditionName) => {
+        delete updatedColors[conditionName];
+      });
+      return updatedColors;
+    });
+
+    setSelectedConditions((prevSelectedConditions) =>
+      prevSelectedConditions.filter((conditionName) => !namesToDeleteSet.has(conditionName))
+    );
+
+    setIsCustomConditionMultiDeleteMode(false);
+    setMultiDeleteCustomConditionIndexes([]);
+    setPendingCustomConditionDelete(null);
+  };
+
+  useEffect(() => {
+    if (isCustomConditionModalOpen || mobCustomOpen) {
+      return;
+    }
+
+    setPendingCustomConditionDelete(null);
+    setIsCustomConditionMultiDeleteMode(false);
+    setMultiDeleteCustomConditionIndexes([]);
+  }, [isCustomConditionModalOpen, mobCustomOpen]);
 
   const handleNextRound = () => {
       if (initiativeListContentRef.current) {
@@ -1705,6 +1786,18 @@ export default function MainCode() {
 
     const updatedData = [...rowData];
     updatedData[index] = { ...updatedData[index], initiative: newInitiative };
+    setRowData(updatedData);
+  };
+
+  const handleArmorClassChange = (index, value) => {
+    const updatedData = [...rowData];
+    updatedData[index] = { ...updatedData[index], armorClass: value };
+    setRowData(updatedData);
+  };
+
+  const handleHitPointsChange = (index, value) => {
+    const updatedData = [...rowData];
+    updatedData[index] = { ...updatedData[index], hitPoints: value };
     setRowData(updatedData);
   };
 
@@ -2280,9 +2373,10 @@ export default function MainCode() {
     .filter((target) => selectedCharacters.includes(target.id))
     .map((target) => target.label);
   const selectedConditionLabels = selectedConditions;
-  const showMobileTargetStep = isMobileLayout && mobileAddConditionStep === 1;
-  const showMobileConditionStep = isMobileLayout && mobileAddConditionStep === 2;
-  const showMobileExpirationStep = isMobileLayout && mobileAddConditionStep === 3;
+  const isAddConditionMobileLayout = isMobileLayout && !isTabletLayout;
+  const showMobileTargetStep = isAddConditionMobileLayout && mobileAddConditionStep === 1;
+  const showMobileConditionStep = isAddConditionMobileLayout && mobileAddConditionStep === 2;
+  const showMobileExpirationStep = isAddConditionMobileLayout && mobileAddConditionStep === 3;
   
   return (
     <div className="initiative-page-scroll">
@@ -2621,6 +2715,8 @@ export default function MainCode() {
                         type="text"
                         className="initiative-textbox"
                         placeholder="AC"
+                        value={rowData[index].armorClass ?? ''}
+                        onChange={(e) => handleArmorClassChange(index, e.target.value)}
                       />
                     </div>
                   )}
@@ -2630,6 +2726,8 @@ export default function MainCode() {
                         type="text"
                         className="initiative-textbox"
                         placeholder="HP"
+                        value={rowData[index].hitPoints ?? ''}
+                        onChange={(e) => handleHitPointsChange(index, e.target.value)}
                       />
                     </div>
                   )}
@@ -2660,7 +2758,7 @@ export default function MainCode() {
                         {rowData[index].summons.map((summonName, summonIdx) => (
                           <div
                             key={`${summonName}-${summonIdx}`}
-                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
+                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${rowData[index].affiliation === 'Ally' ? ' ally-individual-item' : ''}${rowData[index].affiliation === 'Neutral/Environmental' ? ' neutral-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
                             onClick={() => {
                               const isSameSummonSelected =
                                 viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName;
@@ -2703,7 +2801,7 @@ export default function MainCode() {
                         {rowData[index].summons.map((summonName, summonIdx) => (
                           <div
                             key={`${summonName}-${summonIdx}`}
-                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
+                            className={`name-input-summon-item${supportsGroupedIndividuals(rowData[index].affiliation) ? ' enemy-individual-item' : ''}${rowData[index].affiliation === 'Ally' ? ' ally-individual-item' : ''}${rowData[index].affiliation === 'Neutral/Environmental' ? ' neutral-individual-item' : ''}${viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName ? ' selected-summon' : ''}`}
                             onClick={() => {
                               const isSameSummonSelected =
                                 viewedSummon?.rowIndex === index && viewedSummon?.summonName === summonName;
@@ -2984,7 +3082,7 @@ export default function MainCode() {
         )}
         {isGuidedTutorialModalOpen && (
           <div
-            className="modal-overlay guided-tutorial-modal-overlay"
+            className={`modal-overlay guided-tutorial-modal-overlay ${(guidedTutorialStep === 8 || guidedTutorialStep === 10) ? 'guided-tutorial-modal-overlay--shift-left' : ''}`}
             style={guidedTutorialSpotlights.length ? { background: 'transparent' } : undefined}
           >
             {guidedTutorialSpotlights.map((spot, index) => (
@@ -3047,6 +3145,7 @@ export default function MainCode() {
       learnMoreOpen={learnMoreOpen}
       setLearnMoreOpen={setLearnMoreOpen}
       contentKey="initiative"
+      hideAd
     />
 
         {/* Add-Character Modal */}
@@ -3619,15 +3718,20 @@ export default function MainCode() {
       <div className={`condition-modal ${isCustomConditionModalOpen ? 'custom-modal-open-width' : 'custom-modal-closed-width'}`}>
         <div className="condition-modal-header">
           <h2>Add Condition</h2>
-          <img src={infoIcon} className='tooltip' onMouseEnter={() => {
-            document.getElementsByClassName('tooltiptext')[0].style.visibility = 'visible';
-          }} onMouseLeave={() => {
-            document.getElementsByClassName('tooltiptext')[0].style.visibility = 'hidden';
-          }}>
-          </img>
-          <span className='tooltiptext'>These Conditions use the 2024 Dungeons and Dragons Rules</span>
+          <span
+            className="tooltip"
+            onMouseEnter={() => {
+              document.getElementsByClassName('tooltiptext')[0].style.visibility = 'visible';
+            }}
+            onMouseLeave={() => {
+              document.getElementsByClassName('tooltiptext')[0].style.visibility = 'hidden';
+            }}
+          >
+            <img src={infoIcon} alt="More information" />
+            <span className='tooltiptext'>These Conditions use the 2024 Dungeons and Dragons Rules</span>
+          </span>
         </div>
-        {isMobileLayout && (
+        {isAddConditionMobileLayout && (
           <button
             type="button"
             className="mobile-add-condition-close-button"
@@ -3637,17 +3741,17 @@ export default function MainCode() {
             X
           </button>
         )}
-        {isMobileLayout && mobileAddConditionStep >= 2 && selectedConditionTargetLabels.length > 0 && (
+        {isAddConditionMobileLayout && mobileAddConditionStep >= 2 && selectedConditionTargetLabels.length > 0 && (
           <div className="condition-mobile-apply-summary">
             <span>Apply to:</span> {selectedConditionTargetLabels.join(', ')}
           </div>
         )}
-        {isMobileLayout && mobileAddConditionStep >= 3 && selectedConditionLabels.length > 0 && (
+        {isAddConditionMobileLayout && mobileAddConditionStep >= 3 && selectedConditionLabels.length > 0 && (
           <div className="condition-mobile-apply-summary">
             <span>Conditions:</span> {selectedConditionLabels.join(', ')}
           </div>
         )}
-        {isMobileLayout && mobileAddConditionStep >= 2 && (
+        {isAddConditionMobileLayout && mobileAddConditionStep >= 2 && (
           <div className="condition-mobile-step-actions">
             <button type="button" className="submit-button" onClick={handleMobileConditionStepBack}>Back</button>
           </div>
@@ -3655,7 +3759,7 @@ export default function MainCode() {
         <form onSubmit={handleAddConditionSubmit} className="add-condition-form">
           {/* Choose Condition(s) Section */}
           <div className="characters-conditions">
-          {(!isMobileLayout || showMobileTargetStep) && (
+          {(!isAddConditionMobileLayout || showMobileTargetStep) && (
           <div className="characters-section">
             <div className="form-group conditions-form-group">
               <label htmlFor="characters">Apply to:</label>
@@ -3681,7 +3785,7 @@ export default function MainCode() {
                   </select>
                 </div>
               </div>
-              {isMobileLayout && showMobileTargetStep && (
+              {isAddConditionMobileLayout && showMobileTargetStep && (
                 <div className="condition-mobile-step-actions">
                   <button
                     type="button"
@@ -3696,7 +3800,7 @@ export default function MainCode() {
             </div>
           </div>
           )}
-          {(!isMobileLayout || showMobileConditionStep) && (
+          {(!isAddConditionMobileLayout || showMobileConditionStep) && (
           <div className="conditions-section">
             <div className="form-group conditions-form-group">
               <div className="conditions-label-row">
@@ -3749,7 +3853,7 @@ export default function MainCode() {
                   ))}
                 </select>
               </div>
-              {isMobileLayout && showMobileConditionStep && (
+              {isAddConditionMobileLayout && showMobileConditionStep && (
                 <div className="condition-mobile-step-actions">
                   {!isTabletLayout && (
                     <button
@@ -3774,7 +3878,7 @@ export default function MainCode() {
           </div>
           )}
           </div>
-            {(!isMobileLayout || showMobileExpirationStep) && (
+            {(!isAddConditionMobileLayout || showMobileExpirationStep) && (
               <>
             <div className="condition-expiration-selection">
               <label htmlFor="condition-expiration-timing" className="condition-expiration-label">
@@ -3905,8 +4009,20 @@ export default function MainCode() {
         <div className="custom-condition-modal">
           <h2>Custom Condition</h2>
             {!showCustomConditionForm ? (
-                <button onClick={() => setShowCustomConditionForm(true)} className="new-custom-condition-button">
-                  New Custom Condition
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCustomConditionMultiDeleteMode) {
+                      confirmMultiDeleteCustomConditions();
+                      return;
+                    }
+                    setShowCustomConditionForm(true);
+                  }}
+                  className="new-custom-condition-button"
+                >
+                  {isCustomConditionMultiDeleteMode
+                    ? `Confirm Delete (${multiDeleteCustomConditionIndexes.length})`
+                    : 'New Custom Condition'}
                 </button>
             ) : (
               <form
@@ -3938,6 +4054,11 @@ export default function MainCode() {
                         affect: customConditionAffect,
                         description: customConditionDescription,
                       }].sort((a, b) => a.name.localeCompare(b.name))
+                    );
+                    setSelectedConditions((prevSelectedConditions) =>
+                      prevSelectedConditions.includes(newName)
+                        ? prevSelectedConditions
+                        : [...prevSelectedConditions, newName]
                     );
                   }
 
@@ -3992,7 +4113,7 @@ export default function MainCode() {
                   {editCustomConditionIndex !== null && (
                     <button
                       type="button"
-                      onClick={() => handleDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
+                      onClick={() => requestDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
                     >
                       Delete
                     </button>
@@ -4025,32 +4146,50 @@ export default function MainCode() {
                           key={index}
                           className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}${isConditionSelected ? ' selected' : ''}`}
                         >
-                          <button
-                            type="button"
-                            className="remove-condition-button"
-                            onClick={() => handleDeleteCustomCondition(index, condition.name)}
-                            aria-label={`Delete custom condition ${condition.name}`}
-                          >
-                            <img src={trashcanIcon} alt="Delete" className="condition-icon" />
-                          </button>
-                          <button
-                            type="button"
-                            className="edit-custom-condition"
-                            onClick={() => {
-                              setCustomConditionName(condition.name);
-                              setCustomConditionAffect(condition.affect);
-                              setCustomConditionDescription(condition.description);
-                              setShowCustomConditionForm(true);
-                              setEditCustomConditionIndex(index);
-                            }}
-                            aria-label={`Edit custom condition ${condition.name}`}
-                          >
-                            <img src={pencilIcon} alt="Edit" className="condition-icon" />
-                          </button>
+                          {!isCustomConditionMultiDeleteMode && (
+                            <button
+                              type="button"
+                              className="remove-condition-button"
+                              onClick={() => requestDeleteCustomCondition(index, condition.name)}
+                              aria-label={`Delete custom condition ${condition.name}`}
+                            >
+                              <img src={trashcanIcon} alt="Delete" className="condition-icon" />
+                            </button>
+                          )}
+                          {isCustomConditionMultiDeleteMode ? (
+                            <input
+                              type="checkbox"
+                              className="edit-custom-condition-checkbox"
+                              checked={multiDeleteCustomConditionIndexes.includes(index)}
+                              onChange={() => toggleCustomConditionMultiDeleteSelection(index)}
+                              aria-label={`Select custom condition ${condition.name} for deletion`}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="edit-custom-condition"
+                              onClick={() => {
+                                setCustomConditionName(condition.name);
+                                setCustomConditionAffect(condition.affect);
+                                setCustomConditionDescription(condition.description);
+                                setShowCustomConditionForm(true);
+                                setEditCustomConditionIndex(index);
+                              }}
+                              aria-label={`Edit custom condition ${condition.name}`}
+                            >
+                              <img src={pencilIcon} alt="Edit" className="condition-icon" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="custom-condition-name-button"
-                            onClick={() => handleConditionClick(condition.name)}
+                            onClick={() => {
+                              if (isCustomConditionMultiDeleteMode) {
+                                return;
+                              }
+                              handleConditionClick(condition.name);
+                            }}
+                            disabled={isCustomConditionMultiDeleteMode}
                           >
                             {condition.name}
                           </button>
@@ -4063,6 +4202,18 @@ export default function MainCode() {
                 </div>
               )}
           </div>
+          {pendingCustomConditionDelete && (
+            <div className="custom-delete-confirm-overlay" role="dialog" aria-modal="true" aria-label="Delete custom condition confirmation">
+              <div className="custom-delete-confirm-modal">
+                <p>Are you sure?</p>
+                <div className="custom-delete-confirm-actions">
+                  <button type="button" onClick={confirmSingleCustomConditionDelete}>Yes</button>
+                  <button type="button" onClick={closeCustomConditionDeletePrompt}>No</button>
+                  <button type="button" onClick={enterCustomConditionMultiDeleteMode}>Delete Multiple</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -4071,8 +4222,20 @@ export default function MainCode() {
           <div className="custom-condition-modal">
             <h2 className="mob-custom-title">Custom Condition</h2>
               {!showCustomConditionForm ? (
-                  <button onClick={() => setShowCustomConditionForm(true)} className="new-custom-condition-button">
-                    New Custom Condition
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isCustomConditionMultiDeleteMode) {
+                        confirmMultiDeleteCustomConditions();
+                        return;
+                      }
+                      setShowCustomConditionForm(true);
+                    }}
+                    className="new-custom-condition-button"
+                  >
+                    {isCustomConditionMultiDeleteMode
+                      ? `Confirm Delete (${multiDeleteCustomConditionIndexes.length})`
+                      : 'New Custom Condition'}
                   </button>
               ) : (
                 <form
@@ -4104,6 +4267,11 @@ export default function MainCode() {
                           affect: customConditionAffect,
                           description: customConditionDescription,
                         }].sort((a, b) => a.name.localeCompare(b.name))
+                      );
+                      setSelectedConditions((prevSelectedConditions) =>
+                        prevSelectedConditions.includes(newName)
+                          ? prevSelectedConditions
+                          : [...prevSelectedConditions, newName]
                       );
                     }
 
@@ -4158,7 +4326,7 @@ export default function MainCode() {
                     {editCustomConditionIndex !== null && (
                       <button
                         type="button"
-                        onClick={() => handleDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
+                        onClick={() => requestDeleteCustomCondition(editCustomConditionIndex, customConditionName)}
                       >
                         Delete
                       </button>
@@ -4184,11 +4352,17 @@ export default function MainCode() {
                   <div className="custom-condition-list">
                     {customConditions.length > 0 ? (
                       customConditions.map((condition, index) => {
+                        const isConditionMarkedForDelete = multiDeleteCustomConditionIndexes.includes(index);
                         return (
                           <div
                             key={index}
                             className={`custom-condition-item selectable-item ${condition.affect?.toLowerCase()}`}
                             onClick={() => {
+                              if (isCustomConditionMultiDeleteMode) {
+                                toggleCustomConditionMultiDeleteSelection(index);
+                                return;
+                              }
+
                               setCustomConditionName(condition.name);
                               setCustomConditionAffect(condition.affect);
                               setCustomConditionDescription(condition.description);
@@ -4196,6 +4370,16 @@ export default function MainCode() {
                               setEditCustomConditionIndex(index);
                             }}
                           >
+                            {isCustomConditionMultiDeleteMode && (
+                              <input
+                                type="checkbox"
+                                className="edit-custom-condition-checkbox"
+                                checked={isConditionMarkedForDelete}
+                                onChange={() => toggleCustomConditionMultiDeleteSelection(index)}
+                                onClick={(event) => event.stopPropagation()}
+                                aria-label={`Select custom condition ${condition.name} for deletion`}
+                              />
+                            )}
                             {condition.name}
                           </div>
                         );
@@ -4206,6 +4390,18 @@ export default function MainCode() {
                   </div>
                 )}
             </div>
+            {pendingCustomConditionDelete && (
+              <div className="custom-delete-confirm-overlay" role="dialog" aria-modal="true" aria-label="Delete custom condition confirmation">
+                <div className="custom-delete-confirm-modal">
+                  <p>Are you sure?</p>
+                  <div className="custom-delete-confirm-actions">
+                    <button type="button" onClick={confirmSingleCustomConditionDelete}>Yes</button>
+                    <button type="button" onClick={closeCustomConditionDeletePrompt}>No</button>
+                    <button type="button" onClick={enterCustomConditionMultiDeleteMode}>Delete Multiple</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {!(isMobileLayout && showCustomConditionForm) && (
               <button
                 type="button"
