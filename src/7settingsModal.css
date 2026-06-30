@@ -563,6 +563,22 @@
   opacity: 0.8;
 }
 
+.session-host-leave-button {
+  background-color: #000;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.session-host-leave-button:hover {
+  opacity: 0.8;
+}
+
 @media screen and (min-width: 600px) and (max-width: 1024px) {
   .settings-view-options {
     display: none;
