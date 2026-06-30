@@ -60,6 +60,7 @@ export default function MainCode() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [hostTemporarilyDisconnected, setHostTemporarilyDisconnected] = useState(false);
 
   const HELP_STORAGE_KEY = "initiative_help_hidden_v1";
   const [helpHidden, setHelpHidden] = useState(false);
@@ -98,6 +99,7 @@ export default function MainCode() {
   const pendingActiveRowDataIndexRef = useRef(null);
   const wsRef = useRef(null);
   const isSyncingFromWs = useRef(false);
+  const hostDisconnectTimerRef = useRef(null);
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
@@ -327,8 +329,31 @@ export default function MainCode() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-join session from ?session=CODE URL param on mount
+  // Auto-reconnect as host (from localStorage) or auto-join as joiner (from URL) on mount
   useEffect(() => {
+    const savedHostCode = localStorage.getItem('session_hosting_code');
+    if (savedHostCode) {
+      getSession(savedHostCode).then(result => {
+        if (!result) {
+          localStorage.removeItem('session_hosting_code');
+          return;
+        }
+        const { data } = result;
+        isSyncingFromWs.current = true;
+        setRowData(data.rowData);
+        setRound(data.round);
+        if (data.rowVisibility) setRowVisibility(data.rowVisibility);
+        if (data.overlayActive) setOverlayActive(data.overlayActive);
+        if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
+        setActiveSessionCode(savedHostCode);
+        setSessionMode('hosting');
+        openSessionWebSocket(savedHostCode, 'host');
+      }).catch(() => {
+        localStorage.removeItem('session_hosting_code');
+      });
+      return;
+    }
+
     const sessionCode = new URLSearchParams(window.location.search).get('session');
     if (!sessionCode || sessionCode.length !== 6) return;
     const code = sessionCode.toUpperCase();
@@ -363,10 +388,11 @@ export default function MainCode() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowData, round, rowVisibility, overlayActive, shiftedRowIndex]);
 
-  // Clean up WebSocket on unmount
+  // Clean up WebSocket and timers on unmount
   useEffect(() => {
     return () => {
       if (wsRef.current) wsRef.current.close();
+      clearTimeout(hostDisconnectTimerRef.current);
     };
   }, []);
 
@@ -1010,8 +1036,23 @@ export default function MainCode() {
           if (data.overlayActive) setOverlayActive(data.overlayActive);
           if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
         } else if (msg.type === 'session_ended') {
+          clearTimeout(hostDisconnectTimerRef.current);
+          hostDisconnectTimerRef.current = null;
+          setHostTemporarilyDisconnected(false);
           wsRef.current = null;
           setSessionEnded(true);
+        } else if (msg.type === 'host_disconnected') {
+          setHostTemporarilyDisconnected(true);
+          clearTimeout(hostDisconnectTimerRef.current);
+          hostDisconnectTimerRef.current = setTimeout(() => {
+            setHostTemporarilyDisconnected(false);
+            wsRef.current = null;
+            setSessionEnded(true);
+          }, 60000);
+        } else if (msg.type === 'host_reconnected') {
+          clearTimeout(hostDisconnectTimerRef.current);
+          hostDisconnectTimerRef.current = null;
+          setHostTemporarilyDisconnected(false);
         }
       } catch {}
     };
@@ -1026,6 +1067,7 @@ export default function MainCode() {
       const { code } = await createSession({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex });
       setActiveSessionCode(code);
       setSessionMode('hosting');
+      localStorage.setItem('session_hosting_code', code);
       openSessionWebSocket(code, 'host');
     } catch {
       setHostError('Could not connect. Please try again.');
@@ -1078,6 +1120,9 @@ export default function MainCode() {
   };
 
   const handleEndSession = () => {
+    localStorage.removeItem('session_hosting_code');
+    clearTimeout(hostDisconnectTimerRef.current);
+    hostDisconnectTimerRef.current = null;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'end_session' }));
     }
@@ -1088,6 +1133,9 @@ export default function MainCode() {
   };
 
   const handleLeaveSession = () => {
+    clearTimeout(hostDisconnectTimerRef.current);
+    hostDisconnectTimerRef.current = null;
+    setHostTemporarilyDisconnected(false);
     wsRef.current?.close();
     wsRef.current = null;
     setSessionMode(null);
@@ -2588,6 +2636,16 @@ export default function MainCode() {
   
   return (
     <div className="initiative-page-scroll">
+    {hostTemporarilyDisconnected && sessionMode === 'joining' && (
+      <div className="session-ended-overlay">
+        <div className="session-ended-modal">
+          <p className="session-ended-text">Host has temporarily disconnected. Stay on this screen and wait for them to come back, or click the button below to leave the session.</p>
+          <button className="session-host-leave-button" onClick={handleLeaveSession}>
+            Leave Session
+          </button>
+        </div>
+      </div>
+    )}
     {sessionEnded && (
       <div className="session-ended-overlay">
         <div className="session-ended-modal">
