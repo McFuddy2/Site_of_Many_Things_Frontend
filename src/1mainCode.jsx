@@ -22,6 +22,7 @@ import AdSlot from './components/AdSlot';
 import ToolPageFooter from './components/ToolPageFooter';
 import EmailSignup from './components/EmailSignup';
 import { setMetaDescription, setCanonical } from "./utils/seo";
+import { createSession, getSession, sessionWsUrl } from './API/initiative/sessions';
 
 
 export default function MainCode() {
@@ -50,6 +51,13 @@ export default function MainCode() {
   const [removeAllies, setRemoveAllies] = useState(false);
   const [removePlayers, setRemovePlayers] = useState(false);
   const [fillCharacters, setFillCharacters] = useState(false);
+
+  const [sessionMode, setSessionMode] = useState(null); // null | 'hosting' | 'join-input' | 'joining'
+  const [activeSessionCode, setActiveSessionCode] = useState('');
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const HELP_STORAGE_KEY = "initiative_help_hidden_v1";
   const [helpHidden, setHelpHidden] = useState(false);
@@ -86,6 +94,8 @@ export default function MainCode() {
   const nextSummonFocusIndexRef = useRef(null);
   const initiativeListContentRef = useRef(null);
   const pendingActiveRowDataIndexRef = useRef(null);
+  const wsRef = useRef(null);
+  const isSyncingFromWs = useRef(false);
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
@@ -298,6 +308,48 @@ export default function MainCode() {
       </>
     )
   ];
+
+  // Auto-join session from ?session=CODE URL param on mount
+  useEffect(() => {
+    const sessionCode = new URLSearchParams(window.location.search).get('session');
+    if (!sessionCode || sessionCode.length !== 6) return;
+    const code = sessionCode.toUpperCase();
+    getSession(code).then(result => {
+      if (!result) return;
+      const { data } = result;
+      isSyncingFromWs.current = true;
+      setRowData(data.rowData);
+      setRound(data.round);
+      if (data.rowVisibility) setRowVisibility(data.rowVisibility);
+      if (data.overlayActive) setOverlayActive(data.overlayActive);
+      if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
+      setActiveSessionCode(code);
+      setSessionMode('joining');
+      openSessionWebSocket(code);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync initiative state changes to the active session via WebSocket
+  useEffect(() => {
+    if (isSyncingFromWs.current) {
+      isSyncingFromWs.current = false;
+      return;
+    }
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !activeSessionCode) return;
+    wsRef.current.send(JSON.stringify({
+      type: 'update',
+      data: { rowData, round, rowVisibility, overlayActive, shiftedRowIndex },
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowData, round, rowVisibility, overlayActive, shiftedRowIndex]);
+
+  // Clean up WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
 
   useEffect(() => {
     setIsSettingsModalOpen(isGuidedTutorialModalOpen && guidedTutorialStep === 8);
@@ -920,6 +972,84 @@ export default function MainCode() {
     setShiftedRowIndex(null);
     setViewCharacterIndex(null);
     setIsSettingsModalOpen(false);
+  };
+
+  const openSessionWebSocket = (code) => {
+    if (wsRef.current) wsRef.current.close();
+    const ws = new WebSocket(sessionWsUrl(code));
+    wsRef.current = ws;
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'sync' || msg.type === 'update') {
+          const data = msg.data;
+          isSyncingFromWs.current = true;
+          setRowData(data.rowData);
+          setRound(data.round);
+          if (data.rowVisibility) setRowVisibility(data.rowVisibility);
+          if (data.overlayActive) setOverlayActive(data.overlayActive);
+          if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
+        }
+      } catch {}
+    };
+    ws.onerror = () => {};
+    ws.onclose = () => {};
+  };
+
+  const handleHostSession = async () => {
+    setIsSessionLoading(true);
+    try {
+      const { code } = await createSession({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex });
+      setActiveSessionCode(code);
+      setSessionMode('hosting');
+      openSessionWebSocket(code);
+    } catch {
+      // silently fail — user stays on null mode
+    } finally {
+      setIsSessionLoading(false);
+    }
+  };
+
+  const handleJoinSession = async () => {
+    const code = joinCodeInput.trim().toUpperCase();
+    if (code.length !== 6) {
+      setJoinError('Please enter a 6-character code.');
+      return;
+    }
+    setIsSessionLoading(true);
+    setJoinError('');
+    try {
+      const result = await getSession(code);
+      if (!result) {
+        setJoinError('Session Not Found. Try Again.');
+        return;
+      }
+      const { data } = result;
+      isSyncingFromWs.current = true;
+      setRowData(data.rowData);
+      setRound(data.round);
+      if (data.rowVisibility) setRowVisibility(data.rowVisibility);
+      if (data.overlayActive) setOverlayActive(data.overlayActive);
+      if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
+      setActiveSessionCode(code);
+      setSessionMode('joining');
+      openSessionWebSocket(code);
+    } catch {
+      setJoinError('Session Not Found. Try Again.');
+    } finally {
+      setIsSessionLoading(false);
+    }
+  };
+
+  const handleShareSession = async () => {
+    const link = `${window.location.origin}/initiative?session=${activeSessionCode}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      window.prompt('Copy this link to share:', link);
+    }
   };
 
   const handleSettingsSubmit = (e) => {
@@ -2417,6 +2547,74 @@ export default function MainCode() {
                 {isMobileLayout && <span className="settings-view-toggle-note">Only available on desktop</span>}
               </span>
             </label>
+          </div>
+          <div className="settings-subtitle settings-connect-title">
+            Connect With Others
+          </div>
+          <div className="settings-connect-section">
+            {sessionMode === null && (
+              <div className="settings-connect-buttons">
+                <button
+                  className="settings-host-button"
+                  onClick={handleHostSession}
+                  disabled={isSessionLoading}
+                >
+                  {isSessionLoading ? 'Connecting...' : 'Host Session'}
+                </button>
+                <button
+                  className="settings-join-button"
+                  onClick={() => { setSessionMode('join-input'); setJoinError(''); setJoinCodeInput(''); }}
+                  disabled={isSessionLoading}
+                >
+                  Join Session
+                </button>
+              </div>
+            )}
+            {sessionMode === 'hosting' && (
+              <div className="settings-session-active">
+                <span className="settings-session-code-label">
+                  Your Session Code is: <strong className="settings-session-code">{activeSessionCode}</strong>
+                </span>
+                <button className="settings-share-button" onClick={handleShareSession}>
+                  {shareCopied ? 'Copied!' : 'Share'}
+                </button>
+              </div>
+            )}
+            {sessionMode === 'join-input' && (
+              <div className="settings-join-input-group">
+                <div className="settings-join-row">
+                  <span className="settings-join-label">Input Session Code:</span>
+                  <input
+                    className="settings-join-code-input"
+                    type="text"
+                    maxLength={6}
+                    value={joinCodeInput}
+                    placeholder="ABC123"
+                    onChange={(e) => {
+                      setJoinCodeInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
+                      setJoinError('');
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleJoinSession(); }}
+                    autoFocus
+                  />
+                  <button
+                    className="settings-join-button-submit"
+                    onClick={handleJoinSession}
+                    disabled={isSessionLoading}
+                  >
+                    {isSessionLoading ? '...' : 'Join'}
+                  </button>
+                </div>
+                {joinError && <span className="settings-join-error">{joinError}</span>}
+              </div>
+            )}
+            {sessionMode === 'joining' && (
+              <div className="settings-session-active">
+                <span className="settings-session-code-label">
+                  Connected to: <strong className="settings-session-code">{activeSessionCode}</strong>
+                </span>
+              </div>
+            )}
           </div>
           <div className="settings-subtitle">
             Clean up Initiative List
