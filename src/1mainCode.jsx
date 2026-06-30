@@ -60,9 +60,6 @@ export default function MainCode() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
-  const [hostTemporarilyDisconnected, setHostTemporarilyDisconnected] = useState(false);
-  const [showStillPlayingModal, setShowStillPlayingModal] = useState(false);
-  const [stillPlayingCountdown, setStillPlayingCountdown] = useState(30);
 
   const HELP_STORAGE_KEY = "initiative_help_hidden_v1";
   const [helpHidden, setHelpHidden] = useState(false);
@@ -101,8 +98,6 @@ export default function MainCode() {
   const pendingActiveRowDataIndexRef = useRef(null);
   const wsRef = useRef(null);
   const isSyncingFromWs = useRef(false);
-  const hostDisconnectTimerRef = useRef(null);
-  const stillPlayingTimerRef = useRef(null);
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
@@ -1027,17 +1022,6 @@ export default function MainCode() {
     const ws = new WebSocket(sessionWsUrl(code, role));
     wsRef.current = ws;
 
-    let heartbeatInterval = null;
-    if (role === 'host') {
-      ws.onopen = () => {
-        heartbeatInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }));
-          }
-        }, 5000);
-      };
-    }
-
     ws.onmessage = (event) => {
       if (wsRef.current !== ws) return;
       try {
@@ -1051,74 +1035,12 @@ export default function MainCode() {
           if (data.overlayActive) setOverlayActive(data.overlayActive);
           if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
         } else if (msg.type === 'session_ended') {
-          clearTimeout(hostDisconnectTimerRef.current);
-          hostDisconnectTimerRef.current = null;
-          setHostTemporarilyDisconnected(false);
           wsRef.current = null;
           setSessionEnded(true);
-        } else if (msg.type === 'host_disconnected') {
-          setHostTemporarilyDisconnected(true);
-          clearTimeout(hostDisconnectTimerRef.current);
-          hostDisconnectTimerRef.current = setTimeout(() => {
-            setHostTemporarilyDisconnected(false);
-            wsRef.current = null;
-            setSessionEnded(true);
-          }, 60000);
-        } else if (msg.type === 'host_reconnected') {
-          clearTimeout(hostDisconnectTimerRef.current);
-          hostDisconnectTimerRef.current = null;
-          setHostTemporarilyDisconnected(false);
-        } else if (msg.type === 'still_playing') {
-          setStillPlayingCountdown(30);
-          setShowStillPlayingModal(true);
-          if (stillPlayingTimerRef.current) clearInterval(stillPlayingTimerRef.current);
-          let count = 30;
-          stillPlayingTimerRef.current = setInterval(() => {
-            count--;
-            setStillPlayingCountdown(count);
-            if (count <= 0) {
-              clearInterval(stillPlayingTimerRef.current);
-              stillPlayingTimerRef.current = null;
-              setShowStillPlayingModal(false);
-            }
-          }, 1000);
-        } else if (msg.type === 'session_extended') {
-          if (stillPlayingTimerRef.current) {
-            clearInterval(stillPlayingTimerRef.current);
-            stillPlayingTimerRef.current = null;
-          }
-          setShowStillPlayingModal(false);
-          setStillPlayingCountdown(30);
         }
       } catch {}
     };
     ws.onerror = () => {};
-    ws.onclose = () => {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-    };
-  };
-
-  const handleKeepSession = () => {
-    if (stillPlayingTimerRef.current) {
-      clearInterval(stillPlayingTimerRef.current);
-      stillPlayingTimerRef.current = null;
-    }
-    setShowStillPlayingModal(false);
-    setStillPlayingCountdown(30);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'extend_session' }));
-    }
-  };
-
-  const handleEndSessionIdle = () => {
-    if (stillPlayingTimerRef.current) {
-      clearInterval(stillPlayingTimerRef.current);
-      stillPlayingTimerRef.current = null;
-    }
-    setShowStillPlayingModal(false);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'end_session' }));
-    }
   };
 
   const handleHostSession = async () => {
@@ -2697,32 +2619,6 @@ export default function MainCode() {
   
   return (
     <div className="initiative-page-scroll">
-    {showStillPlayingModal && (
-      <div className="session-ended-overlay">
-        <div className="session-ended-modal">
-          <p className="still-playing-title">Still Playing?</p>
-          <p className="still-playing-countdown">{stillPlayingCountdown}</p>
-          <div className="still-playing-buttons">
-            <button className="session-ended-refresh-button" onClick={handleKeepSession}>
-              Yes, keep session open
-            </button>
-            <button className="session-host-leave-button" onClick={handleEndSessionIdle}>
-              No, end the session
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    {hostTemporarilyDisconnected && sessionMode === 'joining' && (
-      <div className="session-ended-overlay">
-        <div className="session-ended-modal">
-          <p className="session-ended-text">Host has temporarily disconnected. Stay on this screen and wait for them to come back, or click the button below to leave the session.</p>
-          <button className="session-host-leave-button" onClick={handleLeaveSession}>
-            Leave Session
-          </button>
-        </div>
-      </div>
-    )}
     {sessionEnded && (
       <div className="session-ended-overlay">
         <div className="session-ended-modal">
