@@ -482,7 +482,7 @@
 }
 
 .settings-end-session-button {
-  background-color: #a01010;
+  background-color: var(--neutral-condition-background);
   color: #fff;
   border: none;
   border-radius: 5px;
