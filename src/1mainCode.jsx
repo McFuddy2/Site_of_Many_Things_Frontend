@@ -59,6 +59,7 @@ export default function MainCode() {
   const [hostError, setHostError] = useState('');
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   const HELP_STORAGE_KEY = "initiative_help_hidden_v1";
   const [helpHidden, setHelpHidden] = useState(false);
@@ -990,6 +991,9 @@ export default function MainCode() {
           if (data.rowVisibility) setRowVisibility(data.rowVisibility);
           if (data.overlayActive) setOverlayActive(data.overlayActive);
           if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
+        } else if (msg.type === 'session_ended') {
+          wsRef.current = null;
+          setSessionEnded(true);
         }
       } catch {}
     };
@@ -1027,6 +1031,7 @@ export default function MainCode() {
         return;
       }
       const { data } = result;
+      localStorage.setItem('initiative_own_data', JSON.stringify({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex }));
       isSyncingFromWs.current = true;
       setRowData(data.rowData);
       setRound(data.round);
@@ -1051,6 +1056,36 @@ export default function MainCode() {
       setTimeout(() => setShareCopied(false), 2000);
     } catch {
       window.prompt('Copy this link to share:', link);
+    }
+  };
+
+  const handleEndSession = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'end_session' }));
+    }
+    wsRef.current?.close();
+    wsRef.current = null;
+    setSessionMode(null);
+    setActiveSessionCode('');
+  };
+
+  const handleLeaveSession = () => {
+    wsRef.current?.close();
+    wsRef.current = null;
+    setSessionMode(null);
+    setActiveSessionCode('');
+    const saved = localStorage.getItem('initiative_own_data');
+    if (saved) {
+      try {
+        const own = JSON.parse(saved);
+        isSyncingFromWs.current = true;
+        setRowData(own.rowData ?? []);
+        setRound(own.round ?? 1);
+        if (own.rowVisibility) setRowVisibility(own.rowVisibility);
+        if (own.overlayActive) setOverlayActive(own.overlayActive);
+        if (own.shiftedRowIndex !== undefined) setShiftedRowIndex(own.shiftedRowIndex);
+      } catch {}
+      localStorage.removeItem('initiative_own_data');
     }
   };
 
@@ -2512,6 +2547,16 @@ export default function MainCode() {
   
   return (
     <div className="initiative-page-scroll">
+    {sessionEnded && (
+      <div className="session-ended-overlay">
+        <div className="session-ended-modal">
+          <p className="session-ended-text">Host has disconnected the session. Click here to refresh and go to your own session.</p>
+          <button className="session-ended-refresh-button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>
+        </div>
+      </div>
+    )}
     {isSettingsModalOpen && (
       <div className="modal-overlay settings-modal">
         <div className="modal">
@@ -2577,11 +2622,16 @@ export default function MainCode() {
             )}
             {sessionMode === 'hosting' && (
               <div className="settings-session-active">
-                <span className="settings-session-code-label">
-                  Your Session Code is: <strong className="settings-session-code">{activeSessionCode}</strong>
-                </span>
-                <button className="settings-share-button" onClick={handleShareSession}>
-                  {shareCopied ? 'Copied!' : 'Share'}
+                <div className="settings-session-code-row">
+                  <span className="settings-session-code-label">
+                    Your Session Code is: <strong className="settings-session-code">{activeSessionCode}</strong>
+                  </span>
+                  <button className="settings-share-button" onClick={handleShareSession}>
+                    {shareCopied ? 'Copied!' : 'Share'}
+                  </button>
+                </div>
+                <button className="settings-end-session-button" onClick={handleEndSession}>
+                  End Sharing Session
                 </button>
               </div>
             )}
@@ -2618,6 +2668,9 @@ export default function MainCode() {
                 <span className="settings-session-code-label">
                   Connected to: <strong className="settings-session-code">{activeSessionCode}</strong>
                 </span>
+                <button className="settings-leave-session-button" onClick={handleLeaveSession}>
+                  Leave Shared Session
+                </button>
               </div>
             )}
           </div>
