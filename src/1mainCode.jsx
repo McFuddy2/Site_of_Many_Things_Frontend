@@ -1023,6 +1023,18 @@ export default function MainCode() {
     if (wsRef.current) wsRef.current.close();
     const ws = new WebSocket(sessionWsUrl(code, role));
     wsRef.current = ws;
+
+    let heartbeatInterval = null;
+    if (role === 'host') {
+      ws.onopen = () => {
+        heartbeatInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 5000);
+      };
+    }
+
     ws.onmessage = (event) => {
       if (wsRef.current !== ws) return;
       try {
@@ -1057,7 +1069,9 @@ export default function MainCode() {
       } catch {}
     };
     ws.onerror = () => {};
-    ws.onclose = () => {};
+    ws.onclose = () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    };
   };
 
   const handleHostSession = async () => {
