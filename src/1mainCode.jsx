@@ -993,9 +993,9 @@ export default function MainCode() {
     setIsSettingsModalOpen(false);
   };
 
-  const openSessionWebSocket = (code) => {
+  const openSessionWebSocket = (code, role = 'joiner') => {
     if (wsRef.current) wsRef.current.close();
-    const ws = new WebSocket(sessionWsUrl(code));
+    const ws = new WebSocket(sessionWsUrl(code, role));
     wsRef.current = ws;
     ws.onmessage = (event) => {
       if (wsRef.current !== ws) return;
@@ -1026,7 +1026,7 @@ export default function MainCode() {
       const { code } = await createSession({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex });
       setActiveSessionCode(code);
       setSessionMode('hosting');
-      openSessionWebSocket(code);
+      openSessionWebSocket(code, 'host');
     } catch {
       setHostError('Could not connect. Please try again.');
     } finally {

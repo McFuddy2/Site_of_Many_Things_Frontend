@@ -9,8 +9,8 @@ const WS_BASE = isDev
   ? (devApiBaseUrl ? devApiBaseUrl.replace(/^https?/, 'ws') : 'ws://localhost:8000')
   : prodApiBaseUrl.replace(/^https/, 'wss').replace(/^http(?!s)/, 'ws');
 
-export function sessionWsUrl(code) {
-  return `${WS_BASE}/api/v1/sessions/${code}/ws`;
+export function sessionWsUrl(code, role = 'joiner') {
+  return `${WS_BASE}/api/v1/sessions/${code}/ws?role=${role}`;
 }
 
 export async function createSession(data) {
