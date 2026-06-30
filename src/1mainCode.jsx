@@ -345,7 +345,6 @@ export default function MainCode() {
       setActiveSessionCode(code);
       setSessionMode('joining');
       openSessionWebSocket(code);
-      window.history.replaceState({}, '', window.location.pathname);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
