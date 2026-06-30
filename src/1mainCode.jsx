@@ -311,6 +311,22 @@ export default function MainCode() {
     )
   ];
 
+  // Restore own tracker state saved before joining a session (runs before auto-join)
+  useEffect(() => {
+    const saved = localStorage.getItem('initiative_own_data');
+    if (!saved) return;
+    try {
+      const own = JSON.parse(saved);
+      setRowData(own.rowData ?? []);
+      setRound(own.round ?? 1);
+      if (own.rowVisibility) setRowVisibility(own.rowVisibility);
+      if (own.overlayActive) setOverlayActive(own.overlayActive);
+      if (own.shiftedRowIndex !== undefined) setShiftedRowIndex(own.shiftedRowIndex);
+    } catch {}
+    localStorage.removeItem('initiative_own_data');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-join session from ?session=CODE URL param on mount
   useEffect(() => {
     const sessionCode = new URLSearchParams(window.location.search).get('session');
@@ -329,6 +345,7 @@ export default function MainCode() {
       setActiveSessionCode(code);
       setSessionMode('joining');
       openSessionWebSocket(code);
+      window.history.replaceState({}, '', window.location.pathname);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1076,6 +1093,7 @@ export default function MainCode() {
     wsRef.current = null;
     setSessionMode(null);
     setActiveSessionCode('');
+    window.history.replaceState({}, '', window.location.pathname);
     const saved = localStorage.getItem('initiative_own_data');
     if (saved) {
       try {
@@ -2553,7 +2571,7 @@ export default function MainCode() {
       <div className="session-ended-overlay">
         <div className="session-ended-modal">
           <p className="session-ended-text">Host has disconnected the session. Click here to refresh and go to your own session.</p>
-          <button className="session-ended-refresh-button" onClick={() => window.location.reload()}>
+          <button className="session-ended-refresh-button" onClick={() => { window.location.href = '/initiative'; }}>
             Refresh
           </button>
         </div>
