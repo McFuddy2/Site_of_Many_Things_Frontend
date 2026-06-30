@@ -98,6 +98,7 @@ export default function MainCode() {
   const pendingActiveRowDataIndexRef = useRef(null);
   const wsRef = useRef(null);
   const isSyncingFromWs = useRef(false);
+  const hasStartedJoinRef = useRef(false);
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
@@ -329,6 +330,9 @@ export default function MainCode() {
 
   // Auto-reconnect as host (from localStorage) or auto-join as joiner (from URL) on mount
   useEffect(() => {
+    if (hasStartedJoinRef.current) return;
+    hasStartedJoinRef.current = true;
+
     const savedHostCode = localStorage.getItem('session_hosting_code');
     if (savedHostCode) {
       getSession(savedHostCode).then(result => {
@@ -386,11 +390,10 @@ export default function MainCode() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowData, round, rowVisibility, overlayActive, shiftedRowIndex]);
 
-  // Clean up WebSocket and timers on unmount
+  // Clean up WebSocket on unmount
   useEffect(() => {
     return () => {
       if (wsRef.current) wsRef.current.close();
-      clearTimeout(hostDisconnectTimerRef.current);
     };
   }, []);
 
@@ -1114,6 +1117,7 @@ export default function MainCode() {
   };
 
   const handleLeaveSession = () => {
+    hasStartedJoinRef.current = false;
     wsRef.current?.close();
     wsRef.current = null;
     setSessionMode(null);
@@ -1126,9 +1130,9 @@ export default function MainCode() {
         isSyncingFromWs.current = true;
         setRowData(own.rowData ?? []);
         setRound(own.round ?? 1);
-        if (own.rowVisibility) setRowVisibility(own.rowVisibility);
-        if (own.overlayActive) setOverlayActive(own.overlayActive);
-        if (own.shiftedRowIndex !== undefined) setShiftedRowIndex(own.shiftedRowIndex);
+        setRowVisibility(own.rowVisibility ?? Array(20).fill(false).map((_, i) => i === 0));
+        setOverlayActive(own.overlayActive ?? Array(20).fill(false));
+        setShiftedRowIndex(own.shiftedRowIndex ?? null);
       } catch {}
       localStorage.removeItem('initiative_own_data');
     }
