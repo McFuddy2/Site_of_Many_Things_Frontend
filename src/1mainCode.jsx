@@ -56,6 +56,7 @@ export default function MainCode() {
   const [activeSessionCode, setActiveSessionCode] = useState('');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
+  const [hostError, setHostError] = useState('');
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
@@ -998,13 +999,14 @@ export default function MainCode() {
 
   const handleHostSession = async () => {
     setIsSessionLoading(true);
+    setHostError('');
     try {
       const { code } = await createSession({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex });
       setActiveSessionCode(code);
       setSessionMode('hosting');
       openSessionWebSocket(code);
     } catch {
-      // silently fail — user stays on null mode
+      setHostError('Could not connect. Please try again.');
     } finally {
       setIsSessionLoading(false);
     }
@@ -2553,21 +2555,24 @@ export default function MainCode() {
           </div>
           <div className="settings-connect-section">
             {sessionMode === null && (
-              <div className="settings-connect-buttons">
-                <button
-                  className="settings-host-button"
-                  onClick={handleHostSession}
-                  disabled={isSessionLoading}
-                >
-                  {isSessionLoading ? 'Connecting...' : 'Host Session'}
-                </button>
-                <button
-                  className="settings-join-button"
-                  onClick={() => { setSessionMode('join-input'); setJoinError(''); setJoinCodeInput(''); }}
-                  disabled={isSessionLoading}
-                >
-                  Join Session
-                </button>
+              <div className="settings-connect-buttons-group">
+                <div className="settings-connect-buttons">
+                  <button
+                    className="settings-host-button"
+                    onClick={handleHostSession}
+                    disabled={isSessionLoading}
+                  >
+                    {isSessionLoading ? 'Connecting...' : 'Host Session'}
+                  </button>
+                  <button
+                    className="settings-join-button"
+                    onClick={() => { setSessionMode('join-input'); setJoinError(''); setJoinCodeInput(''); setHostError(''); }}
+                    disabled={isSessionLoading}
+                  >
+                    Join Session
+                  </button>
+                </div>
+                {hostError && <span className="settings-join-error">{hostError}</span>}
               </div>
             )}
             {sessionMode === 'hosting' && (

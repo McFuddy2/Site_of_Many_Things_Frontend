@@ -322,6 +322,13 @@
   margin-bottom: 14px;
 }
 
+.settings-connect-buttons-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .settings-connect-buttons {
   display: flex;
   gap: 12px;
