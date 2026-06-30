@@ -579,28 +579,6 @@
   opacity: 0.8;
 }
 
-.still-playing-title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #222;
-}
-
-.still-playing-countdown {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #222;
-  margin-bottom: 24px;
-  line-height: 1;
-}
-
-.still-playing-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
 @media screen and (min-width: 600px) and (max-width: 1024px) {
   .settings-view-options {
     display: none;
