@@ -383,6 +383,13 @@
 
 .settings-session-active {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.settings-session-code-row {
+  display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
@@ -472,6 +479,88 @@
   color: red;
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+.settings-end-session-button {
+  background-color: #a01010;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+  width: 100%;
+  height: 38px;
+}
+
+.settings-end-session-button:hover {
+  opacity: 0.8;
+}
+
+.settings-leave-session-button {
+  background-color: #555;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+  width: 100%;
+  height: 38px;
+}
+
+.settings-leave-session-button:hover {
+  opacity: 0.8;
+}
+
+.session-ended-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-ended-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px 48px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+}
+
+.session-ended-text {
+  font-size: 1.1rem;
+  line-height: 1.55;
+  margin-bottom: 24px;
+  color: #222;
+}
+
+.session-ended-refresh-button {
+  background-color: var(--condition-dark-blue);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.session-ended-refresh-button:hover {
+  opacity: 0.8;
 }
 
 @media screen and (min-width: 600px) and (max-width: 1024px) {
