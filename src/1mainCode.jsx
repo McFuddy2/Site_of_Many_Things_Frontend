@@ -1375,6 +1375,8 @@ export default function MainCode() {
             .map((cond) => ({
               name: cond,
               expiration: expirationString,
+              ...(conditionColors[cond] && { color: conditionColors[cond] }),
+              ...(conditionDescriptions[cond] && { description: conditionDescriptions[cond] }),
             }))
         ];
 
@@ -1395,6 +1397,8 @@ export default function MainCode() {
             .map((cond) => ({
               name: cond,
               expiration: expirationString,
+              ...(conditionColors[cond] && { color: conditionColors[cond] }),
+              ...(conditionDescriptions[cond] && { description: conditionDescriptions[cond] }),
             }));
 
           existingSummonConditions[summonName] = [...currentSummonConditions, ...conditionsToAdd];
@@ -2183,7 +2187,10 @@ export default function MainCode() {
                   </div>
                 )}
                 <div>
-                  {(conditionDescriptions[typeof condition === "object" ? condition.name : condition] || "Filler description for this condition.")
+                  {((typeof condition === "object" && condition?.description)
+                    ? condition.description
+                    : conditionDescriptions[typeof condition === "object" ? condition.name : condition]
+                    || "Filler description for this condition.")
                     .split('???')
                     .map((line, idx) => (
                       <React.Fragment key={idx}>
@@ -2227,7 +2234,10 @@ export default function MainCode() {
                       </div>
                     )}
                     <div>
-                      {(conditionDescriptions[typeof condition === "object" ? condition.name : condition] || "Filler description for this condition.")
+                      {((typeof condition === "object" && condition?.description)
+                        ? condition.description
+                        : conditionDescriptions[typeof condition === "object" ? condition.name : condition]
+                        || "Filler description for this condition.")
                         .split('???')
                         .map((line, idx) => (
                           <React.Fragment key={idx}>
@@ -2307,7 +2317,12 @@ export default function MainCode() {
   };
 
   const getConditionBackgroundColor = (condition) => {
-    return conditionColors[condition] || 'var(--neutral-condition-background)'; // Default to neutral condition background
+    if (typeof condition === 'object') {
+      if (condition?.color) return condition.color;
+      const name = condition?.name || condition?.conditionName;
+      return conditionColors[name] || 'var(--neutral-condition-background)';
+    }
+    return conditionColors[condition] || 'var(--neutral-condition-background)';
   };
 
   const getConditionName = (condition) => (
@@ -2329,6 +2344,7 @@ export default function MainCode() {
             key: `${conditionName}-${idx}`,
             conditionName,
             displayText: conditionName,
+            color: typeof condition === 'object' ? condition?.color : undefined,
           };
         })
         .filter(Boolean);
@@ -2337,6 +2353,7 @@ export default function MainCode() {
     const summonNames = Array.isArray(row?.summons) ? row.summons : [];
     const summonConditions = row?.summonConditions || {};
     const conditionCounts = new Map();
+    const conditionColorCache = new Map();
 
     summonNames.forEach((summonName) => {
       const minionConditions = Array.isArray(summonConditions[summonName])
@@ -2352,6 +2369,9 @@ export default function MainCode() {
 
         uniqueConditionsForMinion.add(conditionName);
         conditionCounts.set(conditionName, (conditionCounts.get(conditionName) || 0) + 1);
+        if (!conditionColorCache.has(conditionName) && typeof condition === 'object' && condition?.color) {
+          conditionColorCache.set(conditionName, condition.color);
+        }
       });
     });
 
@@ -2360,6 +2380,7 @@ export default function MainCode() {
         key: `${conditionName}-${count}`,
         conditionName,
         displayText: `${conditionName} x${count}`,
+        color: conditionColorCache.get(conditionName),
       }));
     }
 
@@ -2374,6 +2395,7 @@ export default function MainCode() {
           key: `${conditionName}-${idx}`,
           conditionName,
           displayText: conditionName,
+          color: typeof condition === 'object' ? condition?.color : undefined,
         };
       })
       .filter(Boolean);
@@ -3058,9 +3080,7 @@ export default function MainCode() {
                                   key={`${summonName}-dot-${condIdx}`}
                                   className="summon-condition-dot"
                                   style={{
-                                    backgroundColor: getConditionBackgroundColor(
-                                      typeof condition === "object" ? condition.name : condition
-                                    )
+                                    backgroundColor: getConditionBackgroundColor(condition)
                                   }}
                                 />
                               ))}
@@ -3101,9 +3121,7 @@ export default function MainCode() {
                                   key={`${summonName}-dot-${condIdx}`}
                                   className="summon-condition-dot"
                                   style={{
-                                    backgroundColor: getConditionBackgroundColor(
-                                      typeof condition === "object" ? condition.name : condition
-                                    )
+                                    backgroundColor: getConditionBackgroundColor(condition)
                                   }}
                                 />
                               ))}
@@ -3132,9 +3150,7 @@ export default function MainCode() {
                           key={conditionEntry.key}
                           className="condition-section"
                           style={{
-                            backgroundColor: getConditionBackgroundColor(
-                              conditionEntry.conditionName
-                            ),
+                            backgroundColor: getConditionBackgroundColor(conditionEntry),
                             color: 'black',
                           }}
                         >
