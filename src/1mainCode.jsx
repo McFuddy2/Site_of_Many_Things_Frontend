@@ -319,6 +319,7 @@ export default function MainCode() {
     getSession(code).then(result => {
       if (!result) return;
       const { data } = result;
+      localStorage.setItem('initiative_own_data', JSON.stringify({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex }));
       isSyncingFromWs.current = true;
       setRowData(data.rowData);
       setRound(data.round);
@@ -981,6 +982,7 @@ export default function MainCode() {
     const ws = new WebSocket(sessionWsUrl(code));
     wsRef.current = ws;
     ws.onmessage = (event) => {
+      if (wsRef.current !== ws) return;
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'sync' || msg.type === 'update') {
