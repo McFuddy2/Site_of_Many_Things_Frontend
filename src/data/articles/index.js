@@ -7,10 +7,12 @@
 
 import { spellFilterMultiClass } from "./5e-spell-filter-multi-class";
 import { initiativeTrackerWholeTable } from "./initiative-tracker-whole-table";
+import { blindedCasterExcludeKeyword } from "./5e-spells-you-can-cast-while-blinded";
 
 export const articles = [
-  spellFilterMultiClass,
+  blindedCasterExcludeKeyword,
   initiativeTrackerWholeTable,
+  spellFilterMultiClass,
 ];
 
 export function getArticleBySlug(slug) {
