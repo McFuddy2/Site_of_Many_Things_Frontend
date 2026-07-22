@@ -18,7 +18,7 @@ export const getSpell = async (spellId, ownerKey = "") => {
     if (ownerKey) {
       headers["x-owner-key"] = ownerKey;
     }
-    const response = await axios.get(`${SPELL_SEARCH_URL}/spells/${spellId}`, { headers });
+    const response = await axios.get(`${SPELL_SEARCH_URL}/spells/${spellId}`, { headers, timeout: 15000 });
     return response.data;
   } catch (error) {
     console.error("Error fetching spell:", error);
