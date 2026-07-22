@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../SpellSearchMainStyles.css";
 import "../SpellSearchSpellList.css";
 import "../SpellSearchColumnViewModal.css";
@@ -10,10 +11,15 @@ import copyScrollIcon from "../media/copy-scroll.png";
 import { getSpells, getSpell, queryAdvancedSpells, getSources } from "../API/spell_search/spells";
 import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
+import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, MAX_SAVED_SPELLBOOKS } from "../utils/spellbookStorage";
 
 const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
 const emptySpellMessage = "No spells match your current filters.";
+const DEFAULT_SPELLBOOK_SPINE_COLOR = "#412a85";
+const DEFAULT_SPELLBOOK_FONT_COLOR = "#e0a63a";
+const SPINE_TEXT_MAX_FONT_SIZE = 22;
+const SPINE_TEXT_MIN_FONT_SIZE = 8;
 const loadSpellErrorMessage = "Unable to load spells right now. Please try again.";
 
 // Keeps typing keystrokes local to this small component instead of re-rendering
@@ -63,6 +69,7 @@ const KeywordFilterInput = forwardRef(function KeywordFilterInput(
 });
 
 export default function SpellSearchPage() {
+	const navigate = useNavigate();
 	const filterFieldOptions = [
 		"Key Word",
 		"Level",
@@ -129,6 +136,15 @@ export default function SpellSearchPage() {
 	const [expandedSpellId, setExpandedSpellId] = useState(null);
 	const [copiedSpellInfoId, setCopiedSpellInfoId] = useState(null);
 	const [copiedSpellId, setCopiedSpellId] = useState(null);
+	const [selectedSpells, setSelectedSpells] = useState(() => new Map());
+	const [isSaveSpellbookModalOpen, setIsSaveSpellbookModalOpen] = useState(false);
+	const [saveSpellbookModalStep, setSaveSpellbookModalStep] = useState("choose");
+	const [newSpellbookName, setNewSpellbookName] = useState("");
+	const [newSpellbookSpineColor, setNewSpellbookSpineColor] = useState(DEFAULT_SPELLBOOK_SPINE_COLOR);
+	const [newSpellbookFontColor, setNewSpellbookFontColor] = useState(DEFAULT_SPELLBOOK_FONT_COLOR);
+	const [spineTextFontSize, setSpineTextFontSize] = useState(SPINE_TEXT_MAX_FONT_SIZE);
+	const spinePreviewRef = useRef(null);
+	const spineTextRef = useRef(null);
 	const [isMobileFiltersModalOpen, setIsMobileFiltersModalOpen] = useState(false);
 	const [mobileFilterMode, setMobileFilterMode] = useState("include");
 	const [hasMobileSavedFilters, setHasMobileSavedFilters] = useState(false);
@@ -1514,6 +1530,107 @@ export default function SpellSearchPage() {
 			.trim();
 	};
 
+	const handleToggleSpellSelection = (spell) => {
+		setSelectedSpells((previousSelectedSpells) => {
+			const updatedSelectedSpells = new Map(previousSelectedSpells);
+			if (updatedSelectedSpells.has(spell.id)) {
+				updatedSelectedSpells.delete(spell.id);
+			} else {
+				updatedSelectedSpells.set(spell.id, { id: spell.id, name: spell.name });
+			}
+			return updatedSelectedSpells;
+		});
+	};
+
+	const handleSaveSelectedAsSpellbookClick = () => {
+		if (selectedSpells.size === 0) {
+			return;
+		}
+		setSaveSpellbookModalStep("choose");
+		setIsSaveSpellbookModalOpen(true);
+	};
+
+	const handleCloseSaveSpellbookModal = () => {
+		setIsSaveSpellbookModalOpen(false);
+		setSaveSpellbookModalStep("choose");
+		setNewSpellbookName("");
+		setNewSpellbookSpineColor(DEFAULT_SPELLBOOK_SPINE_COLOR);
+		setNewSpellbookFontColor(DEFAULT_SPELLBOOK_FONT_COLOR);
+		setSpineTextFontSize(SPINE_TEXT_MAX_FONT_SIZE);
+	};
+
+	const handleStartNewSpellbook = () => {
+		setSaveSpellbookModalStep("new");
+	};
+
+	const handleStartExistingSpellbook = () => {
+		setSaveSpellbookModalStep("existing");
+	};
+
+	const handleSaveToExistingSpellbook = (spellbookId) => {
+		if (selectedSpells.size === 0) {
+			return;
+		}
+
+		const updatedSpellbook = addSpellsToSpellbook(spellbookId, Array.from(selectedSpells.values()));
+		if (!updatedSpellbook) {
+			return;
+		}
+
+		setSelectedSpells(new Map());
+		handleCloseSaveSpellbookModal();
+		navigate("/library", { state: { openSpellbookId: spellbookId } });
+	};
+
+	const handleSaveNewSpellbook = () => {
+		if (selectedSpells.size === 0) {
+			return;
+		}
+		const trimmedName = newSpellbookName.trim() || "Untitled Spellbook";
+
+		const newSpellbook = {
+			id: `spellbook-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+			name: trimmedName,
+			spineColor: newSpellbookSpineColor,
+			fontColor: newSpellbookFontColor,
+			spells: Array.from(selectedSpells.values()),
+			createdAt: new Date().toISOString(),
+		};
+
+		const didSave = saveSpellbook(newSpellbook);
+		if (!didSave) {
+			return;
+		}
+
+		setSelectedSpells(new Map());
+		handleCloseSaveSpellbookModal();
+		navigate("/library");
+	};
+
+	useEffect(() => {
+		if (saveSpellbookModalStep !== "new") {
+			return;
+		}
+		const containerEl = spinePreviewRef.current;
+		const textEl = spineTextRef.current;
+		if (!containerEl || !textEl) {
+			return;
+		}
+
+		let fittedFontSize = SPINE_TEXT_MAX_FONT_SIZE;
+		textEl.style.fontSize = `${fittedFontSize}px`;
+
+		while (
+			fittedFontSize > SPINE_TEXT_MIN_FONT_SIZE &&
+			(textEl.scrollWidth > containerEl.clientWidth || textEl.scrollHeight > containerEl.clientHeight)
+		) {
+			fittedFontSize -= 1;
+			textEl.style.fontSize = `${fittedFontSize}px`;
+		}
+
+		setSpineTextFontSize(fittedFontSize);
+	}, [newSpellbookName, saveSpellbookModalStep]);
+
 	const handleCopySpellInfo = async (event, spell) => {
 		event.stopPropagation();
 
@@ -2462,6 +2579,8 @@ export default function SpellSearchPage() {
 									<input
 										type="checkbox"
 										className="spell-row-checkbox"
+										checked={selectedSpells.has(spell.id)}
+										onChange={() => handleToggleSpellSelection(spell)}
 										onClick={(event) => event.stopPropagation()}
 									/>
 								</label>
@@ -3395,8 +3514,9 @@ export default function SpellSearchPage() {
 						<div className="main-spell-searcher-page-spellbook-buttons-left">
 							<button
 								type="button"
-								className="spellbook-action-button"
+								className={`spellbook-action-button${selectedSpells.size > 0 ? " spellbook-action-button-glow" : ""}`}
 								aria-label="Save selected as spellbook"
+								onClick={handleSaveSelectedAsSpellbookClick}
 							>
 								<img src={quillInk} alt="Quill and ink" />
 							</button>
@@ -3407,14 +3527,12 @@ export default function SpellSearchPage() {
 								type="button"
 								className="spellbook-action-button"
 								aria-label="View spellbooks"
+								onClick={() => navigate("/library")}
 							>
 								<img src={bookStack} alt="Stacked books" />
 							</button>
 							<span className="spellbook-action-label">View spellbooks</span>
 						</div>
-						{isGuidedTutorialModalOpen && (guidedTutorialStep === 7 || guidedTutorialStep === 10) ? null : (
-						<div className="spellbook-buttons-coming-soon-overlay">Features<br/> Coming Soon</div>
-					)}
 					</div>
 					<div className="secret-code-input">
 						<form onSubmit={handleSecretCodeSubmit}>
@@ -3496,6 +3614,149 @@ export default function SpellSearchPage() {
 						>
 							X
 						</button>
+					</div>
+				</div>
+			) : null}
+
+			{isSaveSpellbookModalOpen ? (
+				<div
+					className="save-spellbook-modal-backdrop"
+					onClick={handleCloseSaveSpellbookModal}
+				>
+					<div
+						className="save-spellbook-modal-group"
+						onClick={(event) => event.stopPropagation()}
+					>
+						<div className="save-spellbook-modal">
+							<button
+								type="button"
+								className="save-spellbook-modal-close"
+								onClick={handleCloseSaveSpellbookModal}
+								aria-label="Close save spellbook modal"
+							>
+								X
+							</button>
+							{saveSpellbookModalStep === "choose" ? (
+								<div className="save-spellbook-modal-actions-wrapper">
+									<div className="save-spellbook-modal-actions">
+										<button
+											type="button"
+											className="save-spellbook-modal-action-button"
+											onClick={handleStartNewSpellbook}
+											disabled={getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS}
+										>
+											Save to New Spellbook
+										</button>
+										<button
+											type="button"
+											className="save-spellbook-modal-action-button"
+											onClick={handleStartExistingSpellbook}
+											disabled={getSavedSpellbooks().length === 0}
+										>
+											Save to Existing Spellbook
+										</button>
+									</div>
+									{getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS ? (
+										<p className="save-spellbook-limit-message">
+											You&apos;ve reached the maximum of {MAX_SAVED_SPELLBOOKS} saved spellbooks. Delete one from The Library to save a new one.
+										</p>
+									) : null}
+								</div>
+							) : saveSpellbookModalStep === "existing" ? (
+								<div className="save-spellbook-modal-existing-form">
+									<p className="save-spellbook-modal-title">Choose a Spellbook:</p>
+									<ul className="save-spellbook-existing-list">
+										{getSavedSpellbooks().map((book) => {
+											const spellCount = Array.isArray(book.spells) ? book.spells.length : 0;
+											return (
+												<li key={book.id}>
+													<button
+														type="button"
+														className="save-spellbook-existing-list-button"
+														onClick={() => handleSaveToExistingSpellbook(book.id)}
+													>
+														<span
+															className="save-spellbook-existing-list-swatch"
+															style={{ backgroundColor: book.spineColor }}
+														/>
+														<span className="save-spellbook-existing-list-name">{book.name}</span>
+														<span className="save-spellbook-existing-list-count">
+															{spellCount} spell{spellCount === 1 ? "" : "s"}
+														</span>
+													</button>
+												</li>
+											);
+										})}
+									</ul>
+								</div>
+							) : (
+								<div className="save-spellbook-modal-new-form">
+									<p className="save-spellbook-modal-title">Name Your Spellbook:</p>
+									<input
+										type="text"
+										className="save-spellbook-name-input"
+										value={newSpellbookName}
+										onChange={(event) => setNewSpellbookName(event.target.value)}
+										aria-label="Spellbook name"
+									/>
+									<div className="save-spellbook-spine-section">
+										<div className="save-spellbook-spine-controls">
+											<div className="save-spellbook-spine-color-row">
+												<span className="save-spellbook-modal-label">Choose a Spine Color:</span>
+												<input
+													type="color"
+													className="save-spellbook-spine-color-picker"
+													value={newSpellbookSpineColor}
+													onChange={(event) => setNewSpellbookSpineColor(event.target.value)}
+													aria-label="Choose a spine color"
+												/>
+											</div>
+											<div className="save-spellbook-spine-color-row">
+												<span className="save-spellbook-modal-label">Choose a Font Color:</span>
+												<input
+													type="color"
+													className="save-spellbook-spine-color-picker"
+													value={newSpellbookFontColor}
+													onChange={(event) => setNewSpellbookFontColor(event.target.value)}
+													aria-label="Choose a font color"
+												/>
+											</div>
+										</div>
+										<div
+											className="save-spellbook-spine-preview"
+											ref={spinePreviewRef}
+											style={{ backgroundColor: newSpellbookSpineColor }}
+										>
+											<span
+												ref={spineTextRef}
+												className="save-spellbook-spine-preview-text"
+												style={{ color: newSpellbookFontColor, fontSize: `${spineTextFontSize}px` }}
+											>
+												{newSpellbookName}
+											</span>
+										</div>
+									</div>
+									<button
+										type="button"
+										className="save-spellbook-save-button"
+										onClick={handleSaveNewSpellbook}
+										disabled={getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS}
+									>
+										Save
+									</button>
+								</div>
+							)}
+						</div>
+						{saveSpellbookModalStep === "new" || saveSpellbookModalStep === "existing" ? (
+							<div className="save-spellbook-spell-list-modal">
+								<p className="save-spellbook-modal-title">Spells being saved to this spellbook:</p>
+								<ul className="save-spellbook-selected-spell-list">
+									{Array.from(selectedSpells.values()).map((spell) => (
+										<li key={spell.id}>{spell.name}</li>
+									))}
+								</ul>
+							</div>
+						) : null}
 					</div>
 				</div>
 			) : null}
