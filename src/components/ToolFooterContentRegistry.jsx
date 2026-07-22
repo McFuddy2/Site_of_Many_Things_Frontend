@@ -108,6 +108,27 @@ const TOOL_FOOTER_CONTENT_REGISTRY = {
       </ul>
     </>
   ),
+
+  theLibrary: () => (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+        <h2 className="tool-learn-more-title">
+          The Library
+        </h2>
+      </div>
+
+      <p className="tool-learn-more-text">
+        The Library is where your saved D&amp;D 5e spellbooks will live. Save spells from the Spell Searcher
+        and come back here to view them whenever you need them at the table.
+      </p>
+
+      <h3 className="tool-learn-more-subtitle">How to use it</h3>
+      <ul className="tool-learn-more-list">
+        <li>Select spells in the Spell Searcher and save them as a spellbook.</li>
+        <li>Come back to The Library to view and manage your saved spellbooks.</li>
+      </ul>
+    </>
+  ),
 };
 
 export default TOOL_FOOTER_CONTENT_REGISTRY;

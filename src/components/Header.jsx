@@ -18,7 +18,8 @@ export default function Header({toggleSidebar}) {
     "/initiative": "Initiative",
     "/contact": "Contact Us",
     "/spell-search": "Spell Searcher",
-    "/articles": "Articles",    
+    "/library": "The Library",
+    "/articles": "Articles",
   };
   const mapped = titleMap[location.pathname];
   const isArticle = location.pathname.startsWith("/articles");
