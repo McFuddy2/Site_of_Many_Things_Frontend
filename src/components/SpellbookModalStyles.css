@@ -658,6 +658,22 @@
 	font-style: italic;
 }
 
+.spellbook-row-load-error {
+	color: #b3261e;
+	font-style: normal;
+}
+
+.spellbook-row-retry-button {
+	background: none;
+	border: none;
+	padding: 0;
+	color: inherit;
+	text-decoration: underline;
+	font-size: inherit;
+	font-family: inherit;
+	cursor: pointer;
+}
+
 .spellbook-row-actions {
 	display: flex;
 	align-items: center;

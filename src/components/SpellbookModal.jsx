@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./SpellbookModalStyles.css";
 import { getSpell } from "../API/spell_search/spells";
+import { getCachedSpellDetail, setCachedSpellDetail } from "../API/spell_search/spellDetailCache";
 import {
 	setSpellbookSpellFlag,
 	setSpellbookSpellFlags,
@@ -364,33 +365,59 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			setIsLoadingSpells(true);
 			setLoadError("");
 			const entries = Array.isArray(spellbook.spells) ? spellbook.spells : [];
+			const ownerKey = sessionStorage.getItem("owner-key") || "";
+
+			const fetchDetail = async (entry) => {
+				const cached = getCachedSpellDetail(entry.id);
+				if (cached) return cached;
+
+				const attempts = 2;
+				for (let attempt = 1; attempt <= attempts; attempt += 1) {
+					try {
+						const detail = await getSpell(entry.id, ownerKey);
+						setCachedSpellDetail(entry.id, detail);
+						return detail;
+					} catch (error) {
+						if (attempt === attempts) {
+							console.error(`Failed to load spell ${entry.id}:`, error);
+							return null;
+						}
+					}
+				}
+				return null;
+			};
+
+			const toRow = (entry, detail) => ({
+				...(detail || {}),
+				id: entry.id,
+				name: detail?.name || entry.name,
+				prepared: Boolean(entry.prepared),
+				pinned: Boolean(entry.pinned),
+				alwaysPrepared: Boolean(entry.alwaysPrepared),
+				notes: typeof entry.notes === "string" ? entry.notes : "",
+				loadFailed: !detail,
+			});
 
 			try {
-				const results = await Promise.all(
-					entries.map(async (entry) => {
-						try {
-							const detail = await getSpell(entry.id);
-							return {
-								...detail,
-								id: entry.id,
-								prepared: Boolean(entry.prepared),
-								pinned: Boolean(entry.pinned),
-								alwaysPrepared: Boolean(entry.alwaysPrepared),
-								notes: typeof entry.notes === "string" ? entry.notes : "",
-							};
-						} catch (error) {
-							console.error(`Failed to load spell ${entry.id}:`, error);
-							return {
-								id: entry.id,
-								name: entry.name,
-								prepared: Boolean(entry.prepared),
-								pinned: Boolean(entry.pinned),
-								alwaysPrepared: Boolean(entry.alwaysPrepared),
-								notes: typeof entry.notes === "string" ? entry.notes : "",
-							};
-						}
-					}),
-				);
+				// Fetch a handful of spells at a time instead of firing every request at once,
+				// so a large spellbook doesn't overwhelm a cold/slow backend and time everything out together.
+				const CONCURRENCY_LIMIT = 6;
+				const results = new Array(entries.length);
+				let nextIndex = 0;
+
+				const worker = async () => {
+					while (true) {
+						const index = nextIndex;
+						nextIndex += 1;
+						if (index >= entries.length) return;
+						const entry = entries[index];
+						const detail = await fetchDetail(entry);
+						results[index] = toRow(entry, detail);
+					}
+				};
+
+				const workerCount = Math.min(CONCURRENCY_LIMIT, entries.length);
+				await Promise.all(Array.from({ length: workerCount }, worker));
 
 				if (cancelled) return;
 				const map = {};
@@ -415,6 +442,31 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			cancelled = true;
 		};
 	}, [spellbook.id, spellIdsKey]);
+
+	const retrySpellDetail = async (spellId) => {
+		const entry = (Array.isArray(spellbook.spells) ? spellbook.spells : []).find((s) => s.id === spellId);
+		if (!entry) return;
+
+		const ownerKey = sessionStorage.getItem("owner-key") || "";
+		try {
+			const detail = await getSpell(spellId, ownerKey);
+			setCachedSpellDetail(spellId, detail);
+			setSpellDetailsById((previous) => ({
+				...previous,
+				[spellId]: {
+					...detail,
+					id: spellId,
+					prepared: Boolean(previous[spellId]?.prepared),
+					pinned: Boolean(previous[spellId]?.pinned),
+					alwaysPrepared: Boolean(previous[spellId]?.alwaysPrepared),
+					notes: previous[spellId]?.notes || "",
+					loadFailed: false,
+				},
+			}));
+		} catch (error) {
+			console.error(`Failed to reload spell ${spellId}:`, error);
+		}
+	};
 
 	useEffect(() => {
 		const handlePointerDownOutside = (event) => {
@@ -749,7 +801,23 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 				>
 					<div className="spellbook-row-info">
 						<div className="spellbook-row-name">{spell.name}</div>
-						<div className="spellbook-row-meta">{metaParts.join(" • ")}</div>
+						{spell.loadFailed ? (
+							<div className="spellbook-row-meta spellbook-row-load-error">
+								Couldn&apos;t load spell details.{" "}
+								<button
+									type="button"
+									className="spellbook-row-retry-button"
+									onClick={(event) => {
+										event.stopPropagation();
+										retrySpellDetail(spell.id);
+									}}
+								>
+									Retry
+								</button>
+							</div>
+						) : (
+							<div className="spellbook-row-meta">{metaParts.join(" • ")}</div>
+						)}
 					</div>
 					<div className="spellbook-row-actions" onClick={(event) => event.stopPropagation()}>
 						<button
@@ -807,12 +875,30 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 
 				<div className={`spellbook-row-accordion${isExpanded ? " is-open" : ""}`}>
 					<div className="spellbook-row-accordion-content">
-						<div className="spellbook-row-accordion-meta">
-							<span><strong>Ritual:</strong> {spell.ritual || "No"}</span>
-							<span><strong>Classes:</strong> {formatClassList(spell.classes) || "—"}</span>
-							<span><strong>Source:</strong> {spell.source || "—"}</span>
-						</div>
-						<div className="spellbook-row-accordion-description">{spell.description}</div>
+						{spell.loadFailed ? (
+							<div className="spellbook-row-accordion-description">
+								Couldn&apos;t load this spell&apos;s details from the server.{" "}
+								<button
+									type="button"
+									className="spellbook-row-retry-button"
+									onClick={(event) => {
+										event.stopPropagation();
+										retrySpellDetail(spell.id);
+									}}
+								>
+									Retry
+								</button>
+							</div>
+						) : (
+							<>
+								<div className="spellbook-row-accordion-meta">
+									<span><strong>Ritual:</strong> {spell.ritual || "No"}</span>
+									<span><strong>Classes:</strong> {formatClassList(spell.classes) || "—"}</span>
+									<span><strong>Source:</strong> {spell.source || "—"}</span>
+								</div>
+								<div className="spellbook-row-accordion-description">{spell.description}</div>
+							</>
+						)}
 					</div>
 				</div>
 
