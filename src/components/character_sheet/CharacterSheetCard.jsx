@@ -264,6 +264,24 @@ export function ModuleView({ module }) {
 	return <View module={module} />;
 }
 
+// Flex footprint per module type. Both the read-only card and the layout editor
+// put these classes on the module's slot/wrapper so the two modes pack
+// identically. New non-fixed-width module types need an entry here.
+export const MODULE_SIZE_CLASS = {
+	savingThrow: "cs-module-slot--row",
+	damageHeal: "cs-module-slot--row",
+	text: "cs-module-slot--grow",
+};
+
+// Class + inline style for a module slot, honoring a stored per-page width.
+export function moduleSlotProps(module, width) {
+	const sizeClass = MODULE_SIZE_CLASS[module.type] || "";
+	return {
+		className: `cs-module-slot ${sizeClass}${typeof width === "number" ? " cs-module-slot--sized" : ""}`,
+		style: typeof width === "number" ? { width } : undefined,
+	};
+}
+
 // One card on the canvas: navy header + this page's arrangement of its modules.
 export default function CharacterSheetCard({ layout, onEditLayout }) {
 	const { sheet } = useCharacterSheet();
@@ -271,8 +289,12 @@ export default function CharacterSheetCard({ layout, onEditLayout }) {
 	if (!card) {
 		return null;
 	}
+	const cardSized = typeof layout.cardWidth === "number";
 	return (
-		<section className="cs-card">
+		<section
+			className={`cs-card${cardSized ? " cs-card--sized" : ""}`}
+			style={cardSized ? { width: layout.cardWidth } : undefined}
+		>
 			<header className="cs-card-header">
 				<span>{card.title}</span>
 				<button type="button" className="cs-card-header-edit" onClick={onEditLayout}>
@@ -282,7 +304,15 @@ export default function CharacterSheetCard({ layout, onEditLayout }) {
 			<div className="cs-card-body">
 				{layout.moduleOrder.map((moduleId) => {
 					const module = card.modules[moduleId];
-					return module ? <ModuleView key={moduleId} module={module} /> : null;
+					if (!module) {
+						return null;
+					}
+					const slot = moduleSlotProps(module, layout.moduleSizes?.[moduleId]);
+					return (
+						<div key={moduleId} className={slot.className} style={slot.style}>
+							<ModuleView module={module} />
+						</div>
+					);
 				})}
 			</div>
 		</section>

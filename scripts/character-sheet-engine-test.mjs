@@ -174,6 +174,31 @@ multi = ops.addModuleToCard(multi, mAbilities.id, schema.createAbilityScoreModul
 check("new module in page 1 layout", multi.pages[0].cardLayouts[0].moduleOrder.length, 7);
 check("new module in page 2 layout", multi.pages[1].cardLayouts[0].moduleOrder.length, 6);
 
+// --- arrangement ops: per-page sizes and card order ---
+const arrLayout = multi.pages[0].cardLayouts[0];
+const arrModuleIds = arrLayout.moduleOrder;
+multi = ops.setCardLayoutArrangement(multi, multi.pages[0].id, arrLayout.id, {
+	moduleOrder: arrModuleIds.slice(0, 3),
+	moduleSizes: { [arrModuleIds[0]]: 200, [arrModuleIds[5]]: 150 },
+});
+let arrAfter = multi.pages[0].cardLayouts[0];
+check("arrangement sets order", arrAfter.moduleOrder.length, 3);
+check("arrangement keeps sizes for kept modules", arrAfter.moduleSizes[arrModuleIds[0]], 200);
+check("arrangement prunes sizes for removed modules", arrModuleIds[5] in arrAfter.moduleSizes, false);
+
+const secondCard = schema.createHealthCard();
+multi = ops.addCardToPage(multi, multi.pages[0].id, secondCard);
+const [layoutA, layoutB] = multi.pages[0].cardLayouts;
+multi = ops.setPageArrangement(multi, multi.pages[0].id, {
+	layoutOrder: [layoutB.id, layoutA.id],
+	cardWidths: { [layoutB.id]: 500, [layoutA.id]: null },
+});
+check("page order swapped", multi.pages[0].cardLayouts.map((l) => l.id), [layoutB.id, layoutA.id]);
+check("card width set", multi.pages[0].cardLayouts[0].cardWidth, 500);
+check("null width clears", "cardWidth" in multi.pages[0].cardLayouts[1], false);
+multi = ops.setPageArrangement(multi, multi.pages[0].id, { layoutOrder: [layoutA.id], cardWidths: {} });
+check("layouts missing from order are kept", multi.pages[0].cardLayouts.length, 2);
+
 // --- storage round trip ---
 check("upsert new", storage.upsertCharacterSheet(sheet), true);
 check("round trip", storage.getCharacterSheet(sheet.id)?.name, "Test");

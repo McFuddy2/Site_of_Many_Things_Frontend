@@ -12,6 +12,8 @@ import {
 	setDropdownSelection,
 	pressButton,
 	setLayoutModuleOrder,
+	setCardLayoutArrangement,
+	setPageArrangement,
 } from "../../utils/character_sheet/sheetOps";
 import { getSavedCharacterSheets, upsertCharacterSheet } from "../../utils/characterSheetStorage";
 
@@ -48,6 +50,16 @@ function sheetReducer(sheet, action) {
 			return pressButton(sheet, action.pieceId);
 		case "setLayoutModuleOrder":
 			return setLayoutModuleOrder(sheet, action.pageId, action.layoutId, action.moduleOrder);
+		case "setCardArrangement":
+			return setCardLayoutArrangement(sheet, action.pageId, action.layoutId, {
+				moduleOrder: action.moduleOrder,
+				moduleSizes: action.moduleSizes,
+			});
+		case "setPageArrangement":
+			return setPageArrangement(sheet, action.pageId, {
+				layoutOrder: action.layoutOrder,
+				cardWidths: action.cardWidths,
+			});
 		default:
 			return sheet;
 	}

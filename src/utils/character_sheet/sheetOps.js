@@ -146,6 +146,61 @@ export function removeModuleFromLayout(sheet, pageId, layoutId, moduleId) {
 	});
 }
 
+// Commits a card layout editor draft: module order plus per-module widths (px).
+// Sizes are per-page arrangement data, like the order itself. Entries for
+// modules no longer in the order are pruned.
+export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder, moduleSizes = {} }) {
+	const page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	const keptSizes = {};
+	for (const moduleId of moduleOrder) {
+		if (typeof moduleSizes[moduleId] === "number") {
+			keptSizes[moduleId] = moduleSizes[moduleId];
+		}
+	}
+	return replacePage(sheet, {
+		...page,
+		cardLayouts: page.cardLayouts.map((layout) =>
+			layout.id === layoutId
+				? { ...layout, moduleOrder: [...moduleOrder], moduleSizes: keptSizes }
+				: layout
+		),
+	});
+}
+
+// Commits a page arrangement draft: card order (by layout id) and per-card
+// widths (px; null/undefined width clears back to auto). Layout entries missing
+// from the given order are kept at the end rather than dropped.
+export function setPageArrangement(sheet, pageId, { layoutOrder, cardWidths = {} }) {
+	const page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	const byId = new Map(page.cardLayouts.map((layout) => [layout.id, layout]));
+	const ordered = layoutOrder.map((id) => byId.get(id)).filter(Boolean);
+	for (const layout of page.cardLayouts) {
+		if (!layoutOrder.includes(layout.id)) {
+			ordered.push(layout);
+		}
+	}
+	return replacePage(sheet, {
+		...page,
+		cardLayouts: ordered.map((layout) => {
+			if (!(layout.id in cardWidths)) {
+				return layout;
+			}
+			const width = cardWidths[layout.id];
+			if (typeof width === "number") {
+				return { ...layout, cardWidth: width };
+			}
+			const { cardWidth, ...rest } = layout;
+			return rest;
+		}),
+	});
+}
+
 // Replaces a layout's module order wholesale (drag-and-drop reorder / Confirm Layout).
 export function setLayoutModuleOrder(sheet, pageId, layoutId, moduleOrder) {
 	const page = sheet.pages.find((existing) => existing.id === pageId);

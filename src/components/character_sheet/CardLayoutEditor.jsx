@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	DndContext,
 	closestCenter,
@@ -15,33 +15,63 @@ import {
 	useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ModuleView } from "./CharacterSheetCard";
+import { ModuleView, moduleSlotProps } from "./CharacterSheetCard";
 import { useCharacterSheet } from "./CharacterSheetContext";
 
-// Per-card layout editing (the mockup's "Edit Layout" flow). All changes happen
-// on a draft copy of this page's module order; card data is never touched, so
-// removing a module here only hides it on this page. Confirm commits the draft
+// Per-card layout editing (the mockup's "Edit Layout" flow). All changes —
+// reordering, removing, and resizing modules — happen on a draft copy of this
+// page's arrangement; card data is never touched. Confirm commits the draft
 // through the reducer; Exit without Saving simply drops it.
 
-// The drag wrapper must occupy exactly the same footprint as the module it
-// contains, so the editing grid packs identically to the read-only card and
-// "Confirm Layout" doesn't change how the card looks. Full-width module types
-// make their wrapper full-width; stretching types make it stretch.
-const WRAP_SIZE_CLASS = {
-	savingThrow: "cs-layout-module-wrap--row",
-	damageHeal: "cs-layout-module-wrap--row",
-	text: "cs-layout-module-wrap--grow",
-};
+export const MODULE_MIN_WIDTH = 64;
 
-function SortableModuleTile({ moduleId, module, onRemove }) {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: moduleId });
-	const style = { transform: CSS.Transform.toString(transform), transition };
-	const sizeClass = WRAP_SIZE_CLASS[module.type] || "";
+// Edge handle for width resizing. Stops pointer events so dnd-kit never
+// mistakes a resize for a drag; double-click resets the width to auto.
+export function ResizeHandle({ onStart, onMove, onEnd, onReset }) {
+	const handlePointerDown = (event) => {
+		event.stopPropagation();
+		event.preventDefault();
+		const startX = event.clientX;
+		onStart();
+		const handleMove = (moveEvent) => onMove(moveEvent.clientX - startX);
+		const handleUp = () => {
+			document.removeEventListener("pointermove", handleMove);
+			document.removeEventListener("pointerup", handleUp);
+			if (onEnd) {
+				onEnd();
+			}
+		};
+		document.addEventListener("pointermove", handleMove);
+		document.addEventListener("pointerup", handleUp);
+	};
 	return (
 		<div
-			ref={setNodeRef}
+			className="cs-resize-handle"
+			title="Drag to resize — double-click to reset"
+			onPointerDown={handlePointerDown}
+			onDoubleClick={(event) => {
+				event.stopPropagation();
+				if (onReset) {
+					onReset();
+				}
+			}}
+		/>
+	);
+}
+
+function SortableModuleTile({ moduleId, module, width, onRemove, onResizeStart, onResize, onResizeReset }) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: moduleId });
+	const localRef = useRef(null);
+	const slot = moduleSlotProps(module, width);
+	const style = { ...(slot.style || {}), transform: CSS.Transform.toString(transform), transition };
+	return (
+		<div
+			ref={(node) => {
+				setNodeRef(node);
+				localRef.current = node;
+			}}
 			style={style}
-			className={`cs-layout-module-wrap ${sizeClass}${isDragging ? " cs-layout-module-wrap--dragging" : ""}`}
+			className={`cs-layout-module-wrap ${slot.className}${isDragging ? " cs-layout-module-wrap--dragging" : ""}`}
 			{...attributes}
 			{...listeners}
 		>
@@ -58,15 +88,24 @@ function SortableModuleTile({ moduleId, module, onRemove }) {
 			<div className="cs-layout-module-content">
 				<ModuleView module={module} />
 			</div>
+			<ResizeHandle
+				onStart={() => onResizeStart(moduleId, localRef.current ? localRef.current.offsetWidth : MODULE_MIN_WIDTH)}
+				onMove={(deltaX) => onResize(moduleId, deltaX)}
+				onReset={() => onResizeReset(moduleId)}
+			/>
 		</div>
 	);
 }
 
 export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 	const { dispatch } = useCharacterSheet();
-	const [draftOrder, setDraftOrder] = useState(layout.moduleOrder);
+	const [draft, setDraft] = useState({
+		order: layout.moduleOrder,
+		sizes: layout.moduleSizes || {},
+	});
 	const [history, setHistory] = useState([]);
 	const [future, setFuture] = useState([]);
+	const resizeRef = useRef(null);
 
 	const sensors = useSensors(
 		// The distance constraint keeps plain clicks (like the remove "x") from
@@ -75,26 +114,53 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
 	);
 
-	const applyChange = (nextOrder) => {
-		setHistory((stack) => [...stack, draftOrder]);
+	// Every discrete change (drop, remove, resize gesture, reset) snapshots the
+	// draft into history first, so Undo/Redo walk whole gestures, not pixels.
+	const pushHistory = (fromDraft) => {
+		setHistory((stack) => [...stack, fromDraft]);
 		setFuture([]);
-		setDraftOrder(nextOrder);
+	};
+
+	const applyChange = (nextDraft) => {
+		pushHistory(draft);
+		setDraft(nextDraft);
 	};
 
 	const handleDragEnd = ({ active, over }) => {
 		if (!over || active.id === over.id) {
 			return;
 		}
-		const oldIndex = draftOrder.indexOf(active.id);
-		const newIndex = draftOrder.indexOf(over.id);
+		const oldIndex = draft.order.indexOf(active.id);
+		const newIndex = draft.order.indexOf(over.id);
 		if (oldIndex === -1 || newIndex === -1) {
 			return;
 		}
-		applyChange(arrayMove(draftOrder, oldIndex, newIndex));
+		applyChange({ ...draft, order: arrayMove(draft.order, oldIndex, newIndex) });
 	};
 
 	const handleRemove = (moduleId) => {
-		applyChange(draftOrder.filter((id) => id !== moduleId));
+		applyChange({ ...draft, order: draft.order.filter((id) => id !== moduleId) });
+	};
+
+	const handleResizeStart = (moduleId, startWidth) => {
+		pushHistory(draft);
+		resizeRef.current = { moduleId, startWidth };
+	};
+
+	const handleResize = (moduleId, deltaX) => {
+		const start = resizeRef.current;
+		if (!start || start.moduleId !== moduleId) {
+			return;
+		}
+		const width = Math.max(MODULE_MIN_WIDTH, Math.round(start.startWidth + deltaX));
+		setDraft((current) => ({ ...current, sizes: { ...current.sizes, [moduleId]: width } }));
+	};
+
+	const handleResizeReset = (moduleId) => {
+		applyChange({
+			...draft,
+			sizes: Object.fromEntries(Object.entries(draft.sizes).filter(([id]) => id !== moduleId)),
+		});
 	};
 
 	const handleUndo = () => {
@@ -103,8 +169,8 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 		}
 		const previous = history[history.length - 1];
 		setHistory(history.slice(0, -1));
-		setFuture([draftOrder, ...future]);
-		setDraftOrder(previous);
+		setFuture([draft, ...future]);
+		setDraft(previous);
 	};
 
 	const handleRedo = () => {
@@ -113,37 +179,53 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 		}
 		const [next, ...rest] = future;
 		setFuture(rest);
-		setHistory([...history, draftOrder]);
-		setDraftOrder(next);
+		setHistory([...history, draft]);
+		setDraft(next);
 	};
 
 	const handleConfirm = () => {
-		dispatch({ type: "setLayoutModuleOrder", pageId, layoutId: layout.id, moduleOrder: draftOrder });
+		dispatch({
+			type: "setCardArrangement",
+			pageId,
+			layoutId: layout.id,
+			moduleOrder: draft.order,
+			moduleSizes: draft.sizes,
+		});
 		onClose();
 	};
 
+	// Honor the layout's card width so the editing grid wraps exactly like the
+	// read-only card does.
+	const cardSized = typeof layout.cardWidth === "number";
 	return (
-		<section className="cs-card cs-card--editing">
+		<section
+			className={`cs-card cs-card--editing${cardSized ? " cs-card--sized" : ""}`}
+			style={cardSized ? { width: layout.cardWidth } : undefined}
+		>
 			<header className="cs-card-header">
 				<span>{card.title}</span>
 				<span className="cs-card-header-note">Editing Layout</span>
 			</header>
 			<div className="cs-card-body">
 				<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-					<SortableContext items={draftOrder} strategy={rectSortingStrategy}>
-						{draftOrder.map((moduleId) =>
+					<SortableContext items={draft.order} strategy={rectSortingStrategy}>
+						{draft.order.map((moduleId) =>
 							card.modules[moduleId] ? (
 								<SortableModuleTile
 									key={moduleId}
 									moduleId={moduleId}
 									module={card.modules[moduleId]}
+									width={draft.sizes[moduleId]}
 									onRemove={handleRemove}
+									onResizeStart={handleResizeStart}
+									onResize={handleResize}
+									onResizeReset={handleResizeReset}
 								/>
 							) : null
 						)}
 					</SortableContext>
 				</DndContext>
-				{draftOrder.length === 0 && (
+				{draft.order.length === 0 && (
 					<p className="cs-empty">Every module is removed from this layout. Undo to bring them back.</p>
 				)}
 			</div>

@@ -3,15 +3,19 @@ import { CharacterSheetProvider, useCharacterSheet } from "../components/charact
 import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard";
 import CardLayoutEditor from "../components/character_sheet/CardLayoutEditor";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
+import PageArrangeEditor from "../components/character_sheet/PageArrangeEditor";
 import NewCardModal from "../components/character_sheet/NewCardModal";
 import "../CharacterSheetStyles.css";
 
-function TopBar({ onStartCustomCard }) {
+function TopBar({ onStartCustomCard, onArrangeCards }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	return (
 		<div className="cs-topbar">
 			<div className="cs-topbar-group">
 				<NewCardModal onStartCustomCard={onStartCustomCard} />
+				<button type="button" className="cs-topbar-button" onClick={onArrangeCards}>
+					Arrange Cards
+				</button>
 				{/* Present per the mockup; recharge behavior isn't built yet. */}
 				<button type="button" className="cs-topbar-button" title="Coming soon">
 					Short Rest
@@ -39,12 +43,15 @@ function TopBar({ onStartCustomCard }) {
 	);
 }
 
-function Canvas({ buildingCustom, onCloseBuilder }) {
+function Canvas({ buildingCustom, onCloseBuilder, arrangingCards, onCloseArrange }) {
 	const { sheet } = useCharacterSheet();
 	// Only one card's layout is editable at a time. Switching pages unmounts an
 	// open editor, which discards its draft (same as Exit without Saving).
 	const [editingLayoutId, setEditingLayoutId] = useState(null);
 	const activePage = sheet.pages.find((page) => page.id === sheet.activePageId) || sheet.pages[0];
+	if (arrangingCards) {
+		return <PageArrangeEditor key={activePage.id} page={activePage} onClose={onCloseArrange} />;
+	}
 	return (
 		<div className="cs-canvas">
 			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} />}
@@ -75,10 +82,19 @@ function Canvas({ buildingCustom, onCloseBuilder }) {
 
 function CharacterSheetContent() {
 	const [buildingCustom, setBuildingCustom] = useState(false);
+	const [arrangingCards, setArrangingCards] = useState(false);
 	return (
 		<div className="cs-page">
-			<TopBar onStartCustomCard={() => setBuildingCustom(true)} />
-			<Canvas buildingCustom={buildingCustom} onCloseBuilder={() => setBuildingCustom(false)} />
+			<TopBar
+				onStartCustomCard={() => setBuildingCustom(true)}
+				onArrangeCards={() => setArrangingCards(true)}
+			/>
+			<Canvas
+				buildingCustom={buildingCustom}
+				onCloseBuilder={() => setBuildingCustom(false)}
+				arrangingCards={arrangingCards}
+				onCloseArrange={() => setArrangingCards(false)}
+			/>
 		</div>
 	);
 }

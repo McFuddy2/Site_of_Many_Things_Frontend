@@ -149,6 +149,15 @@
 	max-width: 26rem;
 }
 
+/* A user-resized card: its explicit width wins over the default content cap. */
+.cs-card--sized {
+	box-sizing: border-box;
+}
+
+.cs-card--sized .cs-card-body {
+	max-width: none;
+}
+
 /* ---------- Modules (pastel color-coding by type) ---------- */
 
 .cs-module {
@@ -181,6 +190,34 @@
 .cs-module--dropdown {
 	background-color: var(--cs-dropdown-bg);
 	border-color: var(--cs-dropdown-border);
+}
+
+/* Module slots: carry each module's flex footprint (and any user-set width) in
+   both the read-only card and the editors, so all modes pack identically. */
+.cs-module-slot--row {
+	width: 100%;
+}
+
+.cs-module-slot--grow {
+	flex: 1 1 auto;
+	min-width: 7.2rem;
+}
+
+.cs-module-slot--grow .cs-text-tile {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.cs-module-slot--sized {
+	flex: 0 0 auto;
+	min-width: 0;
+}
+
+/* Descendant selector on purpose: in the editors the module sits one level
+   deeper (inside the drag wrapper's content div) than in the read-only card. */
+.cs-module-slot--sized .cs-module {
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .cs-module-title {
@@ -376,21 +413,8 @@
 	touch-action: none;
 }
 
-/* Wrappers mirror their module's footprint so the edit grid matches the
-   read-only card exactly. */
-.cs-layout-module-wrap--row {
-	width: 100%;
-}
-
-.cs-layout-module-wrap--grow {
-	flex: 1 1 auto;
-	min-width: 7.2rem;
-}
-
-.cs-layout-module-wrap--grow .cs-text-tile {
-	width: 100%;
-	box-sizing: border-box;
-}
+/* Footprints come from the shared .cs-module-slot--* classes, applied to these
+   wrappers by moduleSlotProps so the edit grid matches the read-only card. */
 
 .cs-layout-module-wrap--dragging {
 	opacity: 0.85;
@@ -429,6 +453,78 @@
 
 .cs-layout-remove-x:hover {
 	background-color: #f6dcdc;
+}
+
+/* Width-resize handle on the right edge of modules (Edit Layout) and cards
+   (Arrange Cards). */
+.cs-resize-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -4px;
+	width: 10px;
+	cursor: ew-resize;
+	z-index: 7;
+	border-radius: 4px;
+}
+
+.cs-resize-handle::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	right: 3px;
+	width: 4px;
+	height: 1.6rem;
+	border-radius: 2px;
+	background-color: #4a679c;
+	opacity: 0.35;
+}
+
+.cs-resize-handle:hover::after {
+	opacity: 0.9;
+}
+
+/* ---------- Arrange Cards mode ---------- */
+
+.cs-arrange-controls {
+	border: 1px solid #c6cfdd;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+}
+
+.cs-arrange-title {
+	font-weight: bold;
+	font-size: 0.85rem;
+	color: var(--cs-navy-dark);
+	margin-right: 0.4rem;
+}
+
+.cs-arrange-card-wrap {
+	position: relative;
+	cursor: grab;
+	touch-action: none;
+	max-width: 100%;
+}
+
+.cs-arrange-card-wrap--dragging {
+	opacity: 0.85;
+	z-index: 5;
+	cursor: grabbing;
+	box-shadow: 0 4px 12px rgba(22, 38, 63, 0.45);
+	border-radius: 10px;
+}
+
+.cs-arrange-card-wrap .cs-card {
+	border-style: dashed;
+	border-color: #4a679c;
+	width: 100%;
+}
+
+/* Values are display-only while arranging cards. */
+.cs-arrange-card-body {
+	pointer-events: none;
+	user-select: none;
 }
 
 .cs-layout-controls {
