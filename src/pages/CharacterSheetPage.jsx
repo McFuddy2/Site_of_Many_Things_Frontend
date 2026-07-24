@@ -2,15 +2,16 @@ import { useState } from "react";
 import { CharacterSheetProvider, useCharacterSheet } from "../components/character_sheet/CharacterSheetContext";
 import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard";
 import CardLayoutEditor from "../components/character_sheet/CardLayoutEditor";
+import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
 import NewCardModal from "../components/character_sheet/NewCardModal";
 import "../CharacterSheetStyles.css";
 
-function TopBar() {
+function TopBar({ onStartCustomCard }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	return (
 		<div className="cs-topbar">
 			<div className="cs-topbar-group">
-				<NewCardModal />
+				<NewCardModal onStartCustomCard={onStartCustomCard} />
 				{/* Present per the mockup; recharge behavior isn't built yet. */}
 				<button type="button" className="cs-topbar-button" title="Coming soon">
 					Short Rest
@@ -38,7 +39,7 @@ function TopBar() {
 	);
 }
 
-function Canvas() {
+function Canvas({ buildingCustom, onCloseBuilder }) {
 	const { sheet } = useCharacterSheet();
 	// Only one card's layout is editable at a time. Switching pages unmounts an
 	// open editor, which discards its draft (same as Exit without Saving).
@@ -46,7 +47,8 @@ function Canvas() {
 	const activePage = sheet.pages.find((page) => page.id === sheet.activePageId) || sheet.pages[0];
 	return (
 		<div className="cs-canvas">
-			{activePage.cardLayouts.length === 0 ? (
+			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} />}
+			{activePage.cardLayouts.length === 0 && !buildingCustom ? (
 				<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
 			) : (
 				activePage.cardLayouts.map((layout) =>
@@ -71,13 +73,20 @@ function Canvas() {
 	);
 }
 
+function CharacterSheetContent() {
+	const [buildingCustom, setBuildingCustom] = useState(false);
+	return (
+		<div className="cs-page">
+			<TopBar onStartCustomCard={() => setBuildingCustom(true)} />
+			<Canvas buildingCustom={buildingCustom} onCloseBuilder={() => setBuildingCustom(false)} />
+		</div>
+	);
+}
+
 export default function CharacterSheetPage() {
 	return (
 		<CharacterSheetProvider>
-			<div className="cs-page">
-				<TopBar />
-				<Canvas />
-			</div>
+			<CharacterSheetContent />
 		</CharacterSheetProvider>
 	);
 }

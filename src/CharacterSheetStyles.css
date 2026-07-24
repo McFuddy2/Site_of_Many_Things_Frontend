@@ -482,6 +482,113 @@
 	background-color: #f6dcdc;
 }
 
+/* ---------- Custom Card builder ---------- */
+
+.cs-builder {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 1rem;
+	width: 100%;
+}
+
+.cs-builder-preview-card {
+	border-style: dashed;
+	border-color: #4a679c;
+}
+
+/* The preview is display-only; values get set while configuring modules. */
+.cs-builder-preview-body {
+	pointer-events: none;
+	user-select: none;
+}
+
+.cs-builder-panel {
+	background-color: #ffffff;
+	border: 2px solid var(--cs-navy);
+	border-radius: 10px;
+	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
+	padding: 1rem;
+	width: min(24rem, 100%);
+	display: flex;
+	flex-direction: column;
+	gap: 0.7rem;
+}
+
+.cs-builder-instructions {
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+	margin: 0;
+}
+
+.cs-builder-input {
+	width: 100%;
+	text-align: left;
+}
+
+.cs-builder-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.85rem;
+	color: #4a5670;
+}
+
+.cs-builder-field--inline {
+	flex-direction: row;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.cs-builder-textarea {
+	width: 100%;
+	padding: 0.45rem 0.5rem;
+	font-size: 0.9rem;
+	font-family: inherit;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	box-sizing: border-box;
+	resize: vertical;
+}
+
+.cs-ref-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	align-items: center;
+}
+
+.cs-ref-picker .cs-select {
+	max-width: 100%;
+	flex: 1 1 8rem;
+}
+
+.cs-builder-hint {
+	font-size: 0.75rem;
+	font-style: italic;
+	color: #55617a;
+	margin: 0;
+}
+
+.cs-builder-preview-text {
+	background-color: var(--cs-text-bg);
+	border: 2px solid var(--cs-text-border);
+	border-radius: 8px;
+	padding: 0.5rem 0.6rem;
+}
+
+.cs-builder-preview-text p {
+	margin: 0.25rem 0 0;
+	font-size: 0.9rem;
+	white-space: pre-wrap;
+}
+
+.cs-builder-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
 /* ---------- New Card modal ---------- */
 
 .cs-modal-overlay {

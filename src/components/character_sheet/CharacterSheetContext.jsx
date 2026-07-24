@@ -73,3 +73,12 @@ export function useCharacterSheet() {
 	}
 	return context;
 }
+
+// Read-only context override for previews (e.g. the Custom Card builder): the
+// given sheet — typically the real sheet merged with a draft card — resolves
+// references normally, but dispatches are no-ops so nothing can be edited.
+export function SheetPreviewProvider({ sheet, children }) {
+	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
+	const value = useMemo(() => ({ sheet, dispatch: () => {}, pieceIndex }), [sheet, pieceIndex]);
+	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
+}

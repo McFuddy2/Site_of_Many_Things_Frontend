@@ -11,7 +11,7 @@ import { useCharacterSheet } from "./CharacterSheetContext";
 
 // Card types that exist in the engine but whose creation flow arrives in a later
 // build step still show in the picker, just disabled — same as "coming soon" types.
-const NOT_YET_WIRED = new Set(["custom", "insertExisting"]);
+const NOT_YET_WIRED = new Set(["insertExisting"]);
 
 function buildCard(typeId, sheet) {
 	switch (typeId) {
@@ -32,12 +32,17 @@ function buildCard(typeId, sheet) {
 	}
 }
 
-export default function NewCardModal() {
+export default function NewCardModal({ onStartCustomCard }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const [open, setOpen] = useState(false);
 	const [selectedType, setSelectedType] = useState("");
 
 	const handleAdd = () => {
+		if (selectedType === "custom") {
+			setOpen(false);
+			onStartCustomCard();
+			return;
+		}
 		const card = buildCard(selectedType, sheet);
 		if (!card) {
 			return;
