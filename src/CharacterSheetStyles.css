@@ -376,6 +376,22 @@
 	touch-action: none;
 }
 
+/* Wrappers mirror their module's footprint so the edit grid matches the
+   read-only card exactly. */
+.cs-layout-module-wrap--row {
+	width: 100%;
+}
+
+.cs-layout-module-wrap--grow {
+	flex: 1 1 auto;
+	min-width: 7.2rem;
+}
+
+.cs-layout-module-wrap--grow .cs-text-tile {
+	width: 100%;
+	box-sizing: border-box;
+}
+
 .cs-layout-module-wrap--dragging {
 	opacity: 0.85;
 	z-index: 5;

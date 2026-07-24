@@ -23,14 +23,25 @@ import { useCharacterSheet } from "./CharacterSheetContext";
 // removing a module here only hides it on this page. Confirm commits the draft
 // through the reducer; Exit without Saving simply drops it.
 
+// The drag wrapper must occupy exactly the same footprint as the module it
+// contains, so the editing grid packs identically to the read-only card and
+// "Confirm Layout" doesn't change how the card looks. Full-width module types
+// make their wrapper full-width; stretching types make it stretch.
+const WRAP_SIZE_CLASS = {
+	savingThrow: "cs-layout-module-wrap--row",
+	damageHeal: "cs-layout-module-wrap--row",
+	text: "cs-layout-module-wrap--grow",
+};
+
 function SortableModuleTile({ moduleId, module, onRemove }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: moduleId });
 	const style = { transform: CSS.Transform.toString(transform), transition };
+	const sizeClass = WRAP_SIZE_CLASS[module.type] || "";
 	return (
 		<div
 			ref={setNodeRef}
 			style={style}
-			className={`cs-layout-module-wrap${isDragging ? " cs-layout-module-wrap--dragging" : ""}`}
+			className={`cs-layout-module-wrap ${sizeClass}${isDragging ? " cs-layout-module-wrap--dragging" : ""}`}
 			{...attributes}
 			{...listeners}
 		>
