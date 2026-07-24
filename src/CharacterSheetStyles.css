@@ -110,6 +110,34 @@
 	font-size: 1.05rem;
 	font-weight: bold;
 	padding: 0.55rem 1rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.8rem;
+}
+
+.cs-card-header-edit {
+	background: none;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 5px;
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 0.72rem;
+	padding: 0.2rem 0.55rem;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.cs-card-header-edit:hover {
+	background-color: rgba(255, 255, 255, 0.15);
+	color: #ffffff;
+}
+
+.cs-card-header-note {
+	font-size: 0.72rem;
+	font-weight: normal;
+	font-style: italic;
+	color: rgba(255, 255, 255, 0.8);
+	white-space: nowrap;
 }
 
 .cs-card-body {
@@ -333,6 +361,109 @@
 	color: #b3261e;
 	font-weight: bold;
 	cursor: help;
+}
+
+/* ---------- Layout editor ---------- */
+
+.cs-card--editing {
+	border-style: dashed;
+	border-color: #4a679c;
+}
+
+.cs-layout-module-wrap {
+	position: relative;
+	cursor: grab;
+	touch-action: none;
+}
+
+.cs-layout-module-wrap--dragging {
+	opacity: 0.85;
+	z-index: 5;
+	cursor: grabbing;
+	box-shadow: 0 4px 12px rgba(22, 38, 63, 0.45);
+	border-radius: 8px;
+}
+
+/* Values are display-only while arranging the layout. */
+.cs-layout-module-content {
+	pointer-events: none;
+	user-select: none;
+}
+
+.cs-layout-remove-x {
+	position: absolute;
+	top: -0.45rem;
+	right: -0.45rem;
+	z-index: 6;
+	width: 1.3rem;
+	height: 1.3rem;
+	border-radius: 50%;
+	border: 2px solid #9c2b2b;
+	background-color: #ffffff;
+	color: #9c2b2b;
+	font-size: 0.75rem;
+	font-weight: bold;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+
+.cs-layout-remove-x:hover {
+	background-color: #f6dcdc;
+}
+
+.cs-layout-controls {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	padding: 0.6rem 0.8rem;
+	border-top: 1px solid #c6cfdd;
+	background-color: #f4f6fa;
+}
+
+.cs-layout-controls-group {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.cs-layout-btn {
+	border: 2px solid var(--cs-navy);
+	border-radius: 6px;
+	background-color: #ffffff;
+	color: var(--cs-navy);
+	font-size: 0.8rem;
+	font-weight: bold;
+	padding: 0.35rem 0.7rem;
+	cursor: pointer;
+}
+
+.cs-layout-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.cs-layout-btn--confirm {
+	background-color: #2e6b46;
+	border-color: #2e6b46;
+	color: #ffffff;
+}
+
+.cs-layout-btn--confirm:hover {
+	background-color: #215033;
+}
+
+.cs-layout-btn--exit {
+	border-color: #9c2b2b;
+	color: #9c2b2b;
+}
+
+.cs-layout-btn--exit:hover {
+	background-color: #f6dcdc;
 }
 
 /* ---------- New Card modal ---------- */

@@ -257,8 +257,15 @@ const MODULE_VIEWS = {
 	damageHeal: DamageHealModule,
 };
 
+// Renders one module with the view matching its type. Also used by the layout
+// editor, which shows the same tiles in a drag-and-drop context.
+export function ModuleView({ module }) {
+	const View = MODULE_VIEWS[module.type] || GenericModule;
+	return <View module={module} />;
+}
+
 // One card on the canvas: navy header + this page's arrangement of its modules.
-export default function CharacterSheetCard({ layout }) {
+export default function CharacterSheetCard({ layout, onEditLayout }) {
 	const { sheet } = useCharacterSheet();
 	const card = sheet.cards[layout.cardId];
 	if (!card) {
@@ -266,15 +273,16 @@ export default function CharacterSheetCard({ layout }) {
 	}
 	return (
 		<section className="cs-card">
-			<header className="cs-card-header">{card.title}</header>
+			<header className="cs-card-header">
+				<span>{card.title}</span>
+				<button type="button" className="cs-card-header-edit" onClick={onEditLayout}>
+					Edit Layout
+				</button>
+			</header>
 			<div className="cs-card-body">
 				{layout.moduleOrder.map((moduleId) => {
 					const module = card.modules[moduleId];
-					if (!module) {
-						return null;
-					}
-					const ModuleView = MODULE_VIEWS[module.type] || GenericModule;
-					return <ModuleView key={moduleId} module={module} />;
+					return module ? <ModuleView key={moduleId} module={module} /> : null;
 				})}
 			</div>
 		</section>

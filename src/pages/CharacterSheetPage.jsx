@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { CharacterSheetProvider, useCharacterSheet } from "../components/character_sheet/CharacterSheetContext";
 import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard";
+import CardLayoutEditor from "../components/character_sheet/CardLayoutEditor";
 import NewCardModal from "../components/character_sheet/NewCardModal";
 import "../CharacterSheetStyles.css";
 
@@ -38,13 +40,32 @@ function TopBar() {
 
 function Canvas() {
 	const { sheet } = useCharacterSheet();
+	// Only one card's layout is editable at a time. Switching pages unmounts an
+	// open editor, which discards its draft (same as Exit without Saving).
+	const [editingLayoutId, setEditingLayoutId] = useState(null);
 	const activePage = sheet.pages.find((page) => page.id === sheet.activePageId) || sheet.pages[0];
 	return (
 		<div className="cs-canvas">
 			{activePage.cardLayouts.length === 0 ? (
 				<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
 			) : (
-				activePage.cardLayouts.map((layout) => <CharacterSheetCard key={layout.id} layout={layout} />)
+				activePage.cardLayouts.map((layout) =>
+					layout.id === editingLayoutId ? (
+						<CardLayoutEditor
+							key={layout.id}
+							pageId={activePage.id}
+							layout={layout}
+							card={sheet.cards[layout.cardId]}
+							onClose={() => setEditingLayoutId(null)}
+						/>
+					) : (
+						<CharacterSheetCard
+							key={layout.id}
+							layout={layout}
+							onEditLayout={() => setEditingLayoutId(layout.id)}
+						/>
+					)
+				)
 			)}
 		</div>
 	);
