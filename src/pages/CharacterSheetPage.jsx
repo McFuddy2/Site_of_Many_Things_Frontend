@@ -1,0 +1,62 @@
+import { CharacterSheetProvider, useCharacterSheet } from "../components/character_sheet/CharacterSheetContext";
+import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard";
+import NewCardModal from "../components/character_sheet/NewCardModal";
+import "../CharacterSheetStyles.css";
+
+function TopBar() {
+	const { sheet, dispatch } = useCharacterSheet();
+	return (
+		<div className="cs-topbar">
+			<div className="cs-topbar-group">
+				<NewCardModal />
+				{/* Present per the mockup; recharge behavior isn't built yet. */}
+				<button type="button" className="cs-topbar-button" title="Coming soon">
+					Short Rest
+				</button>
+				<button type="button" className="cs-topbar-button" title="Coming soon">
+					Long Rest
+				</button>
+			</div>
+			<div className="cs-topbar-group">
+				{sheet.pages.map((page) => (
+					<button
+						key={page.id}
+						type="button"
+						className={`cs-page-tab${page.id === sheet.activePageId ? " cs-page-tab--active" : ""}`}
+						onClick={() => dispatch({ type: "setActivePage", pageId: page.id })}
+					>
+						{page.name}
+					</button>
+				))}
+				<button type="button" className="cs-topbar-button" onClick={() => dispatch({ type: "addPage" })}>
+					New Page
+				</button>
+			</div>
+		</div>
+	);
+}
+
+function Canvas() {
+	const { sheet } = useCharacterSheet();
+	const activePage = sheet.pages.find((page) => page.id === sheet.activePageId) || sheet.pages[0];
+	return (
+		<div className="cs-canvas">
+			{activePage.cardLayouts.length === 0 ? (
+				<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
+			) : (
+				activePage.cardLayouts.map((layout) => <CharacterSheetCard key={layout.id} layout={layout} />)
+			)}
+		</div>
+	);
+}
+
+export default function CharacterSheetPage() {
+	return (
+		<CharacterSheetProvider>
+			<div className="cs-page">
+				<TopBar />
+				<Canvas />
+			</div>
+		</CharacterSheetProvider>
+	);
+}

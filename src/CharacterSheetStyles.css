@@ -1,0 +1,399 @@
+/* Character Sheet tool. Visual style follows the "React DnD Character Sheet
+   Visual Mockup v2" deck: navy card headers, white card bodies, and pastel
+   color-coding by module type (variable / checkbox / text / button / dropdown). */
+
+.cs-page {
+	--cs-navy: #22385c;
+	--cs-navy-dark: #16263f;
+	--cs-canvas-bg: #eef1f5;
+	--cs-card-bg: #ffffff;
+	--cs-variable-bg: #d7e6f7;
+	--cs-variable-border: #8fb3d9;
+	--cs-checkbox-bg: #d9efd7;
+	--cs-checkbox-border: #93c48e;
+	--cs-text-bg: #faf3d3;
+	--cs-text-border: #d8c67e;
+	--cs-button-bg: #f7d9d9;
+	--cs-button-border: #d99090;
+	--cs-dropdown-bg: #e6dcf2;
+	--cs-dropdown-border: #b394d6;
+
+	font-family: Arial, Helvetica, sans-serif;
+	background-color: var(--cs-canvas-bg);
+	min-height: 100vh;
+	padding: 4.5rem 1rem 2rem; /* clears the fixed site header */
+	box-sizing: border-box;
+}
+
+/* ---------- Top bar ---------- */
+
+.cs-topbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.cs-topbar-group {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.cs-topbar-button {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+	border: none;
+	border-radius: 6px;
+	padding: 0.5rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.cs-topbar-button:hover {
+	background-color: var(--cs-navy-dark);
+}
+
+.cs-topbar-button--primary {
+	background-color: #2e6b46;
+}
+
+.cs-topbar-button--primary:hover {
+	background-color: #215033;
+}
+
+.cs-page-tab {
+	background-color: #ffffff;
+	color: var(--cs-navy);
+	border: 2px solid var(--cs-navy);
+	border-radius: 6px 6px 0 0;
+	padding: 0.45rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.cs-page-tab--active {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+}
+
+/* ---------- Canvas and cards ---------- */
+
+.cs-canvas {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 1rem;
+}
+
+.cs-empty {
+	color: #55617a;
+	font-style: italic;
+	padding: 2rem 0.5rem;
+}
+
+.cs-card {
+	background-color: var(--cs-card-bg);
+	border: 2px solid var(--cs-navy);
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
+	max-width: 100%;
+}
+
+.cs-card-header {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+	font-size: 1.05rem;
+	font-weight: bold;
+	padding: 0.55rem 1rem;
+}
+
+.cs-card-body {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 0.6rem;
+	padding: 0.8rem;
+	max-width: 26rem;
+}
+
+/* ---------- Modules (pastel color-coding by type) ---------- */
+
+.cs-module {
+	border-radius: 8px;
+	border: 2px solid;
+	padding: 0.5rem 0.6rem;
+	box-sizing: border-box;
+}
+
+.cs-module--variable {
+	background-color: var(--cs-variable-bg);
+	border-color: var(--cs-variable-border);
+}
+
+.cs-module--checkbox {
+	background-color: var(--cs-checkbox-bg);
+	border-color: var(--cs-checkbox-border);
+}
+
+.cs-module--text {
+	background-color: var(--cs-text-bg);
+	border-color: var(--cs-text-border);
+}
+
+.cs-module--button {
+	background-color: var(--cs-button-bg);
+	border-color: var(--cs-button-border);
+}
+
+.cs-module--dropdown {
+	background-color: var(--cs-dropdown-bg);
+	border-color: var(--cs-dropdown-border);
+}
+
+.cs-module-title {
+	font-weight: bold;
+	font-size: 0.85rem;
+	color: var(--cs-navy-dark);
+	margin-bottom: 0.3rem;
+}
+
+.cs-field-label {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #4a5670;
+	margin-top: 0.25rem;
+}
+
+/* Ability score stat tile */
+.cs-ability-tile {
+	width: 7.2rem;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+
+.cs-ability-bonus {
+	font-size: 1.5rem;
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+	line-height: 1.2;
+}
+
+/* Number tiles (Current HP, Max HP, custom numbers) */
+.cs-number-tile {
+	width: 7.2rem;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+
+.cs-number-value {
+	font-size: 1.3rem;
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+}
+
+/* Saving throw rows */
+.cs-save-row {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	width: 100%;
+}
+
+.cs-save-bonus {
+	font-size: 1.05rem;
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+	min-width: 2.2rem;
+	text-align: center;
+}
+
+.cs-save-label {
+	font-size: 0.95rem;
+	color: #1f2a3d;
+}
+
+/* Text / checkbox / dropdown / generic tiles */
+.cs-text-tile {
+	min-width: 7.2rem;
+	flex: 1 1 auto;
+}
+
+.cs-checkbox-tile {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.cs-dropdown-tile {
+	min-width: 8rem;
+}
+
+.cs-generic-tile {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	min-width: 7.2rem;
+}
+
+.cs-text-display {
+	font-size: 0.9rem;
+	color: #1f2a3d;
+	white-space: pre-wrap;
+}
+
+/* Damage/Heal control */
+.cs-damage-heal-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.45rem;
+	width: 100%;
+}
+
+.cs-damage-heal-buttons {
+	display: flex;
+	gap: 0.6rem;
+}
+
+/* ---------- Inputs and buttons ---------- */
+
+.cs-input-number,
+.cs-input-text {
+	width: 4.5rem;
+	padding: 0.3rem 0.4rem;
+	font-size: 0.95rem;
+	text-align: center;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	background-color: #ffffff;
+	box-sizing: border-box;
+}
+
+.cs-text-tile .cs-input-text {
+	width: 100%;
+	text-align: left;
+}
+
+.cs-checkbox {
+	width: 1.1rem;
+	height: 1.1rem;
+	accent-color: var(--cs-navy);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.cs-btn {
+	border: 2px solid;
+	border-radius: 6px;
+	padding: 0.35rem 0.9rem;
+	font-size: 0.9rem;
+	font-weight: bold;
+	cursor: pointer;
+	background-color: #ffffff;
+}
+
+.cs-btn--damage {
+	color: #9c2b2b;
+	border-color: #c96b6b;
+}
+
+.cs-btn--damage:hover {
+	background-color: #f6dcdc;
+}
+
+.cs-btn--heal {
+	color: #2e6b46;
+	border-color: #6fae8a;
+}
+
+.cs-btn--heal:hover {
+	background-color: #ddefe4;
+}
+
+.cs-select {
+	padding: 0.35rem 0.5rem;
+	font-size: 0.9rem;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	background-color: #ffffff;
+}
+
+/* Broken reference marker (missing/circular) */
+.cs-ref-error {
+	color: #b3261e;
+	font-weight: bold;
+	cursor: help;
+}
+
+/* ---------- New Card modal ---------- */
+
+.cs-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 40;
+}
+
+.cs-modal {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: min(22rem, calc(100vw - 2rem));
+	background-color: #ffffff;
+	border: 2px solid var(--cs-navy, #22385c);
+	border-radius: 10px;
+	padding: 1.25rem;
+	z-index: 41;
+	font-family: Arial, Helvetica, sans-serif;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.cs-modal-title {
+	font-size: 1.05rem;
+	font-weight: bold;
+	color: #16263f;
+	margin: 0;
+}
+
+.cs-modal-select {
+	width: 100%;
+}
+
+.cs-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.6rem;
+}
+
+.cs-modal-button {
+	border: 2px solid #22385c;
+	border-radius: 6px;
+	padding: 0.4rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+	background-color: #ffffff;
+	color: #22385c;
+}
+
+.cs-modal-button--primary {
+	background-color: #22385c;
+	color: #ffffff;
+}
+
+.cs-modal-button--primary:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
