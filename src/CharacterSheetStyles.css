@@ -626,6 +626,22 @@
 	width: 100%;
 }
 
+.cs-modal--wide {
+	width: min(30rem, calc(100vw - 2rem));
+	max-height: min(80vh, 40rem);
+	overflow-y: auto;
+}
+
+/* Card preview inside the insert wizard is display-only. */
+.cs-modal-preview {
+	pointer-events: none;
+	user-select: none;
+}
+
+.cs-modal-preview .cs-card {
+	max-width: 100%;
+}
+
 .cs-modal-actions {
 	display: flex;
 	justify-content: flex-end;

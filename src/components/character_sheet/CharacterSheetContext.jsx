@@ -5,6 +5,7 @@ import {
 	addPage,
 	setActivePage,
 	addCardToPage,
+	insertExistingCardOnPage,
 	setVariableValue,
 	setCheckboxValue,
 	setTextPlain,
@@ -33,6 +34,8 @@ function sheetReducer(sheet, action) {
 			return setActivePage(sheet, action.pageId);
 		case "addCardToPage":
 			return addCardToPage(sheet, action.pageId, action.card);
+		case "insertExistingCard":
+			return insertExistingCardOnPage(sheet, action.pageId, action.cardId);
 		case "setVariableValue":
 			return setVariableValue(sheet, action.pieceId, action.value);
 		case "setCheckboxValue":
