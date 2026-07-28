@@ -13,7 +13,7 @@ import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, MAX_SAVED_SPELLBOOKS } from "../utils/spellbookStorage";
 
-const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const RANGE_SLIDER_VALUES = ["Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
 const emptySpellMessage = "No spells match your current filters.";
 const DEFAULT_SPELLBOOK_SPINE_COLOR = "#412a85";
@@ -1061,7 +1061,7 @@ export default function SpellSearchPage() {
 				/>
 			</div>
 			<div className="range-slider-edge-labels">
-				<span>Emanation</span>
+				<span>Touch</span>
 				<span>&gt;1mile</span>
 			</div>
 		</div>

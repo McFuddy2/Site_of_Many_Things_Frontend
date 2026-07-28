@@ -3,30 +3,84 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
 	CARD_TYPE_OPTIONS,
 	createAbilityScoresCard,
+	createAlliesCard,
+	createAppearanceCard,
+	createArmorClassCard,
+	createAttackCard,
+	createBackstoryCard,
+	createBasicDescriptionsCard,
+	createBasicInfoCard,
+	createCharacterNameCard,
+	createDeathSavesCard,
+	createEquipmentCard,
+	createFeatureCard,
 	createHealthCard,
+	createHitDiceCard,
+	createInitiativeCard,
+	createInspirationCard,
+	createMoneyCard,
+	createMovementSpeedCard,
+	createPassiveSkillsCard,
+	createPersonalityCard,
+	createProficienciesCard,
+	createProficiencyBonusCard,
 	createSavingThrowsCard,
+	createSkillsCard,
+	createSpellListCard,
+	createSpellcastingStatsCard,
+	createSymbolCard,
+	createTreasureCard,
 	getAbilityBonusPieceIds,
 } from "../../utils/character_sheet/schema";
 import { useCharacterSheet } from "./CharacterSheetContext";
 import { ModuleView } from "./CharacterSheetCard";
 
+// Cards whose numbers derive from the Ability Scores card get wired to it when
+// one is already on the sheet, so their modifiers stay live; without one they're
+// created unwired and each row is just an editable number.
+function abilityWiring(sheet) {
+	const abilityCard = Object.values(sheet.cards).find((card) => card.type === "abilityScores");
+	return abilityCard ? { abilityBonusPieceIds: getAbilityBonusPieceIds(abilityCard) } : {};
+}
+
+const CARD_BUILDERS = {
+	abilityScores: createAbilityScoresCard,
+	allies: createAlliesCard,
+	appearance: createAppearanceCard,
+	armorClass: createArmorClassCard,
+	attack: createAttackCard,
+	backstory: createBackstoryCard,
+	basicDescriptions: createBasicDescriptionsCard,
+	basicInfo: createBasicInfoCard,
+	characterName: createCharacterNameCard,
+	deathSaves: createDeathSavesCard,
+	equipment: createEquipmentCard,
+	feature: createFeatureCard,
+	health: createHealthCard,
+	hitDice: createHitDiceCard,
+	initiative: createInitiativeCard,
+	inspiration: createInspirationCard,
+	money: createMoneyCard,
+	movementSpeed: createMovementSpeedCard,
+	passiveSkills: createPassiveSkillsCard,
+	personality: createPersonalityCard,
+	proficiencies: createProficienciesCard,
+	proficiencyBonus: createProficiencyBonusCard,
+	spellcastingStats: createSpellcastingStatsCard,
+	spellList: createSpellListCard,
+	symbol: createSymbolCard,
+	treasure: createTreasureCard,
+};
+
 function buildCard(typeId, sheet) {
-	switch (typeId) {
-		case "abilityScores":
-			return createAbilityScoresCard();
-		case "health":
-			return createHealthCard();
-		case "savingThrows": {
-			// Wire saves to the sheet's Ability Scores card when one exists, so the
-			// save bonus live-references the matching ability's Bonus variable.
-			const abilityCard = Object.values(sheet.cards).find((card) => card.type === "abilityScores");
-			return createSavingThrowsCard(
-				abilityCard ? { abilityBonusPieceIds: getAbilityBonusPieceIds(abilityCard) } : {}
-			);
-		}
-		default:
-			return null;
+	if (typeId === "savingThrows") {
+		return createSavingThrowsCard(abilityWiring(sheet));
 	}
+	if (typeId === "skills") {
+		return createSkillsCard(abilityWiring(sheet));
+	}
+	const build = CARD_BUILDERS[typeId];
+	return build ? build() : null;
 }
 
 // Unique cards placed on a page, excluding any already shown on the target page —

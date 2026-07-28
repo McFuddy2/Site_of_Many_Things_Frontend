@@ -6,14 +6,20 @@ import {
 	setActivePage,
 	addCardToPage,
 	insertExistingCardOnPage,
+	removeCardFromPage,
+	deleteCard,
 	setVariableValue,
 	setCheckboxValue,
 	setTextPlain,
 	setDropdownSelection,
+	setImageSrc,
+	addModuleRow,
+	removeModuleRow,
 	pressButton,
 	setLayoutModuleOrder,
 	setCardLayoutArrangement,
 	setPageArrangement,
+	migrateSheet,
 } from "../../utils/character_sheet/sheetOps";
 import { getSavedCharacterSheets, upsertCharacterSheet } from "../../utils/characterSheetStorage";
 
@@ -25,7 +31,7 @@ const CharacterSheetContext = createContext(null);
 
 function loadInitialSheet() {
 	const saved = getSavedCharacterSheets();
-	return saved.length ? saved[0] : createSheet();
+	return saved.length ? migrateSheet(saved[0]) : createSheet();
 }
 
 function sheetReducer(sheet, action) {
@@ -38,6 +44,14 @@ function sheetReducer(sheet, action) {
 			return addCardToPage(sheet, action.pageId, action.card);
 		case "insertExistingCard":
 			return insertExistingCardOnPage(sheet, action.pageId, action.cardId);
+		case "removeCardFromPage":
+			return removeCardFromPage(sheet, action.pageId, action.layoutId);
+		case "deleteCard": {
+			// The UI checks canDeleteCard before dispatching this, so ok should
+			// always be true here — this is just a safety net against stale state.
+			const result = deleteCard(sheet, action.cardId);
+			return result.ok ? result.sheet : sheet;
+		}
 		case "setVariableValue":
 			return setVariableValue(sheet, action.pieceId, action.value);
 		case "setCheckboxValue":
@@ -46,6 +60,12 @@ function sheetReducer(sheet, action) {
 			return setTextPlain(sheet, action.pieceId, action.text);
 		case "setDropdownSelection":
 			return setDropdownSelection(sheet, action.pieceId, action.selectedIndex);
+		case "setImageSrc":
+			return setImageSrc(sheet, action.pieceId, action.src);
+		case "addModuleRow":
+			return addModuleRow(sheet, action.cardId, action.moduleId);
+		case "removeModuleRow":
+			return removeModuleRow(sheet, action.cardId, action.moduleId, action.rowIndex);
 		case "pressButton":
 			return pressButton(sheet, action.pieceId);
 		case "setLayoutModuleOrder":
@@ -53,13 +73,10 @@ function sheetReducer(sheet, action) {
 		case "setCardArrangement":
 			return setCardLayoutArrangement(sheet, action.pageId, action.layoutId, {
 				moduleOrder: action.moduleOrder,
-				moduleSizes: action.moduleSizes,
+				moduleRects: action.moduleRects,
 			});
 		case "setPageArrangement":
-			return setPageArrangement(sheet, action.pageId, {
-				layoutOrder: action.layoutOrder,
-				cardWidths: action.cardWidths,
-			});
+			return setPageArrangement(sheet, action.pageId, { rects: action.rects });
 		default:
 			return sheet;
 	}

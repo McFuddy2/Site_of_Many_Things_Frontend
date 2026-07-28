@@ -93,6 +93,11 @@ export default function AboutPage() {
 
       <EmailSignup />
 
+      <h2 className="text-2xl font-semibold mt-8 mb-4">A BIG THANK YOU TO OUR KOFI SUPPORTERS!</h2>
+      <div className="kofi-supporters-list">
+        {/* No supporters yet — names will be added here. */}
+      </div>
+
       <h2 className="text-xl font-semibold mt-8 mb-2">What this site is</h2>
       <ul className="list-disc pl-6 text-slate-700 space-y-1">
         <li>Lightweight and easy to use mid-session</li>

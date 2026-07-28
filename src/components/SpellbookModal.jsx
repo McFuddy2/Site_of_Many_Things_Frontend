@@ -9,12 +9,30 @@ import {
 	setSpellbookColors,
 	setSpellbookMaxPrepared,
 	setSpellbookSectionSettings,
+	setSpellbookSpellSlotMax,
+	toggleSpellbookSpellSlotUsed,
+	replenishSpellbookSpellSlots,
 	deleteSpellbook,
 	removeSpellFromSpellbook,
 } from "../utils/spellbookStorage";
 
 const FILTER_FIELD_OPTIONS = ["Keyword", "Level", "School", "Class", "Source", "Casting Time", "Range", "Duration", "Components", "Ritual", "Concentration"];
-const RANGE_FILTER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const RANGE_FILTER_VALUES = ["Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const FEET_PER_MILE = 5280;
+const RANGE_FILTER_FEET = {
+	Touch: 0,
+	"5ft": 5,
+	"10ft": 10,
+	"15ft": 15,
+	"20ft": 20,
+	"30ft": 30,
+	"60ft": 60,
+	"120ft": 120,
+	"300ft": 300,
+	"1mile": FEET_PER_MILE,
+};
+const SPELL_SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const MAX_SPELL_SLOTS_PER_LEVEL = 20;
 
 function BookIcon() {
 	return (
@@ -222,19 +240,21 @@ function getSortableLevel(spell) {
 	return Number.isFinite(num) ? num : 0;
 }
 
+function getOrdinalSuffix(levelNumber) {
+	return levelNumber % 10 === 1 && levelNumber % 100 !== 11
+		? "st"
+		: levelNumber % 10 === 2 && levelNumber % 100 !== 12
+			? "nd"
+			: levelNumber % 10 === 3 && levelNumber % 100 !== 13
+				? "rd"
+				: "th";
+}
+
 function getLevelGroupLabel(levelNumber) {
 	if (levelNumber === 0) {
 		return "Cantrips";
 	}
-	const suffix =
-		levelNumber % 10 === 1 && levelNumber % 100 !== 11
-			? "st"
-			: levelNumber % 10 === 2 && levelNumber % 100 !== 12
-				? "nd"
-				: levelNumber % 10 === 3 && levelNumber % 100 !== 13
-					? "rd"
-					: "th";
-	return `${levelNumber}${suffix} Level`;
+	return `${levelNumber}${getOrdinalSuffix(levelNumber)} Level`;
 }
 
 function getLevelDisplayLabel(spell) {
@@ -269,11 +289,22 @@ function getSecondaryFilterOptions(field, availableSourceNames) {
 	}
 }
 
+function getRangeFeetValue(rawRange) {
+	const text = `${rawRange ?? ""}`.trim().toLowerCase();
+	if (!text) return null;
+	if (text === "self" || text === "touch" || text.includes("emanation")) return 0;
+	if (text === "sight" || text === "unlimited" || text === "special") return Infinity;
+	const match = text.match(/(\d+(?:\.\d+)?)\s*(mile|miles|foot|feet|ft)\b/);
+	if (!match) return null;
+	const amount = Number(match[1]);
+	return match[2].startsWith("mile") ? amount * FEET_PER_MILE : amount;
+}
+
 function isRitualEligible(spell) {
 	return `${spell?.ritual ?? ""}`.trim().toLowerCase() === "yes";
 }
 
-function spellMatchesField(spell, field, value) {
+function spellMatchesField(spell, field, value, options = {}) {
 	switch (field) {
 		case "Keyword": {
 			const needle = value.trim().toLowerCase();
@@ -302,8 +333,19 @@ function spellMatchesField(spell, field, value) {
 			return `${spell.source ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
 		case "Casting Time":
 			return `${spell.castingTime ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
-		case "Range":
-			return `${spell.range ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
+		case "Range": {
+			const spellFeet = getRangeFeetValue(spell.range);
+			const filterKey = value.trim();
+			if (spellFeet === null) {
+				return `${spell.range ?? ""}`.trim().toLowerCase() === filterKey.toLowerCase();
+			}
+			if (filterKey === ">1mile") {
+				return spellFeet > FEET_PER_MILE;
+			}
+			const filterFeet = RANGE_FILTER_FEET[filterKey];
+			if (filterFeet === undefined) return false;
+			return options.rangeAtLeast ? spellFeet >= filterFeet : spellFeet === filterFeet;
+		}
 		case "Duration": {
 			const durationDisplay = getDurationDisplayValue(spell).trim().toLowerCase();
 			return durationDisplay === value.trim().toLowerCase();
@@ -344,10 +386,15 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 	const [notesSpellId, setNotesSpellId] = useState(null);
 	const [notesDraft, setNotesDraft] = useState("");
 
+	const [isSlotsPanelOpen, setIsSlotsPanelOpen] = useState(false);
+	const [topBarHeight, setTopBarHeight] = useState(0);
+	const topBarRef = useRef(null);
+
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 	const [filterMode, setFilterMode] = useState("include");
 	const [filterSelections, setFilterSelections] = useState([]);
 	const [openFilterCategory, setOpenFilterCategory] = useState(null);
+	const [rangeFilterAtLeast, setRangeFilterAtLeast] = useState(false);
 	const [keywordDraft, setKeywordDraft] = useState("");
 	const filtersDropdownRef = useRef(null);
 
@@ -512,6 +559,17 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		}
 	}, [isEditMode]);
 
+	useEffect(() => {
+		const topBarElement = topBarRef.current;
+		if (!topBarElement) return;
+		const observer = new ResizeObserver((entries) => {
+			const entry = entries[0];
+			if (entry) setTopBarHeight(entry.borderBoxSize?.[0]?.blockSize ?? entry.target.offsetHeight);
+		});
+		observer.observe(topBarElement);
+		return () => observer.disconnect();
+	}, []);
+
 	const allSpells = useMemo(() => Object.values(spellDetailsById), [spellDetailsById]);
 	const pinnedSectionEnabled = spellbook.showPinnedSection !== false;
 	const ritualSectionEnabled = spellbook.showRitualSection === true;
@@ -549,11 +607,12 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			if (!byField[field]) byField[field] = [];
 			byField[field].push(value);
 		});
+		const matchOptions = { rangeAtLeast: rangeFilterAtLeast };
 		const passesInclude = Object.entries(includeByField).every(([field, values]) =>
-			values.some((value) => spellMatchesField(spell, field, value)),
+			values.some((value) => spellMatchesField(spell, field, value, matchOptions)),
 		);
 		const passesExclude = Object.entries(excludeByField).every(
-			([field, values]) => !values.some((value) => spellMatchesField(spell, field, value)),
+			([field, values]) => !values.some((value) => spellMatchesField(spell, field, value, matchOptions)),
 		);
 		return passesInclude && passesExclude;
 	};
@@ -561,13 +620,13 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 	const baseSpells = activeTab === "prepared" ? preparedSpells : allSpells;
 	const filteredSpells = useMemo(
 		() => baseSpells.filter(spellMatchesFilters),
-		[baseSpells, searchText, filterSelections],
+		[baseSpells, searchText, filterSelections, rangeFilterAtLeast],
 	);
 
 	const ritualGroupSpells = useMemo(() => {
 		if (activeTab !== "prepared" || !ritualSectionEnabled) return [];
 		return allSpells.filter((spell) => isRitualEligible(spell)).filter(spellMatchesFilters);
-	}, [allSpells, activeTab, ritualSectionEnabled, searchText, filterSelections]);
+	}, [allSpells, activeTab, ritualSectionEnabled, searchText, filterSelections, rangeFilterAtLeast]);
 
 	const groupedSections = useMemo(() => {
 		const byName = (a, b) => `${a.name ?? ""}`.localeCompare(`${b.name ?? ""}`);
@@ -725,6 +784,29 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		const digitsOnly = event.target.value.replace(/\D/g, "");
 		const nextValue = digitsOnly === "" ? "" : Number(digitsOnly);
 		const updatedBook = setSpellbookMaxPrepared(spellbook.id, nextValue);
+		if (updatedBook && onSpellbookUpdated) {
+			onSpellbookUpdated(updatedBook);
+		}
+	};
+
+	const handleSpellSlotMaxChange = (level, event) => {
+		const digitsOnly = event.target.value.replace(/\D/g, "");
+		const nextMax = digitsOnly === "" ? 0 : Math.min(Number(digitsOnly), MAX_SPELL_SLOTS_PER_LEVEL);
+		const updatedBook = setSpellbookSpellSlotMax(spellbook.id, level, nextMax);
+		if (updatedBook && onSpellbookUpdated) {
+			onSpellbookUpdated(updatedBook);
+		}
+	};
+
+	const handleToggleSpellSlotUsed = (level, index) => {
+		const updatedBook = toggleSpellbookSpellSlotUsed(spellbook.id, level, index);
+		if (updatedBook && onSpellbookUpdated) {
+			onSpellbookUpdated(updatedBook);
+		}
+	};
+
+	const handleReplenishSpellSlots = () => {
+		const updatedBook = replenishSpellbookSpellSlots(spellbook.id);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
@@ -923,283 +1005,362 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 
 	return (
 		<div className="spellbook-modal-backdrop" onClick={onClose}>
-			<div className="spellbook-modal" onClick={(event) => event.stopPropagation()}>
-				<div
-					className="spellbook-modal-top-bar"
-					style={{
-						backgroundColor: spellbook.spineColor,
-						"--spellbook-header-font-color": spellbook.fontColor,
-					}}
-				>
-					<div className="spellbook-modal-header">
-						<div className="spellbook-modal-header-title">
-							<span className="spellbook-modal-book-icon"><BookIcon /></span>
-							{isEditMode ? (
-								<input
-									ref={nameInputRef}
-									type="text"
-									className="spellbook-modal-title spellbook-modal-title-input"
-									value={nameDraft}
-									onChange={(event) => setNameDraft(event.target.value)}
-									onKeyDown={(event) => {
-										if (event.key === "Enter") {
-											event.preventDefault();
-											commitNameEdit();
-											setIsEditMode(false);
-										}
-									}}
-									onBlur={commitNameEdit}
-									aria-label="Spellbook name"
-								/>
-							) : (
-								<h2 className="spellbook-modal-title">{spellbook.name}</h2>
-							)}
-							{isEditMode ? (
-								<button
-									type="button"
-									className="spellbook-header-delete-link"
-									onMouseDown={(event) => event.preventDefault()}
-									onClick={() => setIsDeleteConfirmOpen(true)}
-								>
-									Delete Spellbook
-								</button>
-							) : null}
-						</div>
-						<div className="spellbook-modal-header-actions">
-							<button
-								type="button"
-								className="spellbook-header-icon-button"
-								aria-label={isEditMode ? "Save spellbook changes" : "Edit spellbook"}
-								title={isEditMode ? "Save spellbook changes" : "Edit spellbook"}
-								onClick={() => setIsEditMode((previous) => !previous)}
-							>
-								{isEditMode ? <CheckIcon /> : <PencilIcon />}
-							</button>
-							<button
-								type="button"
-								className="spellbook-header-icon-button"
-								aria-label="Spellbook settings"
-								title="Spellbook settings"
-								onClick={() => setIsSettingsOpen(true)}
-							>
-								<GearIcon />
-							</button>
-							<button type="button" className="spellbook-header-icon-button" aria-label="Close spellbook" onClick={onClose}>
-								<CloseIcon />
-							</button>
-						</div>
-					</div>
-					{isEditMode ? (
-						<div className="spellbook-edit-color-panel">
-							<label className="spellbook-edit-color-field">
-								<span>Spine Color</span>
-								<input
-									type="color"
-									className="spellbook-edit-color-input"
-									value={spellbook.spineColor}
-									onChange={handleSpineColorChange}
-									aria-label="Spine color"
-								/>
-							</label>
-							<label className="spellbook-edit-color-field">
-								<span>Font Color</span>
-								<input
-									type="color"
-									className="spellbook-edit-color-input"
-									value={spellbook.fontColor}
-									onChange={handleFontColorChange}
-									aria-label="Font color"
-								/>
-							</label>
-						</div>
-					) : null}
-				</div>
-
-				<div className="spellbook-modal-tabs">
-					<button
-						type="button"
-						className={`spellbook-modal-tab spellbook-modal-tab-ribbon${activeTab === "prepared" ? " is-active" : ""}`}
-						onClick={() => setActiveTab("prepared")}
+			<div className="spellbook-modal-shell" onClick={(event) => event.stopPropagation()}>
+				<div className="spellbook-modal">
+					<div
+						ref={topBarRef}
+						className="spellbook-modal-top-bar"
+						style={{
+							backgroundColor: spellbook.spineColor,
+							"--spellbook-header-font-color": spellbook.fontColor,
+						}}
 					>
-						Prepared Spells
-					</button>
-					<button
-						type="button"
-						className={`spellbook-modal-tab${activeTab === "known" ? " is-active" : ""}`}
-						onClick={() => setActiveTab("known")}
-					>
-						Known Spells
-					</button>
-				</div>
-
-				<div className="spellbook-modal-searchbar">
-					<div className={`spellbook-prepared-counter${isOverMaxPrepared ? " is-over-max" : ""}`}>
-						<span className="spellbook-prepared-counter-label">Prepared</span>
-						<span className="spellbook-prepared-counter-value">{preparedCount}</span>
-						<span className="spellbook-prepared-counter-divider">/</span>
-						<input
-							type="text"
-							inputMode="numeric"
-							pattern="[0-9]*"
-							className="spellbook-prepared-max-input"
-							value={spellbook.maxPrepared ?? ""}
-							onChange={handleMaxPreparedChange}
-							placeholder="—"
-							aria-label="Maximum prepared spells"
-						/>
-					</div>
-					<div className="spellbook-search-input-wrapper">
-						<SearchIcon />
-						<input
-							type="text"
-							className="spellbook-search-input"
-							value={searchText}
-							onChange={(event) => setSearchText(event.target.value)}
-							placeholder="Search spells..."
-							aria-label="Search spells"
-						/>
-					</div>
-					<div className="spellbook-filters-dropdown" ref={filtersDropdownRef}>
-						<button
-							type="button"
-							className={`spellbook-filter-pill${filterSelections.length > 0 ? " has-selections" : ""}`}
-							onClick={() => setIsFiltersOpen((previous) => !previous)}
-							aria-expanded={isAdvancedFiltersOpen}
-						>
-							<FunnelIcon />
-							<span>{filterSelections.length > 0 ? `${filterSelections.length} Filter${filterSelections.length === 1 ? "" : "s"}` : "All Filters"}</span>
-							<ChevronIcon direction={isAdvancedFiltersOpen ? "up" : "down"} />
-						</button>
-						{isAdvancedFiltersOpen ? (
-							<div className="spellbook-filters-panel">
-								<div className="spellbook-filter-mode-toggle">
+						<div className="spellbook-modal-header">
+							<div className="spellbook-modal-header-title">
+								<span className="spellbook-modal-book-icon"><BookIcon /></span>
+								{isEditMode ? (
+									<input
+										ref={nameInputRef}
+										type="text"
+										className="spellbook-modal-title spellbook-modal-title-input"
+										value={nameDraft}
+										onChange={(event) => setNameDraft(event.target.value)}
+										onKeyDown={(event) => {
+											if (event.key === "Enter") {
+												event.preventDefault();
+												commitNameEdit();
+												setIsEditMode(false);
+											}
+										}}
+										onBlur={commitNameEdit}
+										aria-label="Spellbook name"
+									/>
+								) : (
+									<h2 className="spellbook-modal-title">{spellbook.name}</h2>
+								)}
+								{isEditMode ? (
 									<button
 										type="button"
-										className={`spellbook-filter-mode-toggle-button${filterMode === "exclude" ? " is-exclude" : " is-include"}`}
-										onClick={() => setFilterMode((previous) => (previous === "include" ? "exclude" : "include"))}
-										aria-pressed={filterMode === "exclude"}
-										aria-label="Toggle filter mode between include and exclude"
+										className="spellbook-header-delete-link"
+										onMouseDown={(event) => event.preventDefault()}
+										onClick={() => setIsDeleteConfirmOpen(true)}
 									>
-										<span className="spellbook-filter-mode-switch" aria-hidden="true" />
-										<span className="spellbook-filter-mode-option">Include</span>
-										<span className="spellbook-filter-mode-option">Exclude</span>
+										Delete Spellbook
 									</button>
-								</div>
-								{filterSelections.length > 0 ? (
-									<div className="spellbook-filters-chips">
-										{filterSelections.map((entry) => (
-											<button
-												key={selectionKey(entry.field, entry.value, entry.mode)}
-												type="button"
-												className={`spellbook-filter-chip${entry.mode === "exclude" ? " is-exclude" : ""}`}
-												onClick={() => removeFilterSelection(entry.field, entry.value, entry.mode)}
-											>
-												{entry.mode === "exclude" ? "Exclude " : ""}{entry.field}: {entry.value} ×
-											</button>
-										))}
-										<button type="button" className="spellbook-filters-clear" onClick={clearAllFilters}>Clear all</button>
-									</div>
 								) : null}
-								{FILTER_FIELD_OPTIONS.map((field) => {
-									const isOpen = openFilterCategory === field;
-									const options = getSecondaryFilterOptions(field, availableSourceNames);
-									const selectedCount = filterSelections.filter((entry) => entry.field === field).length;
+							</div>
+							<div className="spellbook-modal-header-actions">
+								<button
+									type="button"
+									className="spellbook-header-icon-button"
+									aria-label={isEditMode ? "Save spellbook changes" : "Edit spellbook"}
+									title={isEditMode ? "Save spellbook changes" : "Edit spellbook"}
+									onClick={() => setIsEditMode((previous) => !previous)}
+								>
+									{isEditMode ? <CheckIcon /> : <PencilIcon />}
+								</button>
+								<button
+									type="button"
+									className="spellbook-header-icon-button"
+									aria-label="Spellbook settings"
+									title="Spellbook settings"
+									onClick={() => setIsSettingsOpen(true)}
+								>
+									<GearIcon />
+								</button>
+								<button type="button" className="spellbook-header-icon-button" aria-label="Close spellbook" onClick={onClose}>
+									<CloseIcon />
+								</button>
+							</div>
+						</div>
+						{isEditMode ? (
+							<div className="spellbook-edit-color-panel">
+								<label className="spellbook-edit-color-field">
+									<span>Spine Color</span>
+									<input
+										type="color"
+										className="spellbook-edit-color-input"
+										value={spellbook.spineColor}
+										onChange={handleSpineColorChange}
+										aria-label="Spine color"
+									/>
+								</label>
+								<label className="spellbook-edit-color-field">
+									<span>Font Color</span>
+									<input
+										type="color"
+										className="spellbook-edit-color-input"
+										value={spellbook.fontColor}
+										onChange={handleFontColorChange}
+										aria-label="Font color"
+									/>
+								</label>
+							</div>
+						) : null}
+					</div>
+
+					<div className="spellbook-modal-tabs">
+						<button
+							type="button"
+							className={`spellbook-modal-tab spellbook-modal-tab-ribbon${activeTab === "prepared" ? " is-active" : ""}`}
+							onClick={() => setActiveTab("prepared")}
+						>
+							Prepared Spells
+						</button>
+						<button
+							type="button"
+							className={`spellbook-modal-tab${activeTab === "known" ? " is-active" : ""}`}
+							onClick={() => setActiveTab("known")}
+						>
+							Known Spells
+						</button>
+					</div>
+
+					<div className="spellbook-modal-searchbar">
+						<div className={`spellbook-prepared-counter${isOverMaxPrepared ? " is-over-max" : ""}`}>
+							<span className="spellbook-prepared-counter-label">Prepared</span>
+							<span className="spellbook-prepared-counter-value">{preparedCount}</span>
+							<span className="spellbook-prepared-counter-divider">/</span>
+							<input
+								type="text"
+								inputMode="numeric"
+								pattern="[0-9]*"
+								className="spellbook-prepared-max-input"
+								value={spellbook.maxPrepared ?? ""}
+								onChange={handleMaxPreparedChange}
+								placeholder="—"
+								aria-label="Maximum prepared spells"
+							/>
+						</div>
+						<div className="spellbook-search-input-wrapper">
+							<SearchIcon />
+							<input
+								type="text"
+								className="spellbook-search-input"
+								value={searchText}
+								onChange={(event) => setSearchText(event.target.value)}
+								placeholder="Search spells..."
+								aria-label="Search spells"
+							/>
+						</div>
+						<div className="spellbook-filters-dropdown" ref={filtersDropdownRef}>
+							<button
+								type="button"
+								className={`spellbook-filter-pill${filterSelections.length > 0 ? " has-selections" : ""}`}
+								onClick={() => setIsFiltersOpen((previous) => !previous)}
+								aria-expanded={isAdvancedFiltersOpen}
+							>
+								<FunnelIcon />
+								<span>{filterSelections.length > 0 ? `${filterSelections.length} Filter${filterSelections.length === 1 ? "" : "s"}` : "All Filters"}</span>
+								<ChevronIcon direction={isAdvancedFiltersOpen ? "up" : "down"} />
+							</button>
+							{isAdvancedFiltersOpen ? (
+								<div className="spellbook-filters-panel">
+									<div className="spellbook-filter-mode-toggle">
+										<button
+											type="button"
+											className={`spellbook-filter-mode-toggle-button${filterMode === "exclude" ? " is-exclude" : " is-include"}`}
+											onClick={() => setFilterMode((previous) => (previous === "include" ? "exclude" : "include"))}
+											aria-pressed={filterMode === "exclude"}
+											aria-label="Toggle filter mode between include and exclude"
+										>
+											<span className="spellbook-filter-mode-switch" aria-hidden="true" />
+											<span className="spellbook-filter-mode-option">Include</span>
+											<span className="spellbook-filter-mode-option">Exclude</span>
+										</button>
+									</div>
+									{filterSelections.length > 0 ? (
+										<div className="spellbook-filters-chips">
+											{filterSelections.map((entry) => (
+												<button
+													key={selectionKey(entry.field, entry.value, entry.mode)}
+													type="button"
+													className={`spellbook-filter-chip${entry.mode === "exclude" ? " is-exclude" : ""}`}
+													onClick={() => removeFilterSelection(entry.field, entry.value, entry.mode)}
+												>
+													{entry.mode === "exclude" ? "Exclude " : ""}{entry.field}: {entry.value} ×
+												</button>
+											))}
+											<button type="button" className="spellbook-filters-clear" onClick={clearAllFilters}>Clear all</button>
+										</div>
+									) : null}
+									{FILTER_FIELD_OPTIONS.map((field) => {
+										const isOpen = openFilterCategory === field;
+										const options = getSecondaryFilterOptions(field, availableSourceNames);
+										const selectedCount = filterSelections.filter((entry) => entry.field === field).length;
+										return (
+											<div key={field} className="spellbook-filter-category">
+												<button
+													type="button"
+													className="spellbook-filter-category-header"
+													onClick={() => setOpenFilterCategory(isOpen ? null : field)}
+													aria-expanded={isOpen}
+												>
+													<span>{field}{selectedCount > 0 ? ` (${selectedCount})` : ""}</span>
+													<ChevronIcon direction={isOpen ? "up" : "down"} />
+												</button>
+												{isOpen && field === "Keyword" ? (
+													<div className="spellbook-filter-keyword-entry">
+														<input
+															type="text"
+															className="spellbook-filter-keyword-input"
+															value={keywordDraft}
+															onChange={(event) => setKeywordDraft(event.target.value)}
+															onKeyDown={(event) => {
+																if (event.key === "Enter") {
+																	event.preventDefault();
+																	addKeywordFilter();
+																}
+															}}
+															placeholder={`Type a keyword to ${filterMode}...`}
+															aria-label="Keyword filter value"
+														/>
+														<button type="button" className="spellbook-filter-keyword-add" onClick={addKeywordFilter}>
+															Add
+														</button>
+													</div>
+												) : isOpen ? (
+													<div className="spellbook-filter-category-options">
+														{field === "Range" ? (
+															<label className="spellbook-filter-option spellbook-filter-range-mode">
+																<input
+																	type="checkbox"
+																	checked={rangeFilterAtLeast}
+																	onChange={(event) => setRangeFilterAtLeast(event.target.checked)}
+																/>
+																<span>At least (equal or greater)</span>
+															</label>
+														) : null}
+														{options.length === 0 ? (
+															<div className="spellbook-filter-no-options">No options available</div>
+														) : options.map((option) => (
+															<label key={option} className="spellbook-filter-option">
+																<input
+																	type="checkbox"
+																	checked={filterSelections.some((entry) => entry.field === field && entry.value === option && entry.mode === filterMode)}
+																	onChange={() => toggleFilterCheckbox(field, option)}
+																/>
+																<span>{option}</span>
+															</label>
+														))}
+													</div>
+												) : null}
+											</div>
+										);
+									})}
+								</div>
+							) : null}
+						</div>
+					</div>
+
+					<div className="spellbook-modal-body">
+							{isLoadingSpells ? (
+								<div className="spellbook-loading-indicator" role="status" aria-live="polite">Loading spells...</div>
+							) : loadError ? (
+								<div className="spellbook-empty-state">{loadError}</div>
+							) : groupedSections.length === 0 ? (
+								<div className="spellbook-empty-state">
+									{activeTab === "prepared"
+										? "No spells are prepared yet. Switch to Known Spells and toggle the Prepared circle for a spell."
+										: "No spells match your current search or filters."}
+								</div>
+							) : (
+								groupedSections.map((section) => {
+									const isCollapsed = collapsedSections.has(section.key);
 									return (
-										<div key={field} className="spellbook-filter-category">
+										<div key={section.key} className="spellbook-section">
 											<button
 												type="button"
-												className="spellbook-filter-category-header"
-												onClick={() => setOpenFilterCategory(isOpen ? null : field)}
-												aria-expanded={isOpen}
+												className="spellbook-section-header"
+												onClick={() => toggleSection(section.key)}
+												aria-expanded={!isCollapsed}
 											>
-												<span>{field}{selectedCount > 0 ? ` (${selectedCount})` : ""}</span>
-												<ChevronIcon direction={isOpen ? "up" : "down"} />
+												<span className="spellbook-section-flourish" aria-hidden="true">✦</span>
+												<span className="spellbook-section-label">{section.label}</span>
+												<span className="spellbook-section-rule" aria-hidden="true" />
+												<ChevronIcon direction={isCollapsed ? "down" : "up"} />
 											</button>
-											{isOpen && field === "Keyword" ? (
-												<div className="spellbook-filter-keyword-entry">
-													<input
-														type="text"
-														className="spellbook-filter-keyword-input"
-														value={keywordDraft}
-														onChange={(event) => setKeywordDraft(event.target.value)}
-														onKeyDown={(event) => {
-															if (event.key === "Enter") {
-																event.preventDefault();
-																addKeywordFilter();
-															}
-														}}
-														placeholder={`Type a keyword to ${filterMode}...`}
-														aria-label="Keyword filter value"
-													/>
-													<button type="button" className="spellbook-filter-keyword-add" onClick={addKeywordFilter}>
-														Add
-													</button>
-												</div>
-											) : isOpen ? (
-												<div className="spellbook-filter-category-options">
-													{options.length === 0 ? (
-														<div className="spellbook-filter-no-options">No options available</div>
-													) : options.map((option) => (
-														<label key={option} className="spellbook-filter-option">
-															<input
-																type="checkbox"
-																checked={filterSelections.some((entry) => entry.field === field && entry.value === option && entry.mode === filterMode)}
-																onChange={() => toggleFilterCheckbox(field, option)}
-															/>
-															<span>{option}</span>
-														</label>
-													))}
+											{!isCollapsed ? (
+												<div className="spellbook-section-rows">
+													{section.spells.map((spell) => renderSpellRow(spell, section.key))}
 												</div>
 											) : null}
 										</div>
 									);
-								})}
-							</div>
-						) : null}
-					</div>
-				</div>
-
-				<div className="spellbook-modal-body">
-					{isLoadingSpells ? (
-						<div className="spellbook-loading-indicator" role="status" aria-live="polite">Loading spells...</div>
-					) : loadError ? (
-						<div className="spellbook-empty-state">{loadError}</div>
-					) : groupedSections.length === 0 ? (
-						<div className="spellbook-empty-state">
-							{activeTab === "prepared"
-								? "No spells are prepared yet. Switch to Known Spells and toggle the Prepared circle for a spell."
-								: "No spells match your current search or filters."}
+								})
+							)}
 						</div>
-					) : (
-						groupedSections.map((section) => {
-							const isCollapsed = collapsedSections.has(section.key);
-							return (
-								<div key={section.key} className="spellbook-section">
+
+					<div className="spellbook-modal-footer">
+						<span className="spellbook-footer-count">{totalShownCount} spell{totalShownCount === 1 ? "" : "s"}</span>
+					</div>
+					</div>
+
+					<div
+					className={`spellbook-slots-drawer${isSlotsPanelOpen ? " is-open" : ""}`}
+					style={{ "--spellbook-topbar-height": `${topBarHeight}px` }}
+				>
+						<div className="spellbook-slots-panel">
+							{isSlotsPanelOpen ? (
+								<>
 									<button
 										type="button"
-										className="spellbook-section-header"
-										onClick={() => toggleSection(section.key)}
-										aria-expanded={!isCollapsed}
+										className="spellbook-slots-replenish-button"
+										onClick={handleReplenishSpellSlots}
 									>
-										<span className="spellbook-section-flourish" aria-hidden="true">✦</span>
-										<span className="spellbook-section-label">{section.label}</span>
-										<span className="spellbook-section-rule" aria-hidden="true" />
-										<ChevronIcon direction={isCollapsed ? "down" : "up"} />
+										Replenish Slots
 									</button>
-									{!isCollapsed ? (
-										<div className="spellbook-section-rows">
-											{section.spells.map((spell) => renderSpellRow(spell, section.key))}
-										</div>
-									) : null}
-								</div>
-							);
-						})
-					)}
-				</div>
-
-				<div className="spellbook-modal-footer">
-					<span className="spellbook-footer-count">{totalShownCount} spell{totalShownCount === 1 ? "" : "s"}</span>
-				</div>
+									<div className="spellbook-slots-panel-levels">
+										{SPELL_SLOT_LEVELS.map((level) => {
+											const levelSlots = spellbook.spellSlots?.[level];
+											const max = levelSlots?.max ?? 0;
+											const used = levelSlots?.used ?? [];
+											return (
+												<div key={level} className="spellbook-slot-level">
+													<div className="spellbook-slot-level-label">
+														{level}<sup>{getOrdinalSuffix(level)}</sup>
+													</div>
+													<input
+														type="text"
+														inputMode="numeric"
+														pattern="[0-9]*"
+														className="spellbook-slot-max-input"
+														value={max === 0 ? "" : max}
+														onChange={(event) => handleSpellSlotMaxChange(level, event)}
+														placeholder="0"
+														aria-label={`Number of ${getLevelGroupLabel(level)} spell slots`}
+													/>
+													{max > 0 ? (
+														<div className="spellbook-slot-checkboxes">
+															{Array.from({ length: max }, (_, index) => (
+																<input
+																	key={index}
+																	type="checkbox"
+																	className="spellbook-slot-checkbox"
+																	checked={Boolean(used[index])}
+																	onChange={() => handleToggleSpellSlotUsed(level, index)}
+																	aria-label={`${getLevelGroupLabel(level)} slot ${index + 1}${used[index] ? ", used" : ""}`}
+																/>
+															))}
+														</div>
+													) : null}
+												</div>
+											);
+										})}
+									</div>
+								</>
+							) : null}
+						</div>
+						<button
+							type="button"
+							className="spellbook-slots-tab"
+							onClick={() => setIsSlotsPanelOpen((previous) => !previous)}
+							aria-expanded={isSlotsPanelOpen}
+							aria-label={isSlotsPanelOpen ? "Close spell slots" : "Open spell slots"}
+						>
+							<span className="spellbook-slots-tab-label">Spell Slots</span>
+						</button>
+					</div>
 			</div>
 
 			{isDeleteConfirmOpen ? (

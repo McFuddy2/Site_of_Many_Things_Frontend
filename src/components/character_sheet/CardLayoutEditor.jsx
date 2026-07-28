@@ -1,186 +1,83 @@
-import { useRef, useState } from "react";
-import {
-	DndContext,
-	closestCenter,
-	PointerSensor,
-	KeyboardSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
-import {
-	SortableContext,
-	arrayMove,
-	rectSortingStrategy,
-	sortableKeyboardCoordinates,
-	useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { ModuleView, moduleSlotProps } from "./CharacterSheetCard";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { ModuleView } from "./CharacterSheetCard";
 import { useCharacterSheet } from "./CharacterSheetContext";
+import useLayoutCanvas from "./canvas/useLayoutCanvas";
+import LayoutCanvas from "./canvas/LayoutCanvas";
+import PrecisionPanel from "./canvas/PrecisionPanel";
+import { canDeleteCard } from "../../utils/character_sheet/references";
+import { countCardPlacements } from "../../utils/character_sheet/sheetOps";
+import { boundingHeight, boundingWidth, GRID_SIZE } from "../../utils/character_sheet/grid";
+import { getModuleContentScale, getModuleMinSize, CARD_BORDER_WIDTH } from "../../utils/character_sheet/layoutConstants";
 
-// Per-card layout editing (the mockup's "Edit Layout" flow). All changes —
-// reordering, removing, and resizing modules — happen on a draft copy of this
-// page's arrangement; card data is never touched. Confirm commits the draft
-// through the reducer; Exit without Saving simply drops it.
+// Per-card layout editing (the mockup's "Edit Layout" flow). Modules get the
+// same direct-manipulation model as cards do in Arrange Cards mode — select,
+// move, resize from 8 handles, multi-select, align/distribute, alignment
+// guides — via the shared useLayoutCanvas hook.
+//
+// Modules may be dragged past the card's current edges: the card grows to fit
+// them (live here, and for real on Confirm — see setCardLayoutArrangement), so
+// rearranging a layout never leaves part of it behind a scrollbar.
+//
+// All changes happen on a draft; card data is never touched. Confirm commits
+// through the reducer, Exit without Saving drops it.
 
-export const MODULE_MIN_WIDTH = 64;
+export default function CardLayoutEditor({ pageId, layout, card, onClose, itemStyle, showGrid, onNavigateToCard }) {
+	const { sheet, dispatch } = useCharacterSheet();
 
-// Edge handle for width resizing. Stops pointer events so dnd-kit never
-// mistakes a resize for a drag; double-click resets the width to auto.
-export function ResizeHandle({ onStart, onMove, onEnd, onReset }) {
-	const handlePointerDown = (event) => {
-		event.stopPropagation();
-		event.preventDefault();
-		const startX = event.clientX;
-		onStart();
-		const handleMove = (moveEvent) => onMove(moveEvent.clientX - startX);
-		const handleUp = () => {
-			document.removeEventListener("pointermove", handleMove);
-			document.removeEventListener("pointerup", handleUp);
-			if (onEnd) {
-				onEnd();
-			}
-		};
-		document.addEventListener("pointermove", handleMove);
-		document.addEventListener("pointerup", handleUp);
-	};
-	return (
-		<div
-			className="cs-resize-handle"
-			title="Drag to resize — double-click to reset"
-			onPointerDown={handlePointerDown}
-			onDoubleClick={(event) => {
-				event.stopPropagation();
-				if (onReset) {
-					onReset();
-				}
-			}}
-		/>
+	// Each module's resize floor depends on its type (see getModuleMinSize): a
+	// module can't be dragged below the size at which its content — which scales
+	// with the box — is still readable and interactive.
+	const minSizeFor = useCallback(
+		(moduleId) => getModuleMinSize(card.modules[moduleId]?.type),
+		[card]
 	);
-}
 
-function SortableModuleTile({ moduleId, module, width, onRemove, onResizeStart, onResize, onResizeReset }) {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: moduleId });
-	const localRef = useRef(null);
-	const slot = moduleSlotProps(module, width);
-	const style = { ...(slot.style || {}), transform: CSS.Transform.toString(transform), transition };
-	return (
-		<div
-			ref={(node) => {
-				setNodeRef(node);
-				localRef.current = node;
-			}}
-			style={style}
-			className={`cs-layout-module-wrap ${slot.className}${isDragging ? " cs-layout-module-wrap--dragging" : ""}`}
-			{...attributes}
-			{...listeners}
-		>
-			<button
-				type="button"
-				className="cs-layout-remove-x"
-				aria-label={`Remove ${module.label} from this layout`}
-				onPointerDown={(event) => event.stopPropagation()}
-				onKeyDown={(event) => event.stopPropagation()}
-				onClick={() => onRemove(moduleId)}
-			>
-				x
-			</button>
-			<div className="cs-layout-module-content">
-				<ModuleView module={module} />
-			</div>
-			<ResizeHandle
-				onStart={() => onResizeStart(moduleId, localRef.current ? localRef.current.offsetWidth : MODULE_MIN_WIDTH)}
-				onMove={(deltaX) => onResize(moduleId, deltaX)}
-				onReset={() => onResizeReset(moduleId)}
-			/>
-		</div>
-	);
-}
-
-export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
-	const { dispatch } = useCharacterSheet();
-	const [draft, setDraft] = useState({
-		order: layout.moduleOrder,
-		sizes: layout.moduleSizes || {},
+	// A module is part of this layout exactly when it has a rect, so removing
+	// one is just dropping its rect. That keeps membership and geometry in a
+	// single piece of state, which in turn means the canvas's undo stack
+	// covers removals too — Undo after a remove brings the module back where it
+	// was, with no second history to keep in sync.
+	const canvas = useLayoutCanvas({
+		initialRects: layout.moduleRects || {},
+		minSize: minSizeFor,
 	});
-	const [history, setHistory] = useState([]);
-	const [future, setFuture] = useState([]);
-	const resizeRef = useRef(null);
 
-	const sensors = useSensors(
-		// The distance constraint keeps plain clicks (like the remove "x") from
-		// starting a drag.
-		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+	const moduleIds = useMemo(
+		() => layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && canvas.rects[moduleId]),
+		[layout.moduleOrder, card.modules, canvas.rects]
 	);
 
-	// Every discrete change (drop, remove, resize gesture, reset) snapshots the
-	// draft into history first, so Undo/Redo walk whole gestures, not pixels.
-	const pushHistory = (fromDraft) => {
-		setHistory((stack) => [...stack, fromDraft]);
-		setFuture([]);
-	};
+	// null | "confirm" | "blocked" | "confirmRemove" — which delete dialog (if any) is open.
+	const [deleteDialog, setDeleteDialog] = useState(null);
+	// More than one page layout points at this card's data, so "Delete" here
+	// should only ever detach this one placement — the card's data and its
+	// other copies are never touched (see countCardPlacements).
+	const hasOtherCopies = countCardPlacements(sheet, card.id) > 1;
 
-	const applyChange = (nextDraft) => {
-		pushHistory(draft);
-		setDraft(nextDraft);
-	};
-
-	const handleDragEnd = ({ active, over }) => {
-		if (!over || active.id === over.id) {
-			return;
-		}
-		const oldIndex = draft.order.indexOf(active.id);
-		const newIndex = draft.order.indexOf(over.id);
-		if (oldIndex === -1 || newIndex === -1) {
-			return;
-		}
-		applyChange({ ...draft, order: arrayMove(draft.order, oldIndex, newIndex) });
-	};
+	// Which side of the card the floating toolbar docks to: whichever side has
+	// more room in the viewport, so it reads on-screen instead of running off
+	// the edge — a card sitting in the right half of the page gets its
+	// toolbar on the left, and vice versa.
+	const wrapRef = useRef(null);
+	const [toolbarSide, setToolbarSide] = useState("right");
+	useLayoutEffect(() => {
+		const updateSide = () => {
+			const el = wrapRef.current;
+			if (!el) {
+				return;
+			}
+			const rect = el.getBoundingClientRect();
+			setToolbarSide(rect.left + rect.width / 2 > window.innerWidth / 2 ? "left" : "right");
+		};
+		updateSide();
+		window.addEventListener("resize", updateSide);
+		return () => window.removeEventListener("resize", updateSide);
+	}, [itemStyle.left, itemStyle.width]);
 
 	const handleRemove = (moduleId) => {
-		applyChange({ ...draft, order: draft.order.filter((id) => id !== moduleId) });
-	};
-
-	const handleResizeStart = (moduleId, startWidth) => {
-		pushHistory(draft);
-		resizeRef.current = { moduleId, startWidth };
-	};
-
-	const handleResize = (moduleId, deltaX) => {
-		const start = resizeRef.current;
-		if (!start || start.moduleId !== moduleId) {
-			return;
-		}
-		const width = Math.max(MODULE_MIN_WIDTH, Math.round(start.startWidth + deltaX));
-		setDraft((current) => ({ ...current, sizes: { ...current.sizes, [moduleId]: width } }));
-	};
-
-	const handleResizeReset = (moduleId) => {
-		applyChange({
-			...draft,
-			sizes: Object.fromEntries(Object.entries(draft.sizes).filter(([id]) => id !== moduleId)),
-		});
-	};
-
-	const handleUndo = () => {
-		if (!history.length) {
-			return;
-		}
-		const previous = history[history.length - 1];
-		setHistory(history.slice(0, -1));
-		setFuture([draft, ...future]);
-		setDraft(previous);
-	};
-
-	const handleRedo = () => {
-		if (!future.length) {
-			return;
-		}
-		const [next, ...rest] = future;
-		setFuture(rest);
-		setHistory([...history, draft]);
-		setDraft(next);
+		const { [moduleId]: removed, ...rest } = canvas.rects;
+		canvas.commitRects(rest);
 	};
 
 	const handleConfirm = () => {
@@ -188,54 +85,98 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 			type: "setCardArrangement",
 			pageId,
 			layoutId: layout.id,
-			moduleOrder: draft.order,
-			moduleSizes: draft.sizes,
+			moduleOrder: moduleIds,
+			moduleRects: canvas.rects,
 		});
 		onClose();
 	};
 
-	// Honor the layout's card width so the editing grid wraps exactly like the
-	// read-only card does.
-	const cardSized = typeof layout.cardWidth === "number";
+	const referencedBy = deleteDialog === "blocked" ? canDeleteCard(sheet, card.id).referencedBy : [];
+
+	const handleDeleteClick = () => {
+		if (hasOtherCopies) {
+			// Data isn't being touched, just this one placement, so the
+			// cross-card reference guard doesn't apply here.
+			setDeleteDialog("confirmRemove");
+			return;
+		}
+		setDeleteDialog(canDeleteCard(sheet, card.id).ok ? "confirm" : "blocked");
+	};
+
+	const handleConfirmDelete = () => {
+		dispatch({ type: "deleteCard", cardId: card.id });
+		setDeleteDialog(null);
+		onClose();
+	};
+
+	const handleConfirmRemove = () => {
+		dispatch({ type: "removeCardFromPage", pageId, layoutId: layout.id });
+		setDeleteDialog(null);
+		onClose();
+	};
+
+	// The editing card previews the size it will be saved at: it grows with the
+	// modules (never below the width it already has) so what you arrange is
+	// exactly what you get after Confirm.
+	const placedRects = moduleIds.map((moduleId) => canvas.rects[moduleId]);
+	const bodyHeight = boundingHeight(placedRects, GRID_SIZE);
+	const bodyWidth = Math.max(
+		(itemStyle.width || 0) - CARD_BORDER_WIDTH,
+		boundingWidth(placedRects, GRID_SIZE)
+	);
+
 	return (
-		<section
-			className={`cs-card cs-card--editing${cardSized ? " cs-card--sized" : ""}`}
-			style={cardSized ? { width: layout.cardWidth } : undefined}
-		>
-			<header className="cs-card-header">
-				<span>{card.title}</span>
-				<span className="cs-card-header-note">Editing Layout</span>
-			</header>
-			<div className="cs-card-body">
-				<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-					<SortableContext items={draft.order} strategy={rectSortingStrategy}>
-						{draft.order.map((moduleId) =>
-							card.modules[moduleId] ? (
-								<SortableModuleTile
-									key={moduleId}
-									moduleId={moduleId}
-									module={card.modules[moduleId]}
-									width={draft.sizes[moduleId]}
-									onRemove={handleRemove}
-									onResizeStart={handleResizeStart}
-									onResize={handleResize}
-									onResizeReset={handleResizeReset}
-								/>
-							) : null
-						)}
-					</SortableContext>
-				</DndContext>
-				{draft.order.length === 0 && (
+		<div className="cs-layout-editor-wrap" style={{ ...itemStyle, width: bodyWidth + CARD_BORDER_WIDTH }} ref={wrapRef}>
+			<section className="cs-card cs-card--editing">
+				<header className="cs-card-header">
+					<span>{card.title}</span>
+					<span className="cs-card-header-note">Editing Layout</span>
+				</header>
+				<LayoutCanvas
+					canvas={canvas}
+					items={moduleIds}
+					className={`cs-card-body cs-canvas--flush${showGrid ? " cs-canvas--grid" : ""}`}
+					style={{ height: bodyHeight, width: bodyWidth }}
+					itemClassName="cs-layout-module-wrap cs-module-slot"
+					renderItem={(moduleId, { rect }) => (
+						<div
+							className="cs-layout-module-content"
+							style={{ "--cs-scale": getModuleContentScale(rect, card.modules[moduleId].type) }}
+						>
+							<ModuleView module={card.modules[moduleId]} />
+						</div>
+					)}
+					renderItemOverlay={(moduleId) => (
+						<button
+							type="button"
+							className="cs-layout-remove-x"
+							aria-label={`Remove ${card.modules[moduleId].label} from this layout`}
+							onClick={() => handleRemove(moduleId)}
+						>
+							x
+						</button>
+					)}
+				/>
+				{moduleIds.length === 0 && (
 					<p className="cs-empty">Every module is removed from this layout. Undo to bring them back.</p>
 				)}
-			</div>
-			<footer className="cs-layout-controls">
+			</section>
+
+			{/* Docked outside the card's own box (see .cs-layout-editor-wrap) so these
+			    controls never affect the card's internal layout, with a z-index high
+			    enough to sit on top of a neighboring card if there's no room beside it.
+			    Docks to whichever side of the viewport has more room — see toolbarSide. */}
+			<footer className={`cs-layout-controls cs-layout-controls--${toolbarSide}`}>
+				<PrecisionPanel canvas={canvas} label="Module" />
 				<div className="cs-layout-controls-group">
-					<button type="button" className="cs-layout-btn" onClick={handleUndo} disabled={!history.length}>
+					<button type="button" className="cs-layout-btn" onClick={canvas.undo} disabled={!canvas.canUndo}>
 						Undo
 					</button>
-					<button type="button" className="cs-layout-btn" onClick={handleRedo} disabled={!future.length}>
+					<button type="button" className="cs-layout-btn" onClick={canvas.redo} disabled={!canvas.canRedo}>
 						Redo
+					</button>
+					<button type="button" className="cs-layout-btn cs-layout-btn--delete" onClick={handleDeleteClick}>
+						{hasOtherCopies ? "Remove from Page" : "Delete Card"}
 					</button>
 				</div>
 				<div className="cs-layout-controls-group">
@@ -247,6 +188,83 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose }) {
 					</button>
 				</div>
 			</footer>
-		</section>
+
+			<Dialog.Root open={deleteDialog !== null} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+				<Dialog.Portal>
+					<Dialog.Overlay className="cs-modal-overlay" />
+					<Dialog.Content className="cs-modal" aria-describedby={undefined}>
+						{deleteDialog === "confirm" && (
+							<>
+								<Dialog.Title className="cs-modal-title">Delete “{card.title}”?</Dialog.Title>
+								<p className="cs-builder-hint">This permanently deletes the card and its data. This cannot be undone.</p>
+								<div className="cs-modal-actions">
+									<button type="button" className="cs-modal-button" onClick={() => setDeleteDialog(null)}>
+										Cancel
+									</button>
+									<button
+										type="button"
+										className="cs-modal-button cs-modal-button--danger"
+										onClick={handleConfirmDelete}
+									>
+										Delete Card
+									</button>
+								</div>
+							</>
+						)}
+						{deleteDialog === "confirmRemove" && (
+							<>
+								<Dialog.Title className="cs-modal-title">Remove “{card.title}” From This Page?</Dialog.Title>
+								<p className="cs-builder-hint">
+									This card also appears elsewhere. Removing it here only removes this copy — its data and
+									other placements are unaffected.
+								</p>
+								<div className="cs-modal-actions">
+									<button type="button" className="cs-modal-button" onClick={() => setDeleteDialog(null)}>
+										Cancel
+									</button>
+									<button
+										type="button"
+										className="cs-modal-button cs-modal-button--danger"
+										onClick={handleConfirmRemove}
+									>
+										Remove from Page
+									</button>
+								</div>
+							</>
+						)}
+						{deleteDialog === "blocked" && (
+							<>
+								<Dialog.Title className="cs-modal-title">Can’t Delete “{card.title}” Yet</Dialog.Title>
+								<p className="cs-builder-hint">
+									Other cards still reference its values. Remove those references first — click a card
+									below to open its layout editor.
+								</p>
+								<ul className="cs-delete-blocked-list">
+									{referencedBy.map((entry) => (
+										<li key={entry.cardId}>
+											<button
+												type="button"
+												className="cs-modal-button"
+												onClick={() => {
+													setDeleteDialog(null);
+													onNavigateToCard(entry.cardId);
+												}}
+											>
+												{entry.cardTitle}
+											</button>
+										</li>
+									))}
+								</ul>
+								<div className="cs-modal-actions">
+									<button type="button" className="cs-modal-button" onClick={() => setDeleteDialog(null)}>
+										Close
+									</button>
+								</div>
+							</>
+						)}
+					</Dialog.Content>
+				</Dialog.Portal>
+			</Dialog.Root>
+		</div>
 	);
 }

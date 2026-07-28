@@ -2,8 +2,150 @@
 // a new sheet (no mutation), so they can back a useReducer and the layout editor's
 // undo/redo can snapshot layouts safely.
 
-import { createCardLayout, createPage } from "./schema.js";
+import { createCardLayout, createPage, createTextPiece, createCheckboxPiece } from "./schema.js";
 import { buildPieceIndex, getPieceNumericValue, canDeleteCard } from "./references.js";
+import { findInitialRect, boundingHeight, boundingWidth, snap, GRID_SIZE } from "./grid.js";
+import {
+	CARD_GAP,
+	CARD_MIN_WIDTH,
+	CARD_MIN_HEIGHT,
+	CARD_DEFAULT_WIDTH,
+	CARD_DEFAULT_HEIGHT,
+	CARD_HEADER_HEIGHT,
+	CARD_BODY_INSET,
+	MODULE_GAP,
+	getModuleDefaultSize,
+	getMinHeaderWidth,
+	CARD_BORDER_WIDTH,
+} from "./layoutConstants.js";
+
+// Places a sequence of modules (in order) into an initially empty area, each
+// avoiding the ones placed before it and wrapping within maxWidth — the
+// default arrangement a brand-new card/layout starts with, before the user
+// drags anything. Every module gets its own type's default size (see
+// getModuleDefaultSize) instead of one flat size, so nothing starts smaller
+// than its content needs. The whole packed group is inset by one grid cell
+// (GRID_SIZE) from the top/left, and maxWidth is shrunk by the same amount on
+// the right, so a fresh card reads with a one-grid-cell margin on every edge
+// instead of modules sitting flush against the card body's padding.
+function packModuleRects(moduleIds, modulesById, maxWidth) {
+	const rects = {};
+	const placed = [];
+	const wrapWidth = Number.isFinite(maxWidth) ? Math.max(GRID_SIZE, maxWidth - GRID_SIZE) : maxWidth;
+	for (const moduleId of moduleIds) {
+		const size = getModuleDefaultSize(modulesById[moduleId]?.type);
+		const rect = findInitialRect(size.width, size.height, placed, MODULE_GAP, wrapWidth);
+		rects[moduleId] = rect;
+		placed.push(rect);
+	}
+	for (const moduleId of moduleIds) {
+		rects[moduleId] = { ...rects[moduleId], x: rects[moduleId].x + GRID_SIZE, y: rects[moduleId].y + GRID_SIZE };
+	}
+	return rects;
+}
+
+// How many columns a card type's modules wrap into when it's first placed —
+// the default arrangement each standard card starts with, matching how it's
+// drawn in the spec (a stack of skill rows is 1, a grid of Basic Info fields is
+// 3, and so on). Types with no entry pack into a single row and let the card
+// size itself to fit (see fitCardToModules) rather than wrapping at all.
+const CARD_PACK_COLUMNS = {
+	allies: 1,
+	appearance: 1,
+	backstory: 1,
+	deathSaves: 1,
+	equipment: 1,
+	feature: 1,
+	money: 1,
+	personality: 1,
+	proficiencies: 1,
+	savingThrows: 1,
+	skills: 1,
+	spellList: 1,
+	symbol: 1,
+	treasure: 1,
+	spellcastingStats: 2,
+	basicDescriptions: 3,
+	basicInfo: 3,
+	hitDice: 3,
+	movementSpeed: 3,
+	attack: 3,
+};
+
+// The wrap width that fits `columns` of the card's widest module side by side,
+// gaps included. The extra grid cell cancels the one packModuleRects reserves
+// as the right-hand margin, so the last column isn't pushed onto its own row.
+function packWidthForCard(card) {
+	const columns = CARD_PACK_COLUMNS[card.type];
+	if (!columns) {
+		return Infinity;
+	}
+	const widest = card.moduleOrder.reduce(
+		(max, moduleId) => Math.max(max, getModuleDefaultSize(card.modules[moduleId]?.type).width),
+		0
+	);
+	return columns * widest + (columns - 1) * MODULE_GAP + GRID_SIZE;
+}
+
+// Sizes a card to snugly fit the module rects packed into it — pure content
+// fit, no header-title floor (see packCard for that). Used both for a
+// brand-new card (stops every card from starting at the same fixed
+// width/height regardless of how many/how large its modules are — the
+// scrollbar-on-creation problem) and as the floor a card can be manually
+// resized down to in Arrange Cards mode. Rects from packModuleRects already
+// carry a one-grid-cell margin on their top/left; the extra +GRID_SIZE here
+// accounts for the matching margin on the bottom/right, so the card is sized
+// for exactly one grid cell of breathing room on every edge — no more, no
+// less (CARD_BORDER_WIDTH is only there because the card's own border eats
+// into that space; see its comment).
+export function fitCardToModules(card, moduleRects) {
+	const rects = Object.values(moduleRects);
+	const contentWidth = boundingWidth(rects, 0) + GRID_SIZE + CARD_BORDER_WIDTH;
+	const contentHeight = boundingHeight(rects, 0) + GRID_SIZE + CARD_HEADER_HEIGHT + CARD_BORDER_WIDTH;
+	return {
+		width: snap(Math.max(CARD_MIN_WIDTH, contentWidth)),
+		height: snap(Math.max(CARD_MIN_HEIGHT, contentHeight)),
+	};
+}
+
+// Backfills rects on sheets saved before the free-grid layout — every
+// cardLayout gets a rect, and every module it includes gets an entry in
+// moduleRects, so old saved data can't crash the renderer (which expects
+// both to already be there) after this feature shipped.
+export function migrateSheet(sheet) {
+	return {
+		...sheet,
+		pages: sheet.pages.map((page) => {
+			const placedCardRects = [];
+			const cardLayouts = page.cardLayouts.map((layout) => {
+				const rect = layout.rect || findInitialRect(CARD_DEFAULT_WIDTH, CARD_DEFAULT_HEIGHT, placedCardRects, CARD_GAP);
+				placedCardRects.push(rect);
+
+				const card = sheet.cards[layout.cardId];
+				const moduleRects = { ...(layout.moduleRects || {}) };
+				const placedModuleRects = Object.values(moduleRects);
+				for (const moduleId of layout.moduleOrder) {
+					if (moduleRects[moduleId]) {
+						continue;
+					}
+					const size = getModuleDefaultSize(card?.modules[moduleId]?.type);
+					const moduleRect = findInitialRect(
+						size.width,
+						size.height,
+						placedModuleRects,
+						MODULE_GAP,
+						rect.width - CARD_BODY_INSET
+					);
+					moduleRects[moduleId] = moduleRect;
+					placedModuleRects.push(moduleRect);
+				}
+
+				return { ...layout, rect, moduleRects };
+			});
+			return { ...page, cardLayouts };
+		}),
+	};
+}
 
 function replaceCard(sheet, card) {
 	return { ...sheet, cards: { ...sheet.cards, [card.id]: card } };
@@ -48,6 +190,26 @@ export function setActivePage(sheet, pageId) {
 
 // ---------- Cards on pages ----------
 
+// Finds where a card-sized rect should go on a page, clear of every existing
+// card layout's rect by at least the default move gap.
+function findCardRect(page, width, height) {
+	return findInitialRect(width, height, page.cardLayouts.map((layout) => layout.rect), CARD_GAP);
+}
+
+// Packs a card's modules and sizes the card itself to fit them — the shared
+// step behind placing a brand-new card and inserting an existing one. Width
+// is additionally floored against the card's own title here (rather than in
+// fitCardToModules itself) so this header-safety net only ever applies to a
+// fresh placement, never to a card the user has since resized by hand —
+// otherwise a deliberately-narrowed card would grow back every time its
+// layout changed (see growRectToFitModules) or get stuck unable to shrink
+// past that width in Arrange Cards mode.
+function packCard(card) {
+	const moduleRects = packModuleRects(card.moduleOrder, card.modules, packWidthForCard(card));
+	const fit = fitCardToModules(card, moduleRects);
+	return { moduleRects, cardSize: { ...fit, width: Math.max(fit.width, snap(getMinHeaderWidth(card.title))) } };
+}
+
 // Adds a brand-new card's data to the sheet and places it on a page.
 export function addCardToPage(sheet, pageId, card) {
 	const page = sheet.pages.find((existing) => existing.id === pageId);
@@ -55,7 +217,12 @@ export function addCardToPage(sheet, pageId, card) {
 		return sheet;
 	}
 	const withCard = replaceCard(sheet, card);
-	return replacePage(withCard, { ...page, cardLayouts: [...page.cardLayouts, createCardLayout(card)] });
+	const { moduleRects, cardSize } = packCard(card);
+	const layout = createCardLayout(card, {
+		rect: findCardRect(page, cardSize.width, cardSize.height),
+		moduleRects,
+	});
+	return replacePage(withCard, { ...page, cardLayouts: [...page.cardLayouts, layout] });
 }
 
 // The "insert an existing card from another page" flow: creates a new layout entry
@@ -66,7 +233,22 @@ export function insertExistingCardOnPage(sheet, pageId, cardId) {
 	if (!page || !card) {
 		return sheet;
 	}
-	return replacePage(sheet, { ...page, cardLayouts: [...page.cardLayouts, createCardLayout(card)] });
+	const { moduleRects, cardSize } = packCard(card);
+	const layout = createCardLayout(card, {
+		rect: findCardRect(page, cardSize.width, cardSize.height),
+		moduleRects,
+	});
+	return replacePage(sheet, { ...page, cardLayouts: [...page.cardLayouts, layout] });
+}
+
+// How many page layouts currently point at this card's data — more than one
+// means the card has other copies (see insertExistingCardOnPage), so deleting
+// one placement should never touch the card's data or its other placements.
+export function countCardPlacements(sheet, cardId) {
+	return sheet.pages.reduce(
+		(total, page) => total + page.cardLayouts.filter((layout) => layout.cardId === cardId).length,
+		0
+	);
 }
 
 // Removes a card from one page only; the card's data (and other placements) survive.
@@ -108,7 +290,9 @@ export function setCardTitle(sheet, cardId, title) {
 // ---------- Modules and layouts ----------
 
 // Adds a module to a card's data and appends it to every layout showing that card,
-// so it becomes visible wherever the card is placed.
+// so it becomes visible wherever the card is placed. Each layout gets its own
+// initial rect for the module, clear of that layout's other modules — pages
+// showing the same card can arrange it differently.
 export function addModuleToCard(sheet, cardId, module) {
 	const card = sheet.cards[cardId];
 	if (!card) {
@@ -119,13 +303,29 @@ export function addModuleToCard(sheet, cardId, module) {
 		modules: { ...card.modules, [module.id]: module },
 		moduleOrder: [...card.moduleOrder, module.id],
 	});
+	const size = getModuleDefaultSize(module.type);
 	return {
 		...withModule,
 		pages: withModule.pages.map((page) => ({
 			...page,
-			cardLayouts: page.cardLayouts.map((layout) =>
-				layout.cardId === cardId ? { ...layout, moduleOrder: [...layout.moduleOrder, module.id] } : layout
-			),
+			cardLayouts: page.cardLayouts.map((layout) => {
+				if (layout.cardId !== cardId) {
+					return layout;
+				}
+				const maxWidth = (layout.rect ? layout.rect.width : CARD_DEFAULT_WIDTH) - CARD_BODY_INSET;
+				const rect = findInitialRect(
+					size.width,
+					size.height,
+					Object.values(layout.moduleRects || {}),
+					MODULE_GAP,
+					maxWidth
+				);
+				return {
+					...layout,
+					moduleOrder: [...layout.moduleOrder, module.id],
+					moduleRects: { ...layout.moduleRects, [module.id]: rect },
+				};
+			}),
 		})),
 	};
 }
@@ -138,66 +338,74 @@ export function removeModuleFromLayout(sheet, pageId, layoutId, moduleId) {
 	}
 	return replacePage(sheet, {
 		...page,
-		cardLayouts: page.cardLayouts.map((layout) =>
-			layout.id === layoutId
-				? { ...layout, moduleOrder: layout.moduleOrder.filter((id) => id !== moduleId) }
-				: layout
-		),
-	});
-}
-
-// Commits a card layout editor draft: module order plus per-module widths (px).
-// Sizes are per-page arrangement data, like the order itself. Entries for
-// modules no longer in the order are pruned.
-export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder, moduleSizes = {} }) {
-	const page = sheet.pages.find((existing) => existing.id === pageId);
-	if (!page) {
-		return sheet;
-	}
-	const keptSizes = {};
-	for (const moduleId of moduleOrder) {
-		if (typeof moduleSizes[moduleId] === "number") {
-			keptSizes[moduleId] = moduleSizes[moduleId];
-		}
-	}
-	return replacePage(sheet, {
-		...page,
-		cardLayouts: page.cardLayouts.map((layout) =>
-			layout.id === layoutId
-				? { ...layout, moduleOrder: [...moduleOrder], moduleSizes: keptSizes }
-				: layout
-		),
-	});
-}
-
-// Commits a page arrangement draft: card order (by layout id) and per-card
-// widths (px; null/undefined width clears back to auto). Layout entries missing
-// from the given order are kept at the end rather than dropped.
-export function setPageArrangement(sheet, pageId, { layoutOrder, cardWidths = {} }) {
-	const page = sheet.pages.find((existing) => existing.id === pageId);
-	if (!page) {
-		return sheet;
-	}
-	const byId = new Map(page.cardLayouts.map((layout) => [layout.id, layout]));
-	const ordered = layoutOrder.map((id) => byId.get(id)).filter(Boolean);
-	for (const layout of page.cardLayouts) {
-		if (!layoutOrder.includes(layout.id)) {
-			ordered.push(layout);
-		}
-	}
-	return replacePage(sheet, {
-		...page,
-		cardLayouts: ordered.map((layout) => {
-			if (!(layout.id in cardWidths)) {
+		cardLayouts: page.cardLayouts.map((layout) => {
+			if (layout.id !== layoutId) {
 				return layout;
 			}
-			const width = cardWidths[layout.id];
-			if (typeof width === "number") {
-				return { ...layout, cardWidth: width };
-			}
-			const { cardWidth, ...rest } = layout;
-			return rest;
+			const { [moduleId]: removed, ...moduleRects } = layout.moduleRects || {};
+			return { ...layout, moduleOrder: layout.moduleOrder.filter((id) => id !== moduleId), moduleRects };
 		}),
+	});
+}
+
+// Modules can be dragged and resized past the card's current edges while its
+// layout is being edited, so on save the card takes on whatever size they now
+// need — the user rearranges modules and the card follows, instead of having
+// to go resize the card afterwards to reveal what's hidden behind a scrollbar.
+// Grow-only: shrinking here would silently undo a size the user set by hand in
+// Arrange Cards mode.
+function growRectToFitModules(rect, card, moduleRects) {
+	if (!rect || !card) {
+		return rect;
+	}
+	const needed = fitCardToModules(card, moduleRects);
+	return {
+		...rect,
+		width: Math.max(rect.width, needed.width),
+		height: Math.max(rect.height, needed.height),
+	};
+}
+
+// Commits a card layout editor draft: which modules are included, and each
+// one's rect ({ x, y, width, height } in px). Rects for modules no longer in
+// the order are dropped, and the card itself grows to fit what's left.
+export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder, moduleRects = {} }) {
+	const page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	const keptRects = {};
+	for (const moduleId of moduleOrder) {
+		if (moduleRects[moduleId]) {
+			keptRects[moduleId] = moduleRects[moduleId];
+		}
+	}
+	return replacePage(sheet, {
+		...page,
+		cardLayouts: page.cardLayouts.map((layout) =>
+			layout.id === layoutId
+				? {
+						...layout,
+						moduleOrder: [...moduleOrder],
+						moduleRects: keptRects,
+						rect: growRectToFitModules(layout.rect, sheet.cards[layout.cardId], keptRects),
+				  }
+				: layout
+		),
+	});
+}
+
+// Commits a page arrangement draft: each card layout's rect ({ x, y, width,
+// height } in px, all multiples of 5). Card layout order in the page's array
+// is otherwise untouched — visual position comes entirely from rect.
+export function setPageArrangement(sheet, pageId, { rects = {} }) {
+	const page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	return replacePage(sheet, {
+		...page,
+		cardLayouts: page.cardLayouts.map((layout) => (rects[layout.id] ? { ...layout, rect: rects[layout.id] } : layout)),
 	});
 }
 
@@ -239,6 +447,85 @@ export function setTextPlain(sheet, pieceId, text) {
 
 export function setDropdownSelection(sheet, pieceId, selectedIndex) {
 	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, selectedIndex }));
+}
+
+export function setImageSrc(sheet, pieceId, src) {
+	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, src }));
+}
+
+// ---------- Variable-length modules ----------
+//
+// A few module types hold a list the user grows and shrinks in place: text lines
+// (Proficiencies and Languages), name+quantity rows (Equipment, Treasure), and
+// checkboxes (hit dice spent, death saves, charges). They differ only in how many
+// pieces make up one row, so one pair of ops covers all of them.
+const MODULE_ROW_SHAPES = {
+	listText: [() => createTextPiece({ label: "Item" })],
+	itemList: [
+		() => createTextPiece({ label: "Item Name" }),
+		() => createTextPiece({ label: "Qty", text: "1", numberLocked: true }),
+	],
+	checkboxRow: [() => createCheckboxPiece({ label: "Use" })],
+	columnHeader: [() => createTextPiece({ label: "Column", text: "Column" })],
+};
+
+export function getModuleRowShape(type) {
+	return MODULE_ROW_SHAPES[type] || null;
+}
+
+export function getModuleRowCount(module) {
+	const shape = getModuleRowShape(module?.type);
+	return shape ? Math.floor(module.pieceOrder.length / shape.length) : 0;
+}
+
+function replaceModule(sheet, cardId, module) {
+	const card = sheet.cards[cardId];
+	if (!card) {
+		return sheet;
+	}
+	return replaceCard(sheet, { ...card, modules: { ...card.modules, [module.id]: module } });
+}
+
+// Appends one row's worth of pieces to a variable-length module.
+export function addModuleRow(sheet, cardId, moduleId) {
+	const module = sheet.cards[cardId]?.modules[moduleId];
+	const shape = getModuleRowShape(module?.type);
+	if (!shape) {
+		return sheet;
+	}
+	const pieces = { ...module.pieces };
+	const pieceOrder = [...module.pieceOrder];
+	for (const makePiece of shape) {
+		const piece = makePiece();
+		pieces[piece.id] = piece;
+		pieceOrder.push(piece.id);
+	}
+	return replaceModule(sheet, cardId, { ...module, pieces, pieceOrder });
+}
+
+// Drops row `rowIndex` (and every piece in it). Nothing guards against another
+// card referencing one of those pieces — a dangling reference already renders as
+// a marked em dash rather than crashing (see getPieceNumericValue), and the
+// reference-picking UI that would make this reachable isn't built yet.
+export function removeModuleRow(sheet, cardId, moduleId, rowIndex) {
+	const module = sheet.cards[cardId]?.modules[moduleId];
+	const shape = getModuleRowShape(module?.type);
+	if (!shape) {
+		return sheet;
+	}
+	const removedIds = module.pieceOrder.slice(rowIndex * shape.length, (rowIndex + 1) * shape.length);
+	if (!removedIds.length) {
+		return sheet;
+	}
+	const pieces = { ...module.pieces };
+	for (const pieceId of removedIds) {
+		delete pieces[pieceId];
+	}
+	return replaceModule(sheet, cardId, {
+		...module,
+		pieces,
+		pieceOrder: module.pieceOrder.filter((pieceId) => !removedIds.includes(pieceId)),
+	});
 }
 
 export function setDropdownOptions(sheet, pieceId, options) {
