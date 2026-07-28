@@ -17,6 +17,8 @@ import InitiativeTrackerLandingPage from "./pages/InitiativeTrackerLandingPage";
 import InitiativePage from "./pages/InitiativePage";
 
 import SpellSearchPage from "./pages/SpellSearchPage";
+import TheLibrary from "./pages/TheLibrary";
+import CharacterSheetPage from "./pages/CharacterSheetPage";
 
 import ArticlesIndexPage from "./pages/ArticlesIndexPage";
 import ArticlePage from "./pages/ArticlePage";
@@ -25,7 +27,11 @@ import ArticlePage from "./pages/ArticlePage";
 
 function AppContent() {
   const location = useLocation();
-  const showFooterBar = location.pathname !== "/initiative" && location.pathname !== "/spell-search";
+  const showFooterBar =
+    location.pathname !== "/initiative" &&
+    location.pathname !== "/spell-search" &&
+    location.pathname !== "/library" &&
+    location.pathname !== "/character-sheet";
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFooterExpanded, setIsFooterExpanded] = useState(false);
@@ -56,6 +62,8 @@ function AppContent() {
           <Route path="/initiative" element={<InitiativePage />} />
           <Route path="/initiative-tracker" element={<InitiativeTrackerLandingPage />} />
           <Route path="/spell-search" element={<SpellSearchPage />} />
+          <Route path="/library" element={<TheLibrary />} />
+          <Route path="/character-sheet" element={<CharacterSheetPage />} />
 
 
           <Route path="/about" element={<AboutPage />} />

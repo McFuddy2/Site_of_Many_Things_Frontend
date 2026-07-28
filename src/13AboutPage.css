@@ -40,6 +40,11 @@
   scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
 }
 
+.kofi-supporters-list {
+  min-height: 2rem;
+  color: var(--text-secondary, #475569);
+}
+
 @media screen and (max-width: 599px), screen and (min-width: 600px) and (max-width: 1024px) {
   .about-page-wrapper {
     height: 90%;
