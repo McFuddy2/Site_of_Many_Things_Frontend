@@ -1,0 +1,1753 @@
+/* Character Sheet tool. Visual style follows the "React DnD Character Sheet
+   Visual Mockup v2" deck: navy card headers, white card bodies, and pastel
+   color-coding by module type (variable / checkbox / text / button / dropdown). */
+
+.cs-page {
+	--cs-navy: #22385c;
+	--cs-navy-dark: #16263f;
+	--cs-canvas-bg: #eef1f5;
+	--cs-card-bg: #ffffff;
+	--cs-variable-bg: #d7e6f7;
+	--cs-variable-border: #8fb3d9;
+	--cs-checkbox-bg: #d9efd7;
+	--cs-checkbox-border: #93c48e;
+	--cs-text-bg: #faf3d3;
+	--cs-text-border: #d8c67e;
+	--cs-button-bg: #f7d9d9;
+	--cs-button-border: #d99090;
+	--cs-dropdown-bg: #e6dcf2;
+	--cs-dropdown-border: #b394d6;
+
+	/* Per-ability tints (from the card mockups): every module that belongs to an
+	   ability — its score tile, its saving throw, and each skill it governs —
+	   carries the same colour, so a Wisdom skill reads as Wisdom at a glance.
+	   Each ability has a saturated header bar and a pale body to sit under it. */
+	--cs-str-bar: #a01b1b;
+	--cs-str-bg: #f6d5d5;
+	--cs-str-border: #d99a9a;
+	--cs-dex-bar: #1e6b32;
+	--cs-dex-bg: #d7ecd7;
+	--cs-dex-border: #93c48e;
+	--cs-con-bar: #b5651d;
+	--cs-con-bg: #fce3c8;
+	--cs-con-border: #dfae7a;
+	--cs-int-bar: #1a6fd4;
+	--cs-int-bg: #cfe3f8;
+	--cs-int-border: #8fb3d9;
+	--cs-wis-bar: #b08400;
+	--cs-wis-bg: #fbf0cd;
+	--cs-wis-border: #d8c67e;
+	--cs-cha-bar: #6b2d8f;
+	--cs-cha-bg: #e2d7f2;
+	--cs-cha-border: #b394d6;
+
+	/* Field chrome: the mid-blue header bar that names a field, over the pale
+	   body its value sits in — the single most repeated shape in the mockups. */
+	--cs-field-bar: #5b9bd5;
+	--cs-field-bar-text: #12243d;
+	--cs-field-bg: #dce9f7;
+	--cs-field-border: #4a7fb5;
+
+	/* Grey column-heading strip above a stack of skill/save rows. */
+	--cs-header-bg: #c9cbcd;
+	--cs-header-border: #8f9295;
+
+	/* Success/failure rows (death saves) and list rows (equipment, languages). */
+	--cs-success-bar: #8fc48a;
+	--cs-success-bg: #d9efd7;
+	--cs-success-border: #6da768;
+	--cs-danger-bar: #e08585;
+	--cs-danger-bg: #f7d9d9;
+	--cs-danger-border: #c46b6b;
+	--cs-list-bg: #efe8f8;
+	--cs-list-alt-bg: #cfc0e8;
+	--cs-list-border: #9b83c4;
+
+	/* Coin colours for the Currency module. */
+	--cs-coin-total: #d9a441;
+	--cs-coin-pp: #d8e6f2;
+	--cs-coin-gp: #f5e26b;
+	--cs-coin-sp: #d8dce0;
+	--cs-coin-cp: #e8b07a;
+
+	/* Direct-manipulation chrome (see snapping.js / useLayoutCanvas): blue for
+	   selection, magenta for alignment guides — deliberately outside the card
+	   palette above so neither can be mistaken for card content. */
+	--cs-select-blue: #1a73e8;
+	--cs-guide-magenta: #ff00c8;
+
+	font-family: Arial, Helvetica, sans-serif;
+	background-color: var(--cs-canvas-bg);
+	height: calc(var(--app-vh) - var(--header-height));
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 1rem 1rem 0;
+	box-sizing: border-box;
+}
+
+/* ---------- Top bar ---------- */
+
+.cs-topbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+/* Everything beneath the top bar (canvas, empty state, custom-card builder,
+   arrange mode) — fills whatever height .cs-page has left over so the canvas
+   isn't stuck at its content's own fit-to-size height (see boundingHeight in
+   grid.js), and scrolls internally when content runs taller than that. */
+.cs-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding-bottom: 1rem;
+}
+
+.cs-topbar-group {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.cs-topbar-button {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+	border: none;
+	border-radius: 6px;
+	padding: 0.5rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.cs-topbar-button:hover {
+	background-color: var(--cs-navy-dark);
+}
+
+.cs-topbar-button--primary {
+	background-color: #2e6b46;
+}
+
+.cs-topbar-button--primary:hover {
+	background-color: #215033;
+}
+
+.cs-page-tab {
+	background-color: #ffffff;
+	color: var(--cs-navy);
+	border: 2px solid var(--cs-navy);
+	border-radius: 6px 6px 0 0;
+	padding: 0.45rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.cs-page-tab--active {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+}
+
+/* ---------- Canvas and cards ---------- */
+
+/* Free-form grid canvas: cards sit at an explicit, always-snapped-to-5px
+   { x, y, width, height } (see grid.js) rather than flowing automatically —
+   the user drags/resizes them anywhere, never overlapping a sibling. This
+   container's height is computed from its content's bounding box (see
+   boundingHeight) since absolutely-positioned children contribute none of
+   their own. */
+.cs-canvas {
+	position: relative;
+	height: 100%;
+	box-sizing: border-box;
+	overflow-x: auto;
+}
+
+/* The invisible 5px grid, toggled on via the topbar "Show Grid" button. */
+.cs-canvas--grid {
+	background-image: repeating-linear-gradient(to right, rgba(74, 103, 156, 0.18) 0 1px, transparent 1px 5px),
+		repeating-linear-gradient(to bottom, rgba(74, 103, 156, 0.18) 0 1px, transparent 1px 5px);
+}
+
+.cs-empty {
+	color: #55617a;
+	font-style: italic;
+	padding: 2rem 0.5rem;
+}
+
+.cs-card {
+	background-color: var(--cs-card-bg);
+	border: 2px solid var(--cs-navy);
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.cs-card-header {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+	font-size: 1.05rem;
+	font-weight: bold;
+	padding: 0.55rem 1rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.8rem;
+}
+
+.cs-card-header-edit {
+	background: none;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 5px;
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 0.72rem;
+	padding: 0.2rem 0.55rem;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.cs-card-header-edit:hover {
+	background-color: rgba(255, 255, 255, 0.15);
+	color: #ffffff;
+}
+
+.cs-card-header-note {
+	font-size: 0.72rem;
+	font-weight: normal;
+	font-style: italic;
+	color: rgba(255, 255, 255, 0.8);
+	white-space: nowrap;
+}
+
+/* Card body: modules are positioned absolutely inside it at their own
+   { x, y, width, height } (see grid.js), so this just needs to be the
+   positioning root and fill whatever height the card's own resize leaves it
+   (flex: 1 within .cs-card's column layout) — content past that scrolls. */
+.cs-card-body {
+	position: relative;
+	flex: 1 1 auto;
+	overflow: auto;
+	box-sizing: border-box;
+	padding: 0.8rem;
+}
+
+/* ---------- Modules (pastel color-coding by type) ---------- */
+
+/* Every size inside a module is expressed in --cs-u ("module unit"), a scaled
+   rem: at a module's design size --cs-scale is 1 so --cs-u is 1rem and the
+   module looks exactly as designed; resizing the box changes --cs-scale (set
+   inline on the slot, see moduleSlotProps / getModuleContentScale) so all the
+   fonts, padding and gaps below grow or shrink together with it. Content wraps
+   and is clipped rather than scrolled — the scale is chosen so the designed
+   content always fits, so nothing is actually clipped (see getModuleContentScale). */
+.cs-module {
+	--cs-u: calc(var(--cs-scale, 1) * 1rem);
+	font-size: var(--cs-u);
+	border-radius: 0.5em;
+	border: 2px solid;
+	padding: 0.5em 0.6em;
+	box-sizing: border-box;
+	overflow: hidden;
+	overflow-wrap: break-word;
+}
+
+.cs-module--variable {
+	background-color: var(--cs-variable-bg);
+	border-color: var(--cs-variable-border);
+}
+
+.cs-module--checkbox {
+	background-color: var(--cs-checkbox-bg);
+	border-color: var(--cs-checkbox-border);
+}
+
+.cs-module--text {
+	background-color: var(--cs-text-bg);
+	border-color: var(--cs-text-border);
+}
+
+.cs-module--button {
+	background-color: var(--cs-button-bg);
+	border-color: var(--cs-button-border);
+}
+
+.cs-module--dropdown {
+	background-color: var(--cs-dropdown-bg);
+	border-color: var(--cs-dropdown-border);
+}
+
+.cs-module--header {
+	background-color: var(--cs-header-bg);
+	border-color: var(--cs-header-border);
+}
+
+.cs-module--list {
+	background-color: var(--cs-list-bg);
+	border-color: var(--cs-list-border);
+}
+
+.cs-module--currency {
+	background-color: #fbf6e8;
+	border-color: var(--cs-coin-total);
+}
+
+.cs-module--success {
+	background-color: var(--cs-success-bg);
+	border-color: var(--cs-success-border);
+}
+
+.cs-module--danger {
+	background-color: var(--cs-danger-bg);
+	border-color: var(--cs-danger-border);
+}
+
+/* Ability-tinted modules. Each ability class only sets the three --cs-a-* slots;
+   everything that needs the colour (the module box, its header bar, its row
+   background) reads them, so adding an ability is one three-line rule. */
+.cs-module--ability {
+	background-color: var(--cs-a-bg);
+	border-color: var(--cs-a-border);
+}
+
+.cs-module--strength {
+	--cs-a-bar: var(--cs-str-bar);
+	--cs-a-bg: var(--cs-str-bg);
+	--cs-a-border: var(--cs-str-border);
+}
+
+.cs-module--dexterity {
+	--cs-a-bar: var(--cs-dex-bar);
+	--cs-a-bg: var(--cs-dex-bg);
+	--cs-a-border: var(--cs-dex-border);
+}
+
+.cs-module--constitution {
+	--cs-a-bar: var(--cs-con-bar);
+	--cs-a-bg: var(--cs-con-bg);
+	--cs-a-border: var(--cs-con-border);
+}
+
+.cs-module--intelligence {
+	--cs-a-bar: var(--cs-int-bar);
+	--cs-a-bg: var(--cs-int-bg);
+	--cs-a-border: var(--cs-int-border);
+}
+
+.cs-module--wisdom {
+	--cs-a-bar: var(--cs-wis-bar);
+	--cs-a-bg: var(--cs-wis-bg);
+	--cs-a-border: var(--cs-wis-border);
+}
+
+.cs-module--charisma {
+	--cs-a-bar: var(--cs-cha-bar);
+	--cs-a-bg: var(--cs-cha-bg);
+	--cs-a-border: var(--cs-cha-border);
+}
+
+/* Module slots: each sits at an explicit { x, y, width, height } (set inline
+   via moduleSlotProps — see grid.js) rather than flowing/packing, and its
+   module always fills that box; content scales to fit the box (see --cs-scale)
+   rather than scrolling, so neither the slot nor the module shows a scrollbar.
+   Descendant selector on purpose: in the layout editor the module sits one
+   level deeper (inside the drag wrapper's content div) than in the read-only
+   card. */
+.cs-module-slot {
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+.cs-module-slot .cs-module {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* In the layout editor, the slot (.cs-layout-module-wrap) also carries the
+   remove-x button and resize handles, which are deliberately positioned a
+   few px past its edges (see .cs-layout-remove-x / .cs-handle). With
+   overflow: auto inherited from .cs-module-slot above, the browser counts
+   that intentional overhang as overflow and draws a scrollbar on the slot
+   itself — even though nothing inside it is actually clipped. The one true
+   scrollable surface is .cs-module (its own overflow: auto, right above),
+   so the wrap itself just needs to stop clipping/scrolling. */
+.cs-layout-module-wrap.cs-module-slot {
+	overflow: visible;
+}
+
+.cs-module-title {
+	font-weight: bold;
+	font-size: 0.85em;
+	color: var(--cs-navy-dark);
+	margin-bottom: 0.3em;
+}
+
+.cs-field-label {
+	font-size: 0.7em;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #4a5670;
+	margin-top: 0.25em;
+}
+
+/* ---------- The field shell ----------
+   A bold bar naming the field, with the value directly beneath it — the shape
+   nearly every module in the spec is drawn as (Class, Level, Walking Speed,
+   Personality Traits…). The bar is full-bleed, so the module drops its own
+   padding and the body carries it instead. */
+.cs-field-module {
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.cs-field-bar {
+	background-color: var(--cs-a-bar, var(--cs-field-bar));
+	color: var(--cs-field-bar-text);
+	font-size: 0.78em;
+	font-weight: bold;
+	text-align: center;
+	line-height: 1.25;
+	padding: 0.2em 0.35em;
+	border-bottom: 2px solid var(--cs-a-border, var(--cs-field-border));
+	overflow-wrap: break-word;
+	flex-shrink: 0;
+}
+
+/* Ability bars are saturated enough to need light text on them. */
+.cs-module--ability .cs-field-bar {
+	color: #ffffff;
+}
+
+.cs-field-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.3em 0.4em;
+}
+
+/* Ability score stat tile: bar, big bonus, then the editable score beneath. */
+.cs-ability-tile {
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	text-align: center;
+}
+
+.cs-ability-bonus {
+	font-size: 1.8em;
+	font-weight: bold;
+	color: #1a1a1a;
+	line-height: 1.1;
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cs-ability-tile .cs-field-label {
+	margin-top: 0;
+	padding-top: 0.15em;
+}
+
+.cs-ability-score-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.3em;
+	padding: 0.15em 0.25em 0.3em;
+}
+
+.cs-ability-score-row .cs-input-number {
+	width: calc(2.8 * var(--cs-u));
+}
+
+/* Number field: the value (plus its unit, e.g. "30ft") under the label bar. */
+.cs-value-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.15em;
+}
+
+.cs-value-suffix {
+	font-size: 0.85em;
+	color: #3a465e;
+}
+
+.cs-number-value {
+	font-size: 1.3em;
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+}
+
+/* A number input that reads as a bonus: the leading "+" a number input can't
+   render itself, drawn tight against the field (see NumberInput). */
+.cs-signed-input {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.05em;
+}
+
+.cs-value-sign {
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+}
+
+/* Headline value with no label of its own — the card title names it
+   (Armor Class, Initiative, Proficiency Bonus). */
+.cs-big-number-tile {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: #f0f0f0;
+	border-color: #b9c2cf;
+}
+
+.cs-big-value {
+	font-size: 2em;
+	font-weight: bold;
+	color: #1a1a1a;
+}
+
+.cs-big-number-tile .cs-value-sign {
+	font-size: 2em;
+}
+
+/* Character Name / attack name: one oversized field. */
+.cs-big-text-tile {
+	display: flex;
+	align-items: center;
+	background-color: #f0f0f0;
+	border-color: #b9c2cf;
+}
+
+.cs-input-big {
+	font-size: 1.6em;
+	font-weight: bold;
+	width: 100%;
+	text-align: center;
+	border: none;
+	background-color: transparent;
+	padding: 0.1em 0.2em;
+	color: #1a1a1a;
+}
+
+.cs-input-big:focus {
+	outline: 2px solid var(--cs-select-blue);
+	border-radius: 0.15em;
+}
+
+/* Saving throw / skill rows, and the grey column strip above a stack of them.
+   The two share column widths so the headings line up with the rows. */
+.cs-save-row {
+	display: flex;
+	align-items: center;
+	gap: 0.4em;
+	width: 100%;
+	padding: 0.2em 0.35em;
+}
+
+.cs-save-bonus,
+.cs-save-row .cs-input-number,
+.cs-save-row .cs-signed-input {
+	flex: 0 0 calc(2.6 * var(--cs-u));
+	font-size: 1em;
+	font-weight: bold;
+	color: #1a1a1a;
+	text-align: center;
+	justify-content: center;
+}
+
+.cs-save-label {
+	flex: 1 1 auto;
+	font-size: 0.95em;
+	color: #1f2a3d;
+	text-align: center;
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.cs-column-header {
+	display: flex;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.2em 0.35em;
+	font-weight: bold;
+}
+
+.cs-column-header .cs-input-flush:first-child {
+	flex: 0 0 calc(3.6 * var(--cs-u));
+	font-size: 0.62em;
+}
+
+.cs-column-header .cs-input-flush:nth-child(2) {
+	flex: 0 0 calc(2.6 * var(--cs-u));
+	font-size: 0.62em;
+}
+
+.cs-column-header .cs-input-flush:last-child {
+	flex: 1 1 auto;
+	font-size: 0.9em;
+}
+
+/* Passive score row: the value, then what it's the passive score of. */
+.cs-passive-row {
+	display: flex;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.2em 0.35em;
+}
+
+.cs-passive-value,
+.cs-passive-row .cs-input-number {
+	flex: 0 0 calc(2.6 * var(--cs-u));
+	font-size: 1.1em;
+	font-weight: bold;
+	color: #1a1a1a;
+	text-align: center;
+}
+
+.cs-passive-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 1em;
+}
+
+/* Text / textarea / checkbox / dropdown / generic tiles */
+.cs-text-tile .cs-field-body,
+.cs-textarea-tile .cs-field-body {
+	padding: 0.25em 0.3em;
+}
+
+.cs-textarea-tile .cs-field-body {
+	align-items: stretch;
+}
+
+.cs-checkbox-tile {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.55em;
+}
+
+.cs-generic-tile {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+	min-width: 7.2em;
+}
+
+/* A labelled run of checkboxes: death saves, hit dice spent, charges, uses. */
+.cs-checkbox-row {
+	display: flex;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.25em 0.35em;
+}
+
+.cs-checkbox-row-label {
+	font-size: 0.9em;
+	font-weight: bold;
+	color: #1f2a3d;
+	background-color: var(--cs-a-bar, rgba(255, 255, 255, 0.5));
+	border: 1px solid currentColor;
+	border-radius: 0.3em;
+	padding: 0.15em 0.4em;
+	white-space: nowrap;
+}
+
+.cs-module--success .cs-checkbox-row-label {
+	background-color: var(--cs-success-bar);
+}
+
+.cs-module--danger .cs-checkbox-row-label {
+	background-color: var(--cs-danger-bar);
+}
+
+/* Boxes wrap and stay centred, so shrinking the module reflows them into rows
+   rather than pushing the +/− controls out of reach. */
+.cs-checkbox-row-boxes {
+	flex: 1 1 auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35em;
+	min-width: 0;
+}
+
+/* +/− on a variable-length module (list rows, checkbox counts). Deliberately
+   small and low-contrast — they're chrome, not part of the sheet. */
+.cs-row-controls {
+	display: flex;
+	gap: 0.2em;
+	flex-shrink: 0;
+}
+
+.cs-row-btn {
+	width: 1.4em;
+	height: 1.4em;
+	line-height: 1;
+	font-size: 0.85em;
+	font-weight: bold;
+	padding: 0;
+	cursor: pointer;
+	color: var(--cs-navy);
+	background-color: rgba(255, 255, 255, 0.75);
+	border: 1px solid var(--cs-navy);
+	border-radius: 0.25em;
+}
+
+.cs-row-btn:hover:not(:disabled) {
+	background-color: #ffffff;
+}
+
+.cs-row-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+/* Lists: proficiencies/languages (one column) and equipment/treasure
+   (name + quantity). Rows alternate shade so a long list stays scannable. */
+.cs-list-tile .cs-field-body {
+	flex-direction: column;
+	align-items: stretch;
+	padding: 0.25em;
+}
+
+.cs-item-list {
+	padding: 0.25em;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15em;
+}
+
+.cs-list-rows {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.1em;
+}
+
+.cs-list-row,
+.cs-item-row {
+	display: flex;
+	align-items: center;
+	gap: 0.25em;
+	background-color: rgba(255, 255, 255, 0.55);
+	border: 1px solid var(--cs-list-border);
+	border-radius: 0.2em;
+	padding: 0 0.2em;
+}
+
+.cs-list-row--alt {
+	background-color: var(--cs-list-alt-bg);
+}
+
+.cs-item-head {
+	display: flex;
+	gap: 0.25em;
+	font-size: 0.72em;
+	font-weight: bold;
+	color: #1f2a3d;
+	background-color: var(--cs-header-bg);
+	border: 1px solid var(--cs-header-border);
+	border-radius: 0.2em;
+	padding: 0.1em 0.3em;
+	flex-shrink: 0;
+}
+
+.cs-item-head-name {
+	flex: 1 1 auto;
+	text-align: center;
+}
+
+.cs-item-head-qty,
+.cs-item-qty {
+	flex: 0 0 calc(2.2 * var(--cs-u));
+	text-align: center;
+}
+
+.cs-item-row .cs-input-flush:first-child {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+/* Inputs that sit inside a list/table row: no chrome of their own, so the row
+   itself is the visible cell. */
+.cs-input-flush {
+	width: 100%;
+	min-width: 0;
+	border: none;
+	background-color: transparent;
+	font-size: 0.85em;
+	text-align: center;
+	padding: 0.15em 0.2em;
+	color: #1f2a3d;
+	font-family: inherit;
+}
+
+.cs-input-flush:focus {
+	outline: 1px solid var(--cs-select-blue);
+	border-radius: 0.15em;
+}
+
+/* Portrait / symbol. */
+.cs-image-tile {
+	padding: 0.3em;
+}
+
+.cs-image-piece {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+	min-height: 0;
+}
+
+.cs-image-preview {
+	flex: 1 1 auto;
+	min-height: 0;
+	width: 100%;
+	object-fit: contain;
+	border-radius: 0.25em;
+}
+
+.cs-image-empty {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.8em;
+	font-style: italic;
+	color: #55617a;
+	background-color: rgba(255, 255, 255, 0.6);
+	border: 1px dashed #8b97ad;
+	border-radius: 0.25em;
+}
+
+.cs-image-controls {
+	display: flex;
+	gap: 0.25em;
+	flex-shrink: 0;
+}
+
+.cs-image-url {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto;
+	font-size: 0.75em;
+	text-align: left;
+}
+
+.cs-btn--small {
+	font-size: 0.75em;
+	padding: 0.2em 0.5em;
+	border-width: 1px;
+	border-color: var(--cs-navy);
+	color: var(--cs-navy);
+	flex-shrink: 0;
+}
+
+/* Visually hidden but still focusable/clickable — the real <input type="file">
+   behind the "Upload" button. */
+.cs-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* Currency: the live gold total over the four coin quantities, each row in its
+   own metal's colour. */
+.cs-currency-tile {
+	padding: 0.25em;
+	display: flex;
+	flex-direction: column;
+	gap: 0.12em;
+}
+
+.cs-currency-row {
+	flex: 1 1 0;
+	display: flex;
+	align-items: center;
+	gap: 0.25em;
+	border: 1px solid #a89056;
+	border-radius: 0.2em;
+	padding: 0 0.25em;
+	min-height: 0;
+}
+
+.cs-currency-label {
+	flex: 1 1 auto;
+	font-size: 0.78em;
+	font-weight: bold;
+	color: #1f2a3d;
+	text-align: center;
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.cs-currency-value,
+.cs-currency-input {
+	flex: 0 0 calc(3 * var(--cs-u));
+	width: auto;
+	font-size: 0.85em;
+	text-align: center;
+	background-color: #ffffff;
+	border: 1px solid #a89056;
+	border-radius: 0.15em;
+	padding: 0.1em 0.15em;
+}
+
+.cs-currency-row--total {
+	background-color: var(--cs-coin-total);
+}
+
+.cs-currency-row--total .cs-currency-label {
+	color: #ffffff;
+}
+
+.cs-coin--pp {
+	background-color: var(--cs-coin-pp);
+}
+
+.cs-coin--gp {
+	background-color: var(--cs-coin-gp);
+}
+
+.cs-coin--sp {
+	background-color: var(--cs-coin-sp);
+}
+
+.cs-coin--cp {
+	background-color: var(--cs-coin-cp);
+}
+
+/* One spell: name, the five stat columns, then the description. */
+.cs-spell-tile {
+	padding: 0.35em 0.5em;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+}
+
+.cs-spell-name {
+	width: 100%;
+	font-size: 1.1em;
+	font-weight: bold;
+	text-align: center;
+	border: none;
+	background-color: transparent;
+	color: #1a1a1a;
+	padding: 0.1em;
+}
+
+.cs-spell-columns {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25em;
+	flex-shrink: 0;
+}
+
+.cs-spell-column {
+	flex: 1 1 5em;
+	min-width: 0;
+	text-align: center;
+}
+
+.cs-spell-column-label {
+	display: block;
+	font-size: 0.7em;
+	font-weight: bold;
+	color: #1f2a3d;
+}
+
+.cs-spell-tile .cs-input-textarea {
+	flex: 1 1 auto;
+}
+
+.cs-text-display {
+	font-size: 0.9em;
+	color: #1f2a3d;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+/* Damage/Heal control */
+.cs-damage-heal-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.45em;
+	width: 100%;
+}
+
+.cs-damage-heal-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.6em;
+}
+
+/* ---------- Inputs and buttons ---------- */
+
+.cs-input-number,
+.cs-input-text {
+	width: calc(4.5 * var(--cs-u, 1rem));
+	max-width: 100%;
+	padding: 0.3em 0.4em;
+	font-size: 0.95em;
+	text-align: center;
+	border: 1px solid #8b97ad;
+	border-radius: 0.32em;
+	background-color: #ffffff;
+	box-sizing: border-box;
+}
+
+/* Inside a field shell the input fills the body it sits in, rather than keeping
+   the fixed width a standalone input has. */
+.cs-field-body > .cs-input-text,
+.cs-field-body > .cs-select {
+	width: 100%;
+}
+
+.cs-input-textarea {
+	width: 100%;
+	height: 100%;
+	min-height: calc(2.5 * var(--cs-u, 1rem));
+	padding: 0.3em 0.4em;
+	font-size: 0.85em;
+	font-family: inherit;
+	line-height: 1.35;
+	border: 1px solid #8b97ad;
+	border-radius: 0.32em;
+	background-color: #ffffff;
+	box-sizing: border-box;
+	resize: none;
+}
+
+.cs-checkbox {
+	width: 1.1em;
+	height: 1.1em;
+	accent-color: var(--cs-navy);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.cs-btn {
+	border: 2px solid;
+	border-radius: 0.4em;
+	padding: 0.35em 0.9em;
+	font-size: 0.9em;
+	font-weight: bold;
+	cursor: pointer;
+	background-color: #ffffff;
+	max-width: 100%;
+}
+
+.cs-btn--damage {
+	color: #9c2b2b;
+	border-color: #c96b6b;
+}
+
+.cs-btn--damage:hover {
+	background-color: #f6dcdc;
+}
+
+.cs-btn--heal {
+	color: #2e6b46;
+	border-color: #6fae8a;
+}
+
+.cs-btn--heal:hover {
+	background-color: #ddefe4;
+}
+
+.cs-select {
+	padding: 0.35em 0.5em;
+	font-size: 0.9em;
+	max-width: 100%;
+	border: 1px solid #8b97ad;
+	border-radius: 0.32em;
+	background-color: #ffffff;
+}
+
+/* Broken reference marker (missing/circular) */
+.cs-ref-error {
+	color: #b3261e;
+	font-weight: bold;
+	cursor: help;
+}
+
+/* ---------- Layout editor ---------- */
+
+/* Positioning root for a card being edited: the card itself (rounded corners,
+   overflow: hidden) is one child, and the Undo/Redo/Confirm toolbar (see
+   .cs-layout-controls) is a sibling docked just outside its bottom edge —
+   kept out of the card so the chrome never affects the card's own layout box. */
+.cs-layout-editor-wrap {
+	position: absolute;
+}
+
+/* While editing, the card grows to fit its modules alone instead of being
+   held to its stored (confirmed) display height — otherwise a small card has
+   no room left once opened. */
+.cs-card.cs-card--editing {
+	height: auto;
+	border-style: dashed;
+	border-color: #4a679c;
+}
+
+/* Cursor, touch-action and the drag/selected states all come from
+   .cs-canvas-item, which every module tile also carries. */
+.cs-layout-module-wrap {
+	border-radius: 8px;
+}
+
+/* Values are display-only while arranging the layout; sized to fill the
+   slot (see .cs-module-slot .cs-module) same as the read-only card. */
+.cs-layout-module-content {
+	pointer-events: none;
+	user-select: none;
+	width: 100%;
+	height: 100%;
+}
+
+.cs-layout-remove-x {
+	position: absolute;
+	top: -0.45rem;
+	right: -0.45rem;
+	z-index: 6;
+	width: 1.3rem;
+	height: 1.3rem;
+	border-radius: 50%;
+	border: 2px solid #9c2b2b;
+	background-color: #ffffff;
+	color: #9c2b2b;
+	font-size: 0.75rem;
+	font-weight: bold;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+
+.cs-layout-remove-x:hover {
+	background-color: #f6dcdc;
+}
+
+/* ---------- Direct manipulation: selection, handles, guides, marquee ----------
+   Shared by both free-form canvases — cards in Arrange Cards mode and modules
+   in Edit Layout. See useLayoutCanvas for the behaviour these express. */
+
+/* Every draggable item on a canvas. touch-action: none hands the gesture to
+   our pointer handlers instead of letting the browser scroll/pan with it,
+   which is what makes this work identically on trackpad and touch. There are
+   deliberately no transitions on position or size: any easing here reads as
+   lag against the pointer, which is exactly what direct manipulation must not
+   do. */
+.cs-canvas-item {
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	z-index: 1;
+}
+
+/* Hover: a quiet hint that the item is live. Selected: unmistakably active. */
+.cs-canvas-item:hover {
+	outline: 1px solid rgba(26, 115, 232, 0.45);
+	outline-offset: 1px;
+}
+
+.cs-canvas-item--selected {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 1px;
+	z-index: 5;
+}
+
+/* Raised above every sibling for the duration of the gesture. */
+.cs-canvas-item--active {
+	cursor: grabbing;
+	z-index: 20;
+	box-shadow: 0 4px 14px rgba(22, 38, 63, 0.4);
+}
+
+/* 8 handles: 4 corners + 4 edge midpoints. Each is bigger than it looks
+   (a 12px hit area around an 8px square) so it stays grabbable on a trackpad
+   without visually crowding a small module. */
+.cs-handle {
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	z-index: 21;
+	touch-action: none;
+}
+
+.cs-handle::after {
+	content: "";
+	position: absolute;
+	inset: 2px;
+	background-color: #ffffff;
+	border: 1.5px solid var(--cs-select-blue);
+	border-radius: 2px;
+	box-shadow: 0 1px 2px rgba(22, 38, 63, 0.35);
+}
+
+.cs-handle:hover::after {
+	background-color: var(--cs-select-blue);
+}
+
+.cs-handle--nw,
+.cs-handle--w,
+.cs-handle--sw {
+	left: -6px;
+}
+
+.cs-handle--ne,
+.cs-handle--e,
+.cs-handle--se {
+	right: -6px;
+}
+
+.cs-handle--nw,
+.cs-handle--n,
+.cs-handle--ne {
+	top: -6px;
+}
+
+.cs-handle--sw,
+.cs-handle--s,
+.cs-handle--se {
+	bottom: -6px;
+}
+
+/* Edge midpoints centre themselves on the side they sit on. */
+.cs-handle--n,
+.cs-handle--s {
+	left: 50%;
+	margin-left: -6px;
+}
+
+.cs-handle--w,
+.cs-handle--e {
+	top: 50%;
+	margin-top: -6px;
+}
+
+/* Alignment guides: thin, high-contrast, and drawn only while an alignment is
+   actually being held (they're rebuilt from each frame's snap result, so they
+   can't get stuck on screen). */
+.cs-guide {
+	position: absolute;
+	background-color: var(--cs-guide-magenta);
+	pointer-events: none;
+	z-index: 30;
+}
+
+.cs-guide--vertical {
+	width: 1px;
+	margin-left: -0.5px;
+}
+
+.cs-guide--horizontal {
+	height: 1px;
+	margin-top: -0.5px;
+}
+
+/* Marquee (drag-select) box. */
+.cs-marquee {
+	position: absolute;
+	background-color: rgba(26, 115, 232, 0.12);
+	border: 1px solid var(--cs-select-blue);
+	pointer-events: none;
+	z-index: 25;
+}
+
+/* Dashed box around a multi-selection — the individual members keep their own
+   solid outlines, this just shows what the group actions will operate on. */
+.cs-group-bounds {
+	position: absolute;
+	border: 1px dashed var(--cs-select-blue);
+	pointer-events: none;
+	z-index: 4;
+}
+
+/* A canvas that *is* another element's box (the card body in Edit Layout)
+   rather than a standalone scroll area — it must not clip the guides or
+   handles that deliberately overhang its edges. */
+.cs-canvas--flush {
+	overflow: visible;
+}
+
+/* ---------- Precision panel ---------- */
+
+.cs-precision-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	background-color: #ffffff;
+	border: 1px solid #c6cfdd;
+	border-radius: 8px;
+	padding: 0.5rem 0.65rem;
+	margin-bottom: 1rem;
+}
+
+.cs-precision-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+.cs-precision-title {
+	font-weight: bold;
+	font-size: 0.85rem;
+	color: var(--cs-navy-dark);
+}
+
+.cs-precision-field {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.cs-precision-field-label {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #4a5670;
+	font-weight: bold;
+}
+
+.cs-precision-input {
+	width: 4.5rem;
+	border: 1px solid #c6cfdd;
+	border-radius: 5px;
+	padding: 0.2rem 0.35rem;
+	font-size: 0.8rem;
+}
+
+.cs-precision-btn,
+.cs-precision-toggle {
+	background-color: #f2f5fa;
+	border: 1px solid #c6cfdd;
+	border-radius: 5px;
+	color: var(--cs-navy-dark);
+	font-size: 0.75rem;
+	padding: 0.25rem 0.5rem;
+	cursor: pointer;
+}
+
+.cs-precision-btn:hover,
+.cs-precision-toggle:hover {
+	background-color: #e3eaf5;
+}
+
+.cs-precision-toggle--on {
+	background-color: var(--cs-select-blue);
+	border-color: var(--cs-select-blue);
+	color: #ffffff;
+}
+
+.cs-precision-toggle--on:hover {
+	background-color: #1663c8;
+}
+
+/* ---------- Arrange Cards mode ---------- */
+
+/* Fills whatever height .cs-body has left under the top bar, same as the
+   normal canvas — see .cs-arrange-body below. */
+.cs-arrange {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+/* Deliberately its own standalone toolbar rather than reusing
+   .cs-layout-controls (CardLayoutEditor's docked, absolutely-positioned
+   footer) — sharing that class here made this bar inherit position:absolute
+   and float detached from the page, overlapping the site header. */
+.cs-arrange-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6rem;
+	flex-shrink: 0;
+	border: 1px solid #c6cfdd;
+	border-radius: 8px;
+	background-color: #f4f6fa;
+	padding: 0.6rem 0.75rem;
+	margin-bottom: 1rem;
+}
+
+/* .cs-layout-controls-group stacks its buttons vertically for the docked
+   per-card footer it was designed for — this toolbar is a horizontal row,
+   so its groups lay out the same way. */
+.cs-arrange-controls .cs-layout-controls-group {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.cs-arrange > .cs-precision-panel {
+	flex-shrink: 0;
+}
+
+.cs-arrange-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.cs-arrange-title {
+	font-weight: bold;
+	font-size: 0.85rem;
+	color: var(--cs-navy-dark);
+	margin-right: 0.4rem;
+}
+
+/* Cursor, touch-action and the drag/selected states all come from
+   .cs-canvas-item, which every arrange tile also carries. */
+.cs-arrange-card-wrap {
+	border-radius: 10px;
+}
+
+.cs-arrange-card-wrap .cs-card {
+	border-style: dashed;
+	border-color: #4a679c;
+}
+
+/* Values are display-only while arranging cards. */
+.cs-arrange-card-body {
+	pointer-events: none;
+	user-select: none;
+}
+
+/* Docked outside the card's own box, to whichever side has more room in the
+   viewport (see toolbarSide in CardLayoutEditor), so it never eats into the
+   card's height/width or its internal module layout and never requires
+   scrolling to reach. z-index is set well above a plain .cs-card's stacking
+   level so the toolbar stays clickable even when a neighboring card overlaps
+   this space. */
+.cs-layout-controls {
+	position: absolute;
+	top: 0;
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	padding: 0.6rem;
+	width: max-content;
+	border: 2px solid var(--cs-navy);
+	border-radius: 8px;
+	background-color: #f4f6fa;
+	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
+}
+
+.cs-layout-controls--right {
+	left: 100%;
+	margin-left: 0.5rem;
+}
+
+.cs-layout-controls--left {
+	right: 100%;
+	margin-right: 0.5rem;
+}
+
+.cs-layout-controls-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.cs-layout-btn {
+	border: 2px solid var(--cs-navy);
+	border-radius: 6px;
+	background-color: #ffffff;
+	color: var(--cs-navy);
+	font-size: 0.8rem;
+	font-weight: bold;
+	padding: 0.35rem 0.7rem;
+	cursor: pointer;
+}
+
+.cs-layout-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.cs-layout-btn--confirm {
+	background-color: #2e6b46;
+	border-color: #2e6b46;
+	color: #ffffff;
+}
+
+.cs-layout-btn--confirm:hover {
+	background-color: #215033;
+}
+
+.cs-layout-btn--exit {
+	border-color: #9c2b2b;
+	color: #9c2b2b;
+}
+
+.cs-layout-btn--exit:hover {
+	background-color: #f6dcdc;
+}
+
+.cs-layout-btn--delete {
+	border-color: #9c2b2b;
+	color: #9c2b2b;
+}
+
+.cs-layout-btn--delete:hover {
+	background-color: #f6dcdc;
+}
+
+.cs-modal-button--danger {
+	background-color: #9c2b2b;
+	border-color: #9c2b2b;
+	color: #ffffff;
+}
+
+.cs-modal-button--danger:hover {
+	background-color: #7a2020;
+}
+
+.cs-delete-blocked-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	max-height: 12rem;
+	overflow-y: auto;
+}
+
+.cs-delete-blocked-list .cs-modal-button {
+	width: 100%;
+	text-align: left;
+}
+
+/* ---------- Custom Card builder ---------- */
+
+.cs-builder {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 1rem;
+	width: 100%;
+}
+
+.cs-builder-preview-card {
+	border-style: dashed;
+	border-color: #4a679c;
+}
+
+/* The preview is display-only; values get set while configuring modules. */
+.cs-builder-preview-body {
+	pointer-events: none;
+	user-select: none;
+}
+
+.cs-builder-panel {
+	background-color: #ffffff;
+	border: 2px solid var(--cs-navy);
+	border-radius: 10px;
+	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
+	padding: 1rem;
+	width: min(24rem, 100%);
+	display: flex;
+	flex-direction: column;
+	gap: 0.7rem;
+}
+
+.cs-builder-instructions {
+	font-weight: bold;
+	color: var(--cs-navy-dark);
+	margin: 0;
+}
+
+.cs-builder-input {
+	width: 100%;
+	text-align: left;
+}
+
+.cs-builder-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.85rem;
+	color: #4a5670;
+}
+
+.cs-builder-field--inline {
+	flex-direction: row;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.cs-builder-textarea {
+	width: 100%;
+	padding: 0.45rem 0.5rem;
+	font-size: 0.9rem;
+	font-family: inherit;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	box-sizing: border-box;
+	resize: vertical;
+}
+
+.cs-ref-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	align-items: center;
+}
+
+.cs-ref-picker .cs-select {
+	max-width: 100%;
+	flex: 1 1 8rem;
+}
+
+.cs-builder-hint {
+	font-size: 0.75rem;
+	font-style: italic;
+	color: #55617a;
+	margin: 0;
+}
+
+.cs-builder-preview-text {
+	background-color: var(--cs-text-bg);
+	border: 2px solid var(--cs-text-border);
+	border-radius: 8px;
+	padding: 0.5rem 0.6rem;
+}
+
+.cs-builder-preview-text p {
+	margin: 0.25rem 0 0;
+	font-size: 0.9rem;
+	white-space: pre-wrap;
+}
+
+.cs-builder-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+/* ---------- New Card modal ---------- */
+
+.cs-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 40;
+}
+
+.cs-modal {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: min(22rem, calc(100vw - 2rem));
+	background-color: #ffffff;
+	border: 2px solid var(--cs-navy, #22385c);
+	border-radius: 10px;
+	padding: 1.25rem;
+	z-index: 41;
+	font-family: Arial, Helvetica, sans-serif;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.cs-modal-title {
+	font-size: 1.05rem;
+	font-weight: bold;
+	color: #16263f;
+	margin: 0;
+}
+
+.cs-modal-select {
+	width: 100%;
+}
+
+.cs-modal--wide {
+	width: min(30rem, calc(100vw - 2rem));
+	max-height: min(80vh, 40rem);
+	overflow-y: auto;
+}
+
+/* Card preview inside the insert wizard is display-only. */
+.cs-modal-preview {
+	pointer-events: none;
+	user-select: none;
+}
+
+.cs-modal-preview .cs-card {
+	max-width: 100%;
+}
+
+/* These previews render modules directly (not through the masonry-positioned
+   module slots), so they can keep the simpler flex-wrap flow. */
+.cs-modal-preview .cs-card-body,
+.cs-builder-preview-body {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 0.6rem;
+	width: auto;
+}
+
+.cs-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.6rem;
+}
+
+.cs-modal-button {
+	border: 2px solid #22385c;
+	border-radius: 6px;
+	padding: 0.4rem 1rem;
+	font-size: 0.9rem;
+	cursor: pointer;
+	background-color: #ffffff;
+	color: #22385c;
+}
+
+.cs-modal-button--primary {
+	background-color: #22385c;
+	color: #ffffff;
+}
+
+.cs-modal-button--primary:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}

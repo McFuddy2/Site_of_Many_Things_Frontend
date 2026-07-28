@@ -77,6 +77,52 @@ export function setSpellbookMaxPrepared(spellbookId, maxPrepared) {
 	}));
 }
 
+// Sets the number of available spell slots at a given level (1-9), resizing the "used" checkbox array to match. Returns the updated spellbook on success, or null if it couldn't be found/saved.
+export function setSpellbookSpellSlotMax(spellbookId, level, max) {
+	return updateSpellbook(spellbookId, (book) => {
+		const existingSlots = book.spellSlots || {};
+		const existingLevel = existingSlots[level] || { max: 0, used: [] };
+		const nextMax = Number.isFinite(max) && max > 0 ? max : 0;
+		const nextUsed = Array.from({ length: nextMax }, (_, index) => Boolean(existingLevel.used?.[index]));
+		return {
+			...book,
+			spellSlots: {
+				...existingSlots,
+				[level]: { max: nextMax, used: nextUsed },
+			},
+		};
+	});
+}
+
+// Toggles a single spell slot checkbox at the given level/index for a saved spellbook. Returns the updated spellbook on success, or null if it couldn't be found/saved.
+export function toggleSpellbookSpellSlotUsed(spellbookId, level, index) {
+	return updateSpellbook(spellbookId, (book) => {
+		const existingSlots = book.spellSlots || {};
+		const existingLevel = existingSlots[level] || { max: 0, used: [] };
+		const nextUsed = [...(existingLevel.used || [])];
+		nextUsed[index] = !nextUsed[index];
+		return {
+			...book,
+			spellSlots: {
+				...existingSlots,
+				[level]: { ...existingLevel, used: nextUsed },
+			},
+		};
+	});
+}
+
+// Marks every configured spell slot as unused again (does not change the configured max per level). Returns the updated spellbook on success, or null if it couldn't be found/saved.
+export function replenishSpellbookSpellSlots(spellbookId) {
+	return updateSpellbook(spellbookId, (book) => {
+		const existingSlots = book.spellSlots || {};
+		const nextSlots = {};
+		Object.entries(existingSlots).forEach(([level, slot]) => {
+			nextSlots[level] = { max: slot.max, used: (slot.used || []).map(() => false) };
+		});
+		return { ...book, spellSlots: nextSlots };
+	});
+}
+
 // Renames a saved spellbook. Returns the updated spellbook on success, or null if it couldn't be found/saved.
 export function renameSpellbook(spellbookId, newName) {
 	return updateSpellbook(spellbookId, (book) => ({
