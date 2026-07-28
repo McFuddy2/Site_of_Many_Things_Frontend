@@ -11,7 +11,7 @@ import { getSpells, getSpell, queryAdvancedSpells, getSources } from "../API/spe
 import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 
-const RANGE_SLIDER_VALUES = ["Emanation", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const RANGE_SLIDER_VALUES = ["Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
 const emptySpellMessage = "No spells match your current filters.";
 const loadSpellErrorMessage = "Unable to load spells right now. Please try again.";
@@ -1045,8 +1045,8 @@ export default function SpellSearchPage() {
 				/>
 			</div>
 			<div className="range-slider-edge-labels">
-				<span>Emanation</span>
-				<span>&gt;1mile</span>
+				<span>{RANGE_SLIDER_VALUES[0]}</span>
+				<span>{RANGE_SLIDER_VALUES[RANGE_SLIDER_MAX]}</span>
 			</div>
 		</div>
 	);
