@@ -1092,8 +1092,8 @@ export default function SpellSearchPage() {
 				/>
 			</div>
 			<div className="range-slider-edge-labels">
-				<span>Self</span>
-				<span>&gt;1mile</span>
+				<span>{RANGE_SLIDER_VALUES[0]}</span>
+				<span>{RANGE_SLIDER_VALUES[RANGE_SLIDER_MAX]}</span>
 			</div>
 		</div>
 	);
