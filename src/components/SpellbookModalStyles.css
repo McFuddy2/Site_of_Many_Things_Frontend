@@ -675,7 +675,7 @@
 .spellbook-slots-panel-levels {
 	display: flex;
 	flex-direction: column;
-	gap: 0.35rem;
+	gap: 1.5rem;
 }
 
 .spellbook-slot-level {
@@ -701,6 +701,42 @@
 
 .spellbook-slot-level-label sup {
 	font-size: 0.6em;
+}
+
+.spellbook-slot-level-header {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+}
+
+.spellbook-slot-level-editor {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.spellbook-slot-level-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.15rem;
+	height: 1.15rem;
+	border: none;
+	border-radius: 4px;
+	padding: 0;
+	background: transparent;
+	color: var(--dark-purple-text);
+	font-family: Georgia, 'Times New Roman', serif;
+	font-weight: 700;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.spellbook-slot-level-toggle:hover {
+	background-color: rgba(90, 60, 30, 0.12);
 }
 
 .spellbook-slot-max-input {

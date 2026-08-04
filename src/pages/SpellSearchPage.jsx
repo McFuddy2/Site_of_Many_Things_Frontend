@@ -13,7 +13,7 @@ import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, MAX_SAVED_SPELLBOOKS } from "../utils/spellbookStorage";
 
-const RANGE_SLIDER_VALUES = ["Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const RANGE_SLIDER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
 const emptySpellMessage = "No spells match your current filters.";
 const DEFAULT_SPELLBOOK_SPINE_COLOR = "#412a85";
@@ -312,7 +312,38 @@ export default function SpellSearchPage() {
 			});
 	}, []);
 
+	const previousFilterSelectionsRef = useRef({ include: includeSelections, exclude: excludeSelections });
+
+	const scrollSpellListToTop = () => {
+		const scrollContainer = document.querySelector('.spell-search-page-scroll');
+		if (scrollContainer) {
+			scrollContainer.scrollTop = 0;
+		}
+		const spellListContainer = document.querySelector('.spell-search-spell-list');
+		if (spellListContainer) {
+			spellListContainer.scrollTop = 0;
+		}
+		window.scrollTo({ top: 0, behavior: 'auto' });
+	};
+
 	useEffect(() => {
+		const previousSelections = previousFilterSelectionsRef.current;
+		const filtersChanged =
+			previousSelections.include !== includeSelections || previousSelections.exclude !== excludeSelections;
+		previousFilterSelectionsRef.current = { include: includeSelections, exclude: excludeSelections };
+
+		if (filtersChanged) {
+			scrollSpellListToTop();
+		}
+
+		// Jump back to the first page whenever the filters themselves change, rather than
+		// just when the user navigates pages. Skips this fetch and lets the resulting
+		// currentPage update re-trigger the effect, so we don't fetch twice.
+		if (filtersChanged && currentPage !== 1) {
+			setCurrentPage(1);
+			return;
+		}
+
 		fetchAdvancedSpells();
 	}, [sortBy, sortDirection, includeSelections, excludeSelections, currentPage]);
 
@@ -1061,7 +1092,7 @@ export default function SpellSearchPage() {
 				/>
 			</div>
 			<div className="range-slider-edge-labels">
-				<span>Touch</span>
+				<span>Self</span>
 				<span>&gt;1mile</span>
 			</div>
 		</div>
@@ -1246,6 +1277,18 @@ export default function SpellSearchPage() {
 		.filter((value) => value && value !== "ALL");
 
 	const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+	const expandSourceAbbreviationInDescription = (description) => {
+		if (typeof description !== "string" || !description.startsWith("This spell is not in Creative Commons")) {
+			return description;
+		}
+
+		return description.replace(/(source book:\s*)([^.]+)\./, (match, prefix, abbreviation) => {
+			const trimmedAbbreviation = abbreviation.trim();
+			const source = availableSources.find((s) => s.abbreviation === trimmedAbbreviation);
+			return source ? `${prefix}${source.name}.` : match;
+		});
+	};
 
 	const renderDescriptionWithKeywordHighlights = (spellName, description) => {
 		if (!description || includeKeywordSelections.length === 0) {
@@ -1645,7 +1688,7 @@ export default function SpellSearchPage() {
 			}
 		}
 
-		const clipboardText = buildSpellInfoClipboardText(spell, descriptionToCopy);
+		const clipboardText = buildSpellInfoClipboardText(spell, expandSourceAbbreviationInDescription(descriptionToCopy));
 		await navigator.clipboard.writeText(clipboardText);
 		setCopiedSpellInfoId(spell.id);
 		setTimeout(() => setCopiedSpellInfoId(null), 2000);
@@ -1659,7 +1702,7 @@ export default function SpellSearchPage() {
 		}
 		try {
 			const spell = await getSpell(spellId, ownerKey);
-			setCurrentSpellDescription(spell.description);
+			setCurrentSpellDescription(expandSourceAbbreviationInDescription(spell.description));
 			setCurrentSpellDetail(spell);
 		} catch (error) {
 			console.error("Error fetching spell details:", error);

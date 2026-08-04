@@ -4,10 +4,14 @@ import { buildPieceIndex } from "../../utils/character_sheet/references";
 import {
 	addPage,
 	setActivePage,
+	setPageName,
+	setPageColor,
 	addCardToPage,
 	insertExistingCardOnPage,
 	removeCardFromPage,
 	deleteCard,
+	setCardHeaderColor,
+	setCardModuleColor,
 	setVariableValue,
 	setCheckboxValue,
 	setTextPlain,
@@ -40,6 +44,14 @@ function sheetReducer(sheet, action) {
 			return addPage(sheet);
 		case "setActivePage":
 			return setActivePage(sheet, action.pageId);
+		case "setPageName":
+			return setPageName(sheet, action.pageId, action.name);
+		case "setPageColor":
+			return setPageColor(sheet, action.pageId, action.color);
+		case "setCardHeaderColor":
+			return setCardHeaderColor(sheet, action.cardId, action.color);
+		case "setCardModuleColor":
+			return setCardModuleColor(sheet, action.cardId, action.color);
 		case "addCardToPage":
 			return addCardToPage(sheet, action.pageId, action.card);
 		case "insertExistingCard":
@@ -74,6 +86,7 @@ function sheetReducer(sheet, action) {
 			return setCardLayoutArrangement(sheet, action.pageId, action.layoutId, {
 				moduleOrder: action.moduleOrder,
 				moduleRects: action.moduleRects,
+				rectOffset: action.rectOffset,
 			});
 		case "setPageArrangement":
 			return setPageArrangement(sheet, action.pageId, { rects: action.rects });
