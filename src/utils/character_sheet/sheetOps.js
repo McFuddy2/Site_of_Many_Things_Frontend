@@ -15,6 +15,7 @@ import {
 	CARD_BODY_INSET,
 	MODULE_GAP,
 	getModuleDefaultSize,
+	getModuleMinSize,
 	getMinHeaderWidth,
 	CARD_BORDER_WIDTH,
 } from "./layoutConstants.js";
@@ -88,16 +89,16 @@ function packWidthForCard(card) {
 }
 
 // Sizes a card to snugly fit the module rects packed into it — pure content
-// fit, no header-title floor (see packCard for that). Used both for a
+// fit, no header-title floor (see fitCardSize for that). Used for a
 // brand-new card (stops every card from starting at the same fixed
 // width/height regardless of how many/how large its modules are — the
-// scrollbar-on-creation problem) and as the floor a card can be manually
-// resized down to in Arrange Cards mode. Rects from packModuleRects already
-// carry a one-grid-cell margin on their top/left; the extra +GRID_SIZE here
-// accounts for the matching margin on the bottom/right, so the card is sized
-// for exactly one grid cell of breathing room on every edge — no more, no
-// less (CARD_BORDER_WIDTH is only there because the card's own border eats
-// into that space; see its comment).
+// scrollbar-on-creation problem) and, live, as the card's size any time its
+// modules are edited (see CardLayoutEditor). Rects from packModuleRects
+// already carry a one-grid-cell margin on their top/left; the extra
+// +GRID_SIZE here accounts for the matching margin on the bottom/right, so
+// the card is sized for exactly one grid cell of breathing room on every
+// edge — no more, no less (CARD_BORDER_WIDTH is only there because the
+// card's own border eats into that space; see its comment).
 export function fitCardToModules(card, moduleRects) {
 	const rects = Object.values(moduleRects);
 	const contentWidth = boundingWidth(rects, 0) + GRID_SIZE + CARD_BORDER_WIDTH;
@@ -106,6 +107,62 @@ export function fitCardToModules(card, moduleRects) {
 		width: snap(Math.max(CARD_MIN_WIDTH, contentWidth)),
 		height: snap(Math.max(CARD_MIN_HEIGHT, contentHeight)),
 	};
+}
+
+// fitCardToModules plus the header-safety floor (see getMinHeaderWidth) — the
+// one size a card is ever allowed to be, whether it was just packed, just
+// edited, or is mid-drag on its own resize handles. Centralising it here is
+// what lets the card shrink as readily as it grows: every caller measures
+// against this same fit instead of flooring against whatever size happened
+// to be on screen before.
+export function fitCardSize(card, moduleRects) {
+	const fit = fitCardToModules(card, moduleRects);
+	return { width: Math.max(fit.width, snap(getMinHeaderWidth(card.title))), height: fit.height };
+}
+
+// Proportionally rescales a group of module rects to exactly fill a
+// `targetWidth` x `targetHeight` content area (the space inside the card's
+// GRID_SIZE margin — see fitCardSize/fitCardToModules for how that margin is
+// spent). This is what "resizing the card" means for its modules: their
+// relative layout is preserved, everything grows or shrinks together, and
+// the group is re-anchored to the margin on its way through (so a layout
+// that had drifted off the top/left edge snaps back flush). Scale is floored
+// per module at its own type's minimum (getModuleMinSize) — if the target is
+// smaller than every module can bear, the affected axis simply stops
+// shrinking there, so the resulting bounding box (and the card fitted to it)
+// ends up larger than what was asked for rather than crushing content.
+export function scaleModulesToContent(moduleRects, modulesById, targetWidth, targetHeight) {
+	const ids = Object.keys(moduleRects);
+	if (!ids.length) {
+		return moduleRects;
+	}
+	const rects = ids.map((id) => moduleRects[id]);
+	const minX = Math.min(...rects.map((rect) => rect.x));
+	const minY = Math.min(...rects.map((rect) => rect.y));
+	const maxX = Math.max(...rects.map((rect) => rect.x + rect.width));
+	const maxY = Math.max(...rects.map((rect) => rect.y + rect.height));
+	const sourceWidth = Math.max(1, maxX - minX);
+	const sourceHeight = Math.max(1, maxY - minY);
+
+	let scaleX = Math.max(0.01, targetWidth) / sourceWidth;
+	let scaleY = Math.max(0.01, targetHeight) / sourceHeight;
+	for (const id of ids) {
+		const min = getModuleMinSize(modulesById[id]?.type);
+		scaleX = Math.max(scaleX, min.width / moduleRects[id].width);
+		scaleY = Math.max(scaleY, min.height / moduleRects[id].height);
+	}
+
+	const scaled = {};
+	for (const id of ids) {
+		const rect = moduleRects[id];
+		scaled[id] = {
+			x: GRID_SIZE + (rect.x - minX) * scaleX,
+			y: GRID_SIZE + (rect.y - minY) * scaleY,
+			width: rect.width * scaleX,
+			height: rect.height * scaleY,
+		};
+	}
+	return scaled;
 }
 
 // Backfills rects on sheets saved before the free-grid layout — every
@@ -188,6 +245,15 @@ export function setActivePage(sheet, pageId) {
 	return { ...sheet, activePageId: pageId };
 }
 
+export function setPageName(sheet, pageId, name) {
+	return { ...sheet, pages: sheet.pages.map((page) => (page.id === pageId ? { ...page, name } : page)) };
+}
+
+// null clears a custom tab color back to the default navy-bordered look.
+export function setPageColor(sheet, pageId, color) {
+	return { ...sheet, pages: sheet.pages.map((page) => (page.id === pageId ? { ...page, color } : page)) };
+}
+
 // ---------- Cards on pages ----------
 
 // Finds where a card-sized rect should go on a page, clear of every existing
@@ -196,18 +262,12 @@ function findCardRect(page, width, height) {
 	return findInitialRect(width, height, page.cardLayouts.map((layout) => layout.rect), CARD_GAP);
 }
 
-// Packs a card's modules and sizes the card itself to fit them — the shared
-// step behind placing a brand-new card and inserting an existing one. Width
-// is additionally floored against the card's own title here (rather than in
-// fitCardToModules itself) so this header-safety net only ever applies to a
-// fresh placement, never to a card the user has since resized by hand —
-// otherwise a deliberately-narrowed card would grow back every time its
-// layout changed (see growRectToFitModules) or get stuck unable to shrink
-// past that width in Arrange Cards mode.
+// Packs a card's modules and sizes the card itself to fit them (see
+// fitCardSize) — the shared step behind placing a brand-new card and
+// inserting an existing one.
 function packCard(card) {
 	const moduleRects = packModuleRects(card.moduleOrder, card.modules, packWidthForCard(card));
-	const fit = fitCardToModules(card, moduleRects);
-	return { moduleRects, cardSize: { ...fit, width: Math.max(fit.width, snap(getMinHeaderWidth(card.title))) } };
+	return { moduleRects, cardSize: fitCardSize(card, moduleRects) };
 }
 
 // Adds a brand-new card's data to the sheet and places it on a page.
@@ -287,6 +347,25 @@ export function setCardTitle(sheet, cardId, title) {
 	return replaceCard(sheet, { ...card, title });
 }
 
+// Both colors are card data (like title), not per-layout — a card looks the
+// same everywhere it's placed. null clears back to the default navy header /
+// per-module-type pastel background.
+export function setCardHeaderColor(sheet, cardId, color) {
+	const card = sheet.cards[cardId];
+	if (!card) {
+		return sheet;
+	}
+	return replaceCard(sheet, { ...card, headerColor: color });
+}
+
+export function setCardModuleColor(sheet, cardId, color) {
+	const card = sheet.cards[cardId];
+	if (!card) {
+		return sheet;
+	}
+	return replaceCard(sheet, { ...card, moduleBgColor: color });
+}
+
 // ---------- Modules and layouts ----------
 
 // Adds a module to a card's data and appends it to every layout showing that card,
@@ -348,28 +427,32 @@ export function removeModuleFromLayout(sheet, pageId, layoutId, moduleId) {
 	});
 }
 
-// Modules can be dragged and resized past the card's current edges while its
-// layout is being edited, so on save the card takes on whatever size they now
-// need — the user rearranges modules and the card follows, instead of having
-// to go resize the card afterwards to reveal what's hidden behind a scrollbar.
-// Grow-only: shrinking here would silently undo a size the user set by hand in
-// Arrange Cards mode.
-function growRectToFitModules(rect, card, moduleRects) {
+// The card is always exactly as big as its modules need (see fitCardSize) —
+// whichever way that pushes it. Growing covers modules dragged/resized past
+// the card's current edges; shrinking covers modules pulled in tighter than
+// the card currently is. rectOffset (default zero) is the page-position shift
+// a manual resize on the card's own nw/n/w/… handles produced (see
+// CardLayoutEditor) — those handles can move the card's origin as well as its
+// size, which fitCardSize alone (width/height only) can't express.
+function fitRectToModules(rect, card, moduleRects, rectOffset = { x: 0, y: 0 }) {
 	if (!rect || !card) {
 		return rect;
 	}
-	const needed = fitCardToModules(card, moduleRects);
-	return {
-		...rect,
-		width: Math.max(rect.width, needed.width),
-		height: Math.max(rect.height, needed.height),
-	};
+	const size = fitCardSize(card, moduleRects);
+	return { ...rect, x: rect.x + rectOffset.x, y: rect.y + rectOffset.y, ...size };
 }
 
 // Commits a card layout editor draft: which modules are included, and each
 // one's rect ({ x, y, width, height } in px). Rects for modules no longer in
-// the order are dropped, and the card itself grows to fit what's left.
-export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder, moduleRects = {} }) {
+// the order are dropped, and the card itself is refit to whatever's left
+// (see fitRectToModules) — growing or shrinking as needed, plus any page-
+// position shift from a manual card resize (rectOffset).
+export function setCardLayoutArrangement(
+	sheet,
+	pageId,
+	layoutId,
+	{ moduleOrder, moduleRects = {}, rectOffset = { x: 0, y: 0 } }
+) {
 	const page = sheet.pages.find((existing) => existing.id === pageId);
 	if (!page) {
 		return sheet;
@@ -388,7 +471,7 @@ export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder,
 						...layout,
 						moduleOrder: [...moduleOrder],
 						moduleRects: keptRects,
-						rect: growRectToFitModules(layout.rect, sheet.cards[layout.cardId], keptRects),
+						rect: fitRectToModules(layout.rect, sheet.cards[layout.cardId], keptRects, rectOffset),
 				  }
 				: layout
 		),

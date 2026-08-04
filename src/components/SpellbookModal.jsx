@@ -17,9 +17,10 @@ import {
 } from "../utils/spellbookStorage";
 
 const FILTER_FIELD_OPTIONS = ["Keyword", "Level", "School", "Class", "Source", "Casting Time", "Range", "Duration", "Components", "Ritual", "Concentration"];
-const RANGE_FILTER_VALUES = ["Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
+const RANGE_FILTER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const FEET_PER_MILE = 5280;
 const RANGE_FILTER_FEET = {
+	Self: 0,
 	Touch: 0,
 	"5ft": 5,
 	"10ft": 10,
@@ -344,7 +345,15 @@ function spellMatchesField(spell, field, value, options = {}) {
 			}
 			const filterFeet = RANGE_FILTER_FEET[filterKey];
 			if (filterFeet === undefined) return false;
-			return options.rangeAtLeast ? spellFeet >= filterFeet : spellFeet === filterFeet;
+			if (options.rangeAtLeast) {
+				return spellFeet >= filterFeet;
+			}
+			// Self and Touch both measure as 0ft, so an exact match has to fall back to the
+			// spell's actual range text to tell them apart.
+			if (filterFeet === 0) {
+				return `${spell.range ?? ""}`.trim().toLowerCase() === filterKey.toLowerCase();
+			}
+			return spellFeet === filterFeet;
 		}
 		case "Duration": {
 			const durationDisplay = getDurationDisplayValue(spell).trim().toLowerCase();
@@ -387,6 +396,9 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 	const [notesDraft, setNotesDraft] = useState("");
 
 	const [isSlotsPanelOpen, setIsSlotsPanelOpen] = useState(false);
+	const [openSlotEditorLevel, setOpenSlotEditorLevel] = useState(null);
+	const [slotMaxDraft, setSlotMaxDraft] = useState("");
+	const slotEditorInputRef = useRef(null);
 	const [topBarHeight, setTopBarHeight] = useState(0);
 	const topBarRef = useRef(null);
 
@@ -558,6 +570,13 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			nameInputRef.current.select();
 		}
 	}, [isEditMode]);
+
+	useEffect(() => {
+		if (openSlotEditorLevel !== null && slotEditorInputRef.current) {
+			slotEditorInputRef.current.focus();
+			slotEditorInputRef.current.select();
+		}
+	}, [openSlotEditorLevel]);
 
 	useEffect(() => {
 		const topBarElement = topBarRef.current;
@@ -789,13 +808,20 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		}
 	};
 
-	const handleSpellSlotMaxChange = (level, event) => {
-		const digitsOnly = event.target.value.replace(/\D/g, "");
+	const openSlotEditor = (level, currentMax) => {
+		setOpenSlotEditorLevel(level);
+		setSlotMaxDraft(currentMax > 0 ? String(currentMax) : "");
+	};
+
+	const commitSlotEditor = (level) => {
+		const digitsOnly = slotMaxDraft.replace(/\D/g, "");
 		const nextMax = digitsOnly === "" ? 0 : Math.min(Number(digitsOnly), MAX_SPELL_SLOTS_PER_LEVEL);
 		const updatedBook = setSpellbookSpellSlotMax(spellbook.id, level, nextMax);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
+		setOpenSlotEditorLevel(null);
+		setSlotMaxDraft("");
 	};
 
 	const handleToggleSpellSlotUsed = (level, index) => {
@@ -1315,21 +1341,52 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 											const levelSlots = spellbook.spellSlots?.[level];
 											const max = levelSlots?.max ?? 0;
 											const used = levelSlots?.used ?? [];
+											const isEditorOpen = openSlotEditorLevel === level;
 											return (
 												<div key={level} className="spellbook-slot-level">
-													<div className="spellbook-slot-level-label">
-														{level}<sup>{getOrdinalSuffix(level)}</sup>
+													<div className="spellbook-slot-level-header">
+														<div className="spellbook-slot-level-label">
+															{level}<sup>{getOrdinalSuffix(level)}</sup> Level
+														</div>
+														{isEditorOpen ? (
+															<div className="spellbook-slot-level-editor">
+																<input
+																	ref={slotEditorInputRef}
+																	type="text"
+																	inputMode="numeric"
+																	pattern="[0-9]*"
+																	className="spellbook-slot-max-input"
+																	value={slotMaxDraft}
+																	onChange={(event) => setSlotMaxDraft(event.target.value.replace(/\D/g, ""))}
+																	onKeyDown={(event) => {
+																		if (event.key === "Enter") {
+																			event.preventDefault();
+																			commitSlotEditor(level);
+																		}
+																	}}
+																	placeholder="0"
+																	aria-label={`Number of ${getLevelGroupLabel(level)} spell slots`}
+																/>
+																<button
+																	type="button"
+																	className="spellbook-slot-level-toggle"
+																	onClick={() => commitSlotEditor(level)}
+																	aria-label={`Save and close ${getLevelGroupLabel(level)} slot editor`}
+																>
+																	&lsaquo;
+																</button>
+															</div>
+														) : (
+															<button
+																type="button"
+																className="spellbook-slot-level-toggle"
+																onClick={() => openSlotEditor(level, max)}
+																aria-label={`Edit ${getLevelGroupLabel(level)} slot count`}
+															>
+																&rsaquo;
+															</button>
+														)}
 													</div>
-													<input
-														type="text"
-														inputMode="numeric"
-														pattern="[0-9]*"
-														className="spellbook-slot-max-input"
-														value={max === 0 ? "" : max}
-														onChange={(event) => handleSpellSlotMaxChange(level, event)}
-														placeholder="0"
-														aria-label={`Number of ${getLevelGroupLabel(level)} spell slots`}
-													/>
 													{max > 0 ? (
 														<div className="spellbook-slot-checkboxes">
 															{Array.from({ length: max }, (_, index) => (

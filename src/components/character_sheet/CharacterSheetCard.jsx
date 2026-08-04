@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { getPieceNumericValue, getPieceTextValue } from "../../utils/character_sheet/references";
 import { getModuleContentScale } from "../../utils/character_sheet/layoutConstants";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
+import { getContrastTextColor } from "../../utils/character_sheet/colors";
 import { useCharacterSheet } from "./CharacterSheetContext";
 
 // Pastel color-coding by module type (mockup convention): variable-based modules
@@ -656,10 +657,41 @@ export function moduleSlotProps(rect, type) {
 	};
 }
 
+// Header inline style for a card's own chosen color (falls back to the
+// default navy via CSS when unset), with readable text picked to match.
+export function cardHeaderStyle(card) {
+	if (!card.headerColor) {
+		return undefined;
+	}
+	return { backgroundColor: card.headerColor, color: getContrastTextColor(card.headerColor) };
+}
+
+// Class + inline var for a card's own chosen module background — see the
+// .cs-card-body--custom-module-bg rule in CharacterSheetStyles.css, which
+// wins over every per-type/-ability .cs-module background because it's a
+// two-class selector against their one.
+export function cardBodyProps(card, baseClassName) {
+	if (!card.moduleBgColor) {
+		return { className: baseClassName, style: undefined };
+	}
+	return {
+		className: `${baseClassName} cs-card-body--custom-module-bg`,
+		style: { "--cs-module-bg-override": card.moduleBgColor },
+	};
+}
+
 // One card on the canvas: navy header + this page's arrangement of its modules,
 // each an absolutely-positioned box at its stored rect. itemRef/itemStyle place
 // this card on the page canvas at its own stored rect, when provided by the caller.
-export default function CharacterSheetCard({ layout, onEditLayout, itemStyle }) {
+//
+// The header is always the card's move handle (onHeaderPointerDown, supplied
+// by the page canvas) and always opens Edit Layout on a plain click — the
+// "Edit Layout" button is just a second, more obvious way in. Both live on
+// the same header specifically so there's no separate "Arrange Cards" mode:
+// a card can be repositioned or resized at any time, right from the live
+// sheet. The button stops the pointerdown from bubbling so pressing it never
+// also starts a drag.
+export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPointerDown, itemStyle, dragging = false }) {
 	const { sheet } = useCharacterSheet();
 	const card = sheet.cards[layout.cardId];
 	const moduleIds = card
@@ -668,15 +700,21 @@ export default function CharacterSheetCard({ layout, onEditLayout, itemStyle }) 
 	if (!card) {
 		return null;
 	}
+	const bodyProps = cardBodyProps(card, "cs-card-body");
 	return (
-		<section className="cs-card" style={itemStyle}>
-			<header className="cs-card-header">
+		<section className={`cs-card${dragging ? " cs-card--dragging" : ""}`} style={itemStyle}>
+			<header className="cs-card-header" style={cardHeaderStyle(card)} onPointerDown={onHeaderPointerDown}>
 				<span>{card.title}</span>
-				<button type="button" className="cs-card-header-edit" onClick={onEditLayout}>
+				<button
+					type="button"
+					className="cs-card-header-edit"
+					onPointerDown={(event) => event.stopPropagation()}
+					onClick={onEditLayout}
+				>
 					Edit Layout
 				</button>
 			</header>
-			<div className="cs-card-body">
+			<div className={bodyProps.className} style={bodyProps.style}>
 				{moduleIds.map((moduleId) => {
 					const module = card.modules[moduleId];
 					const slot = moduleSlotProps(layout.moduleRects[moduleId], module.type);

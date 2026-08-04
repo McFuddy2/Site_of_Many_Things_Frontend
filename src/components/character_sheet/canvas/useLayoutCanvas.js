@@ -647,6 +647,21 @@ export default function useLayoutCanvas({
 		[pushHistory]
 	);
 
+	// Same as commitRects, but for when the "before" state isn't the canvas's
+	// current rects — e.g. a gesture the consumer drives itself (the card's own
+	// resize handles in CardLayoutEditor, which call setRects directly on every
+	// frame for a live preview outside this hook's own gesture machinery). By
+	// the time that gesture ends, rectsRef.current is the last preview frame,
+	// not the state from before the gesture started — which is what Undo
+	// actually needs to restore to, so the caller supplies it explicitly.
+	const commitRectsFrom = useCallback(
+		(beforeRects, nextRects) => {
+			pushHistory(beforeRects);
+			setRects(nextRects);
+		},
+		[pushHistory]
+	);
+
 	const selectionBounds = useMemo(
 		() => unionRect(selection.map((id) => rects[id]).filter(Boolean)),
 		[selection, rects]
@@ -656,6 +671,7 @@ export default function useLayoutCanvas({
 		rects,
 		setRects,
 		commitRects,
+		commitRectsFrom,
 		selection,
 		selectionBounds,
 		selectOnly,

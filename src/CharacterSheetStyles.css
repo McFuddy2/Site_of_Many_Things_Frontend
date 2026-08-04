@@ -98,8 +98,8 @@
 	margin-bottom: 1rem;
 }
 
-/* Everything beneath the top bar (canvas, empty state, custom-card builder,
-   arrange mode) — fills whatever height .cs-page has left over so the canvas
+/* Everything beneath the top bar (canvas, empty state, custom-card builder)
+   — fills whatever height .cs-page has left over so the canvas
    isn't stuck at its content's own fit-to-size height (see boundingHeight in
    grid.js), and scrolls internally when content runs taller than that. */
 .cs-body {
@@ -138,19 +138,131 @@
 	background-color: #215033;
 }
 
-.cs-page-tab {
+/* A page tab is a name button + a kebab menu button sharing one pill: the
+   wrap carries the border/background (including any custom page.color — see
+   PageTab in CharacterSheetPage.jsx), the two buttons inside are transparent
+   and inherit its text color. */
+.cs-page-tab-wrap {
+	position: relative;
+	display: inline-flex;
+	align-items: stretch;
 	background-color: #ffffff;
 	color: var(--cs-navy);
 	border: 2px solid var(--cs-navy);
 	border-radius: 6px 6px 0 0;
-	padding: 0.45rem 1rem;
+}
+
+.cs-page-tab-wrap--active {
+	background-color: var(--cs-navy);
+	color: #ffffff;
+}
+
+.cs-page-tab {
+	background: none;
+	color: inherit;
+	border: none;
+	padding: 0.45rem 0.3rem 0.45rem 1rem;
 	font-size: 0.9rem;
 	cursor: pointer;
 }
 
-.cs-page-tab--active {
-	background-color: var(--cs-navy);
-	color: #ffffff;
+.cs-page-tab-menu-btn {
+	background: none;
+	color: inherit;
+	border: none;
+	opacity: 0.7;
+	padding: 0.45rem 0.65rem 0.45rem 0.2rem;
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+}
+
+.cs-page-tab-menu-btn:hover {
+	opacity: 1;
+}
+
+/* Rename + color popover, anchored to its tab (see .cs-page-tab-wrap). */
+.cs-page-tab-menu {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	min-width: 11rem;
+	padding: 0.65rem;
+	background-color: #ffffff;
+	color: var(--cs-navy);
+	border: 1px solid var(--cs-navy);
+	border-radius: 6px;
+	box-shadow: 0 4px 12px rgba(22, 38, 63, 0.3);
+	cursor: default;
+}
+
+.cs-menu-name-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.78rem;
+}
+
+.cs-menu-name-field input[type="text"] {
+	font-size: 0.85rem;
+	padding: 0.3rem 0.45rem;
+	border: 1px solid #b7bfcc;
+	border-radius: 4px;
+}
+
+/* Reused by both the page-tab menu and the card-colors panel (see
+   CardLayoutEditor.jsx): a label paired with a round color-wheel swatch. */
+.cs-color-field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	font-size: 0.8rem;
+}
+
+.cs-color-field-reset {
+	align-self: flex-start;
+	background: none;
+	border: none;
+	color: #9c2b2b;
+	font-size: 0.75rem;
+	padding: 0;
+	cursor: pointer;
+}
+
+.cs-color-field-reset:hover {
+	text-decoration: underline;
+}
+
+/* Native color input, styled as a circular swatch to match the "color wheel"
+   picker used for spellbook colors (see .spellbook-edit-color-input). */
+.cs-color-swatch-input {
+	width: 1.9rem;
+	height: 1.9rem;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: none;
+	cursor: pointer;
+}
+
+.cs-color-swatch-input::-webkit-color-swatch-wrapper {
+	padding: 0;
+	border-radius: 50%;
+}
+
+.cs-color-swatch-input::-webkit-color-swatch {
+	border: 2px solid rgba(22, 38, 63, 0.35);
+	border-radius: 50%;
+}
+
+.cs-color-swatch-input::-moz-color-swatch {
+	border: 2px solid rgba(22, 38, 63, 0.35);
+	border-radius: 50%;
 }
 
 /* ---------- Canvas and cards ---------- */
@@ -193,6 +305,11 @@
 	box-sizing: border-box;
 }
 
+/* The header is always the card's move handle (see onHeaderPointerDown in
+   CharacterSheetCard) — grab/grabbing hints that dragging it moves the card,
+   the same way .cs-canvas-item does for modules. touch-action: none hands
+   the gesture to our own pointer handlers instead of letting the browser
+   scroll/pan with it. */
 .cs-card-header {
 	background-color: var(--cs-navy);
 	color: #ffffff;
@@ -203,6 +320,19 @@
 	justify-content: space-between;
 	align-items: center;
 	gap: 0.8rem;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+}
+
+.cs-card--dragging .cs-card-header {
+	cursor: grabbing;
+}
+
+/* Raised above every sibling card for the duration of a header drag. */
+.cs-card--dragging {
+	z-index: 20;
+	box-shadow: 0 4px 14px rgba(22, 38, 63, 0.4);
 }
 
 .cs-card-header-edit {
@@ -353,6 +483,14 @@
 	--cs-a-bar: var(--cs-cha-bar);
 	--cs-a-bg: var(--cs-cha-bg);
 	--cs-a-border: var(--cs-cha-border);
+}
+
+/* A card's own chosen module background (see cardBodyProps in
+   CharacterSheetCard.jsx) — a two-class selector, so it wins over every
+   single-class .cs-module--* background above regardless of source order.
+   Borders are left alone so modules still read as their own type/ability. */
+.cs-card-body--custom-module-bg .cs-module {
+	background-color: var(--cs-module-bg-override);
 }
 
 /* Module slots: each sits at an explicit { x, y, width, height } (set inline
@@ -1160,8 +1298,9 @@
 }
 
 /* ---------- Direct manipulation: selection, handles, guides, marquee ----------
-   Shared by both free-form canvases — cards in Arrange Cards mode and modules
-   in Edit Layout. See useLayoutCanvas for the behaviour these express. */
+   Shared by the modules canvas in Edit Layout (see useLayoutCanvas for the
+   behaviour these express) and reused by the card's own resize handles
+   there too (see .cs-card-resize-handle). */
 
 /* Every draggable item on a canvas. touch-action: none hands the gesture to
    our pointer handlers instead of letting the browser scroll/pan with it,
@@ -1204,6 +1343,19 @@
 	height: 12px;
 	z-index: 21;
 	touch-action: none;
+}
+
+/* The card's own resize handles (see beginCardResize in CardLayoutEditor) sit
+   on the wrap around the whole card rather than a module tile, and use the
+   navy accent instead of the module handles' select-blue so the two are easy
+   to tell apart when a card is small enough for its edges to sit close to a
+   module's. */
+.cs-card-resize-handle::after {
+	border-color: var(--cs-navy);
+}
+
+.cs-card-resize-handle:hover::after {
+	background-color: var(--cs-navy);
 }
 
 .cs-handle::after {
@@ -1376,78 +1528,6 @@
 	background-color: #1663c8;
 }
 
-/* ---------- Arrange Cards mode ---------- */
-
-/* Fills whatever height .cs-body has left under the top bar, same as the
-   normal canvas — see .cs-arrange-body below. */
-.cs-arrange {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-	min-height: 0;
-}
-
-/* Deliberately its own standalone toolbar rather than reusing
-   .cs-layout-controls (CardLayoutEditor's docked, absolutely-positioned
-   footer) — sharing that class here made this bar inherit position:absolute
-   and float detached from the page, overlapping the site header. */
-.cs-arrange-controls {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	justify-content: space-between;
-	gap: 0.6rem;
-	flex-shrink: 0;
-	border: 1px solid #c6cfdd;
-	border-radius: 8px;
-	background-color: #f4f6fa;
-	padding: 0.6rem 0.75rem;
-	margin-bottom: 1rem;
-}
-
-/* .cs-layout-controls-group stacks its buttons vertically for the docked
-   per-card footer it was designed for — this toolbar is a horizontal row,
-   so its groups lay out the same way. */
-.cs-arrange-controls .cs-layout-controls-group {
-	flex-direction: row;
-	flex-wrap: wrap;
-	align-items: center;
-}
-
-.cs-arrange > .cs-precision-panel {
-	flex-shrink: 0;
-}
-
-.cs-arrange-body {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-}
-
-.cs-arrange-title {
-	font-weight: bold;
-	font-size: 0.85rem;
-	color: var(--cs-navy-dark);
-	margin-right: 0.4rem;
-}
-
-/* Cursor, touch-action and the drag/selected states all come from
-   .cs-canvas-item, which every arrange tile also carries. */
-.cs-arrange-card-wrap {
-	border-radius: 10px;
-}
-
-.cs-arrange-card-wrap .cs-card {
-	border-style: dashed;
-	border-color: #4a679c;
-}
-
-/* Values are display-only while arranging cards. */
-.cs-arrange-card-body {
-	pointer-events: none;
-	user-select: none;
-}
-
 /* Docked outside the card's own box, to whichever side has more room in the
    viewport (see toolbarSide in CardLayoutEditor), so it never eats into the
    card's height/width or its internal module layout and never requires
@@ -1483,6 +1563,18 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.5rem;
+}
+
+/* Header/module-background pickers, opened from the "Card Colors" toggle in
+   the layout editor's footer (see CardLayoutEditor.jsx). */
+.cs-card-color-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.5rem;
+	background-color: #ffffff;
+	border: 1px solid rgba(22, 38, 63, 0.25);
+	border-radius: 6px;
 }
 
 .cs-layout-btn {

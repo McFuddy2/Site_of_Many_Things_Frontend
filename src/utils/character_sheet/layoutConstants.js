@@ -101,13 +101,6 @@ export function getMinHeaderWidth(title) {
 	return Math.ceil(HEADER_FIXED_OVERHEAD + (title?.length || 0) * HEADER_TITLE_CHAR_WIDTH);
 }
 
-// Roughly one more line of the header's own title text (see CARD_HEADER_HEIGHT's
-// single-line measurement) — added to a card's minimum height in Arrange Cards
-// mode once it's been resized narrower than getMinHeaderWidth, so the header
-// wrapping to two lines grows the card instead of eating into the body as a
-// scrollbar (see minSizeFor in PageArrangeEditor.jsx).
-export const CARD_HEADER_WRAPPED_LINE_HEIGHT = 22;
-
 // .cs-card's own border (both sides combined, box-sizing: border-box) — it
 // eats into the width/height otherwise available to the header + body, so a
 // fresh card's fit-to-content size needs to add it back on top of the module
