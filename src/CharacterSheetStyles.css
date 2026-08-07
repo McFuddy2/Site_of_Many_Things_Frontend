@@ -293,6 +293,7 @@
 }
 
 .cs-card {
+	position: relative;
 	background-color: var(--cs-card-bg);
 	border: 2px solid var(--cs-navy);
 	border-radius: 10px;
@@ -313,7 +314,6 @@
 .cs-card-header {
 	background-color: var(--cs-navy);
 	color: #ffffff;
-	font-size: 1.05rem;
 	font-weight: bold;
 	padding: 0.55rem 1rem;
 	display: flex;
@@ -323,10 +323,32 @@
 	cursor: grab;
 	touch-action: none;
 	user-select: none;
+	container-type: inline-size;
 }
 
 .cs-card--dragging .cs-card-header {
 	cursor: grabbing;
+}
+
+/* A layout with its header toggled off (see the showHeader layout field and
+   CardLayoutEditor's "Always Show Header" control) reserves no header space
+   in the card's flow — see .cs-card-body filling in behind it — and instead
+   floats this above the body, tucked out of view above the card's own
+   overflow: hidden edge until --visible is added (CharacterSheetCard's
+   hover-reveal timer on the live sheet; unconditionally in the layout
+   editor, which has no hover state of its own). */
+.cs-card-header--floating {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 5;
+	transform: translateY(-100%);
+	transition: transform 0.15s ease;
+}
+
+.cs-card-header--floating.cs-card-header--visible {
+	transform: translateY(0);
 }
 
 /* Raised above every sibling card for the duration of a header drag. */
@@ -335,18 +357,33 @@
 	box-shadow: 0 4px 14px rgba(22, 38, 63, 0.4);
 }
 
-.cs-card-header-edit {
-	background: none;
-	border: 1px solid rgba(255, 255, 255, 0.55);
-	border-radius: 5px;
-	color: rgba(255, 255, 255, 0.85);
-	font-size: 0.72rem;
-	padding: 0.2rem 0.55rem;
-	cursor: pointer;
-	white-space: nowrap;
+/* The card's title: shrinks smoothly as the header narrows (via cqw, sized
+   against .cs-card-header's own container-type: inline-size above) so a long
+   title stays on one line as long as it reasonably can; word-break/wrap only
+   kick in once it's hit the font floor and still doesn't fit, letting the
+   header grow instead of clipping the title. .cs-card-body's own overflow:
+   auto absorbs any resulting shrink to its space, same as any other
+   over-full card content. */
+.cs-card-title {
+	min-width: 0;
+	flex: 1 1 auto;
+	font-size: clamp(0.78rem, 5.3cqw, 1.05rem);
+	overflow-wrap: break-word;
 }
 
-.cs-card-header-edit:hover {
+.cs-card-header-menu-btn {
+	flex: none;
+	background: none;
+	border: none;
+	border-radius: 5px;
+	color: rgba(255, 255, 255, 0.85);
+	padding: 0.3rem;
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+}
+
+.cs-card-header-menu-btn:hover {
 	background-color: rgba(255, 255, 255, 0.15);
 	color: #ffffff;
 }

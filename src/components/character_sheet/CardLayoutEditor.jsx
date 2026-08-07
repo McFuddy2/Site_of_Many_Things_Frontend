@@ -6,13 +6,13 @@ import useLayoutCanvas from "./canvas/useLayoutCanvas";
 import LayoutCanvas from "./canvas/LayoutCanvas";
 import PrecisionPanel from "./canvas/PrecisionPanel";
 import { canDeleteCard } from "../../utils/character_sheet/references";
-import { countCardPlacements, fitCardSize, scaleModulesToContent } from "../../utils/character_sheet/sheetOps";
-import { GRID_SIZE, snap } from "../../utils/character_sheet/grid";
+import { countCardPlacements, fitCardToModules, scaleModulesToContent } from "../../utils/character_sheet/sheetOps";
+import { GRID_SIZE } from "../../utils/character_sheet/grid";
 import { RESIZE_HANDLES, resizeRect } from "../../utils/character_sheet/snapping";
 import {
 	getModuleContentScale,
 	getModuleMinSize,
-	getMinHeaderWidth,
+	CARD_MIN_WIDTH,
 	CARD_MIN_HEIGHT,
 	CARD_HEADER_HEIGHT,
 	CARD_BORDER_WIDTH,
@@ -31,7 +31,7 @@ import {
 // direction it goes — the user resizing the card, or the user rearranging
 // modules until the group's bounding box changes — the card is always
 // refitted live to exactly GRID_SIZE of margin around its modules (see
-// fitCardSize), growing or shrinking as needed. There's no independent
+// fitCardToModules), growing or shrinking as needed. There's no independent
 // "manual card size" to fall out of sync with: the card's size *is* the fit.
 //
 // All changes happen on a draft; card data is never touched. Confirm commits
@@ -68,13 +68,22 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 		[moduleIds, canvas.rects]
 	);
 
+	// Whether this placement's header is pinned open (reserving its own space,
+	// same as always) or floats over the body instead — see the showHeader
+	// layout field and setLayoutShowHeader. The editor always shows it either
+	// way (there's no hover-to-reveal here, unlike the live card in
+	// CharacterSheetCard) so there's always a place to see the title/reach the
+	// controls while editing; only whether it eats into bodyHeight changes.
+	const showHeader = layout.showHeader !== false;
+
 	// The card's own size is never stored independently — it's always exactly
-	// this fit (see fitCardSize), whether that's because modules were dragged
-	// bigger/smaller or the card's own handles were (see beginCardResize,
-	// which rescales the modules to match instead of the other way around).
-	const cardFit = fitCardSize(card, activeModuleRects);
+	// this fit (see fitCardToModules), whether that's because modules were
+	// dragged bigger/smaller or the card's own handles were (see
+	// beginCardResize, which rescales the modules to match instead of the
+	// other way around).
+	const cardFit = fitCardToModules(card, activeModuleRects, showHeader);
 	const bodyWidth = cardFit.width - CARD_BORDER_WIDTH;
-	const bodyHeight = cardFit.height - CARD_HEADER_HEIGHT - CARD_BORDER_WIDTH;
+	const bodyHeight = cardFit.height - (showHeader ? CARD_HEADER_HEIGHT : 0) - CARD_BORDER_WIDTH;
 
 	// null | "confirm" | "blocked" | "confirmRemove" — which delete dialog (if any) is open.
 	const [deleteDialog, setDeleteDialog] = useState(null);
@@ -146,13 +155,14 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 			const startOffset = cardOffsetRef.current;
 			const startCardRect = { x: 0, y: 0, width: cardFit.width, height: cardFit.height };
 			const start = { x: event.clientX, y: event.clientY };
-			const minWidth = snap(getMinHeaderWidth(card.title));
+			const minWidth = CARD_MIN_WIDTH;
 			const minHeight = CARD_MIN_HEIGHT;
+			const headerSpace = showHeader ? CARD_HEADER_HEIGHT : 0;
 
 			const resolve = (dx, dy) => {
 				const nextCardRect = resizeRect(startCardRect, handle, { dx, dy }, { minWidth, minHeight });
 				const targetWidth = nextCardRect.width - CARD_BORDER_WIDTH - GRID_SIZE * 2;
-				const targetHeight = nextCardRect.height - CARD_HEADER_HEIGHT - CARD_BORDER_WIDTH - GRID_SIZE * 2;
+				const targetHeight = nextCardRect.height - headerSpace - CARD_BORDER_WIDTH - GRID_SIZE * 2;
 				const scaled = scaleModulesToContent(startModuleRects, card.modules, targetWidth, targetHeight);
 				const pageX = Math.max(0, (itemStyle.left || 0) + startOffset.x + nextCardRect.x);
 				const pageY = Math.max(0, (itemStyle.top || 0) + startOffset.y + nextCardRect.y);
@@ -185,7 +195,7 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 			target.addEventListener("pointermove", handleMove);
 			target.addEventListener("pointerup", handleUp);
 		},
-		[activeModuleRects, cardFit.width, cardFit.height, card, canvas, itemStyle.left, itemStyle.top]
+		[activeModuleRects, cardFit.width, cardFit.height, card, canvas, itemStyle.left, itemStyle.top, showHeader]
 	);
 
 	const handleConfirm = () => {
@@ -233,9 +243,11 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 			ref={wrapRef}
 		>
 			<section className="cs-card cs-card--editing">
-				<header className="cs-card-header" style={cardHeaderStyle(card)}>
-					<span>{card.title}</span>
-					<span className="cs-card-header-note">Editing Layout</span>
+				<header
+					className={`cs-card-header${showHeader ? "" : " cs-card-header--floating cs-card-header--visible"}`}
+					style={cardHeaderStyle(card)}
+				>
+					<span className="cs-card-title">{card.title}</span>
 				</header>
 				<LayoutCanvas
 					canvas={canvas}
@@ -295,6 +307,17 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 					</button>
 					<button type="button" className="cs-layout-btn cs-layout-btn--delete" onClick={handleDeleteClick}>
 						{hasOtherCopies ? "Remove from Page" : "Delete Card"}
+					</button>
+				</div>
+				<div className="cs-layout-controls-group">
+					<button
+						type="button"
+						className={`cs-precision-toggle${showHeader ? " cs-precision-toggle--on" : ""}`}
+						aria-pressed={showHeader}
+						title="When off, the header hides on the live sheet until you hover the card for a second"
+						onClick={() => dispatch({ type: "setLayoutShowHeader", pageId, layoutId: layout.id, showHeader: !showHeader })}
+					>
+						Always Show Header
 					</button>
 				</div>
 				<div className="cs-layout-controls-group">

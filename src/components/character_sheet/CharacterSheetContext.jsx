@@ -10,6 +10,7 @@ import {
 	insertExistingCardOnPage,
 	removeCardFromPage,
 	deleteCard,
+	setLayoutShowHeader,
 	setCardHeaderColor,
 	setCardModuleColor,
 	setVariableValue,
@@ -58,6 +59,8 @@ function sheetReducer(sheet, action) {
 			return insertExistingCardOnPage(sheet, action.pageId, action.cardId);
 		case "removeCardFromPage":
 			return removeCardFromPage(sheet, action.pageId, action.layoutId);
+		case "setLayoutShowHeader":
+			return setLayoutShowHeader(sheet, action.pageId, action.layoutId, action.showHeader);
 		case "deleteCard": {
 			// The UI checks canDeleteCard before dispatching this, so ok should
 			// always be true here — this is just a safety net against stale state.

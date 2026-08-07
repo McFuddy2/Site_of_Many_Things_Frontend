@@ -3,8 +3,8 @@
 // resize handles. See grid.js for the geometry rules these constants feed.
 
 export const CARD_GAP = 5; // px — 1 grid cell, the enforced minimum gap while moving a card
-export const CARD_MIN_WIDTH = 180;
-export const CARD_MIN_HEIGHT = 120;
+export const CARD_MIN_WIDTH = 50;
+export const CARD_MIN_HEIGHT = 50;
 export const CARD_DEFAULT_WIDTH = 320;
 export const CARD_DEFAULT_HEIGHT = 240;
 
@@ -84,22 +84,15 @@ export function getModuleMinSize(type) {
 
 // A card's header bar height (see .cs-card-header in CharacterSheetStyles.css) —
 // added on top of a fresh card's packed module height so a new card's body
-// isn't short by the header's own space. Measured against a single-line
-// header; see MIN_HEADER_WIDTH_OVERHEAD below for what keeps it single-line.
+// isn't short by the header's own space, when the header is reserving space
+// at all (see fitCardToModules's showHeader param — a layout with its header
+// toggled to float-on-hover instead reserves none of this, since the header
+// then overlays the body rather than sitting above it). The title itself
+// isn't floored against this — it shrinks, and past its font floor can wrap,
+// via .cs-card-title's cqw-based sizing in CharacterSheetStyles.css, so a
+// card is free to go all the way down to CARD_MIN_WIDTH regardless of title
+// length.
 export const CARD_HEADER_HEIGHT = 45;
-
-// Rough per-character width of the header's bold title text, plus its fixed
-// overhead (side padding + the title/button gap + the "Edit Layout" button) —
-// used only to floor a fresh card's width so the header never wraps to two
-// lines. A wrapped header eats into the body's height (flex: 1 within a
-// fixed-height card) without anything accounting for the extra line, which
-// reintroduces the scrollbar this sizing exists to avoid.
-export const HEADER_TITLE_CHAR_WIDTH = 9.5;
-export const HEADER_FIXED_OVERHEAD = 145;
-
-export function getMinHeaderWidth(title) {
-	return Math.ceil(HEADER_FIXED_OVERHEAD + (title?.length || 0) * HEADER_TITLE_CHAR_WIDTH);
-}
 
 // .cs-card's own border (both sides combined, box-sizing: border-box) — it
 // eats into the width/height otherwise available to the header + body, so a
