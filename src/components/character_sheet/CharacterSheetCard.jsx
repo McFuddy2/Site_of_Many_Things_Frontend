@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getPieceNumericValue, getPieceTextValue } from "../../utils/character_sheet/references";
 import { getModuleContentScale } from "../../utils/character_sheet/layoutConstants";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
@@ -28,6 +28,25 @@ const MODULE_COLOR_CLASS = {
 	damageHeal: "cs-module--button",
 	dropdown: "cs-module--dropdown",
 };
+
+// How long the cursor has to sit over a card before its tucked-away header
+// (see the showHeader layout field) drops down — see CharacterSheetCard's
+// hover-reveal timer.
+const HEADER_REVEAL_DELAY = 2000;
+
+// The "Edit Layout" trigger on a card's header — a kebab rather than a
+// labelled button so it costs the header as little width as possible,
+// leaving more room for the title (see .cs-card-title's shrink/wrap in
+// CharacterSheetStyles.css).
+function KebabIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+			<circle cx="12" cy="5.5" r="1.7" fill="currentColor" />
+			<circle cx="12" cy="12" r="1.7" fill="currentColor" />
+			<circle cx="12" cy="18.5" r="1.7" fill="currentColor" />
+		</svg>
+	);
+}
 
 // The six standard abilities each tint their own modules (ability tiles, saving
 // throws, and the skills they govern) so a Wisdom skill reads as Wisdom at a
@@ -686,14 +705,39 @@ export function cardBodyProps(card, baseClassName) {
 //
 // The header is always the card's move handle (onHeaderPointerDown, supplied
 // by the page canvas) and always opens Edit Layout on a plain click — the
-// "Edit Layout" button is just a second, more obvious way in. Both live on
-// the same header specifically so there's no separate "Arrange Cards" mode:
-// a card can be repositioned or resized at any time, right from the live
-// sheet. The button stops the pointerdown from bubbling so pressing it never
-// also starts a drag.
+// kebab button is just a second, more obvious way in. Both live on the same
+// header specifically so there's no separate "Arrange Cards" mode: a card can
+// be repositioned or resized at any time, right from the live sheet. The
+// button stops the pointerdown from bubbling so pressing it never also
+// starts a drag.
+//
+// When the layout's header is tucked away (showHeader false — see the
+// layout field), none of that changes except when it's visible: instead of
+// always sitting above the body in normal flow, it floats over the body
+// (see .cs-card-header--floating) and only drops into view after the cursor
+// rests on the card for HEADER_REVEAL_DELAY, hiding again the instant the
+// cursor leaves. That's purely a hover state, never persisted — the toggle
+// itself lives in the layout editor's controls (see CardLayoutEditor).
 export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPointerDown, itemStyle, dragging = false }) {
 	const { sheet } = useCharacterSheet();
 	const card = sheet.cards[layout.cardId];
+	const showHeader = layout.showHeader !== false;
+	const [headerRevealed, setHeaderRevealed] = useState(false);
+	const revealTimerRef = useRef(null);
+
+	useEffect(() => () => clearTimeout(revealTimerRef.current), []);
+
+	const handlePointerEnter = () => {
+		if (showHeader) {
+			return;
+		}
+		revealTimerRef.current = setTimeout(() => setHeaderRevealed(true), HEADER_REVEAL_DELAY);
+	};
+	const handlePointerLeave = () => {
+		clearTimeout(revealTimerRef.current);
+		setHeaderRevealed(false);
+	};
+
 	const moduleIds = card
 		? layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId])
 		: [];
@@ -701,17 +745,29 @@ export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPoint
 		return null;
 	}
 	const bodyProps = cardBodyProps(card, "cs-card-body");
+	const floating = !showHeader;
 	return (
-		<section className={`cs-card${dragging ? " cs-card--dragging" : ""}`} style={itemStyle}>
-			<header className="cs-card-header" style={cardHeaderStyle(card)} onPointerDown={onHeaderPointerDown}>
-				<span>{card.title}</span>
+		<section
+			className={`cs-card${dragging ? " cs-card--dragging" : ""}`}
+			style={itemStyle}
+			onPointerEnter={handlePointerEnter}
+			onPointerLeave={handlePointerLeave}
+		>
+			<header
+				className={`cs-card-header${floating ? ` cs-card-header--floating${headerRevealed ? " cs-card-header--visible" : ""}` : ""}`}
+				style={cardHeaderStyle(card)}
+				onPointerDown={onHeaderPointerDown}
+			>
+				<span className="cs-card-title">{card.title}</span>
 				<button
 					type="button"
-					className="cs-card-header-edit"
+					className="cs-card-header-menu-btn"
+					aria-label="Edit Layout"
+					title="Edit Layout"
 					onPointerDown={(event) => event.stopPropagation()}
 					onClick={onEditLayout}
 				>
-					Edit Layout
+					<KebabIcon />
 				</button>
 			</header>
 			<div className={bodyProps.className} style={bodyProps.style}>

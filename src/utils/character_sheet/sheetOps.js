@@ -16,7 +16,6 @@ import {
 	MODULE_GAP,
 	getModuleDefaultSize,
 	getModuleMinSize,
-	getMinHeaderWidth,
 	CARD_BORDER_WIDTH,
 } from "./layoutConstants.js";
 
@@ -88,8 +87,7 @@ function packWidthForCard(card) {
 	return columns * widest + (columns - 1) * MODULE_GAP + GRID_SIZE;
 }
 
-// Sizes a card to snugly fit the module rects packed into it — pure content
-// fit, no header-title floor (see fitCardSize for that). Used for a
+// Sizes a card to snugly fit the module rects packed into it. Used for a
 // brand-new card (stops every card from starting at the same fixed
 // width/height regardless of how many/how large its modules are — the
 // scrollbar-on-creation problem) and, live, as the card's size any time its
@@ -98,31 +96,24 @@ function packWidthForCard(card) {
 // +GRID_SIZE here accounts for the matching margin on the bottom/right, so
 // the card is sized for exactly one grid cell of breathing room on every
 // edge — no more, no less (CARD_BORDER_WIDTH is only there because the
-// card's own border eats into that space; see its comment).
-export function fitCardToModules(card, moduleRects) {
+// card's own border eats into that space; see its comment). showHeader
+// (default true, see the showHeader layout field) is whether this layout's
+// header sits above the body reserving its own space, or floats over it on
+// hover instead (see .cs-card-header--floating) — floating reserves none.
+export function fitCardToModules(card, moduleRects, showHeader = true) {
 	const rects = Object.values(moduleRects);
 	const contentWidth = boundingWidth(rects, 0) + GRID_SIZE + CARD_BORDER_WIDTH;
-	const contentHeight = boundingHeight(rects, 0) + GRID_SIZE + CARD_HEADER_HEIGHT + CARD_BORDER_WIDTH;
+	const headerSpace = showHeader ? CARD_HEADER_HEIGHT : 0;
+	const contentHeight = boundingHeight(rects, 0) + GRID_SIZE + headerSpace + CARD_BORDER_WIDTH;
 	return {
 		width: snap(Math.max(CARD_MIN_WIDTH, contentWidth)),
 		height: snap(Math.max(CARD_MIN_HEIGHT, contentHeight)),
 	};
 }
 
-// fitCardToModules plus the header-safety floor (see getMinHeaderWidth) — the
-// one size a card is ever allowed to be, whether it was just packed, just
-// edited, or is mid-drag on its own resize handles. Centralising it here is
-// what lets the card shrink as readily as it grows: every caller measures
-// against this same fit instead of flooring against whatever size happened
-// to be on screen before.
-export function fitCardSize(card, moduleRects) {
-	const fit = fitCardToModules(card, moduleRects);
-	return { width: Math.max(fit.width, snap(getMinHeaderWidth(card.title))), height: fit.height };
-}
-
 // Proportionally rescales a group of module rects to exactly fill a
 // `targetWidth` x `targetHeight` content area (the space inside the card's
-// GRID_SIZE margin — see fitCardSize/fitCardToModules for how that margin is
+// GRID_SIZE margin — see fitCardToModules for how that margin is
 // spent). This is what "resizing the card" means for its modules: their
 // relative layout is preserved, everything grows or shrinks together, and
 // the group is re-anchored to the margin on its way through (so a layout
@@ -263,11 +254,12 @@ function findCardRect(page, width, height) {
 }
 
 // Packs a card's modules and sizes the card itself to fit them (see
-// fitCardSize) — the shared step behind placing a brand-new card and
-// inserting an existing one.
+// fitCardToModules) — the shared step behind placing a brand-new card and
+// inserting an existing one. A fresh layout always starts with its header
+// shown (see the showHeader layout field).
 function packCard(card) {
 	const moduleRects = packModuleRects(card.moduleOrder, card.modules, packWidthForCard(card));
-	return { moduleRects, cardSize: fitCardSize(card, moduleRects) };
+	return { moduleRects, cardSize: fitCardToModules(card, moduleRects) };
 }
 
 // Adds a brand-new card's data to the sheet and places it on a page.
@@ -427,18 +419,19 @@ export function removeModuleFromLayout(sheet, pageId, layoutId, moduleId) {
 	});
 }
 
-// The card is always exactly as big as its modules need (see fitCardSize) —
-// whichever way that pushes it. Growing covers modules dragged/resized past
-// the card's current edges; shrinking covers modules pulled in tighter than
-// the card currently is. rectOffset (default zero) is the page-position shift
-// a manual resize on the card's own nw/n/w/… handles produced (see
-// CardLayoutEditor) — those handles can move the card's origin as well as its
-// size, which fitCardSize alone (width/height only) can't express.
-function fitRectToModules(rect, card, moduleRects, rectOffset = { x: 0, y: 0 }) {
+// The card is always exactly as big as its modules need (see
+// fitCardToModules) — whichever way that pushes it. Growing covers modules
+// dragged/resized past the card's current edges; shrinking covers modules
+// pulled in tighter than the card currently is. rectOffset (default zero) is
+// the page-position shift a manual resize on the card's own nw/n/w/…
+// handles produced (see CardLayoutEditor) — those handles can move the
+// card's origin as well as its size, which fitCardToModules alone
+// (width/height only) can't express.
+function fitRectToModules(rect, card, moduleRects, rectOffset = { x: 0, y: 0 }, showHeader = true) {
 	if (!rect || !card) {
 		return rect;
 	}
-	const size = fitCardSize(card, moduleRects);
+	const size = fitCardToModules(card, moduleRects, showHeader);
 	return { ...rect, x: rect.x + rectOffset.x, y: rect.y + rectOffset.y, ...size };
 }
 
@@ -446,7 +439,9 @@ function fitRectToModules(rect, card, moduleRects, rectOffset = { x: 0, y: 0 }) 
 // one's rect ({ x, y, width, height } in px). Rects for modules no longer in
 // the order are dropped, and the card itself is refit to whatever's left
 // (see fitRectToModules) — growing or shrinking as needed, plus any page-
-// position shift from a manual card resize (rectOffset).
+// position shift from a manual card resize (rectOffset). The layout's own
+// showHeader isn't touched here (see setLayoutShowHeader) but does feed the
+// refit, since how much space the header reserves depends on it.
 export function setCardLayoutArrangement(
 	sheet,
 	pageId,
@@ -471,7 +466,38 @@ export function setCardLayoutArrangement(
 						...layout,
 						moduleOrder: [...moduleOrder],
 						moduleRects: keptRects,
-						rect: fitRectToModules(layout.rect, sheet.cards[layout.cardId], keptRects, rectOffset),
+						rect: fitRectToModules(
+							layout.rect,
+							sheet.cards[layout.cardId],
+							keptRects,
+							rectOffset,
+							layout.showHeader !== false
+						),
+				  }
+				: layout
+		),
+	});
+}
+
+// Toggles whether a layout's header is always shown (default) or floats
+// over the body on hover instead (see .cs-card-header--floating and
+// CharacterSheetCard's hover-reveal timer) — a per-layout choice, like the
+// card's size itself, since how much chrome a placement can spare is a
+// per-page call. Refits the rect the same way an arrangement edit does,
+// since toggling the header changes how much space it reserves.
+export function setLayoutShowHeader(sheet, pageId, layoutId, showHeader) {
+	const page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	return replacePage(sheet, {
+		...page,
+		cardLayouts: page.cardLayouts.map((layout) =>
+			layout.id === layoutId
+				? {
+						...layout,
+						showHeader,
+						rect: fitRectToModules(layout.rect, sheet.cards[layout.cardId], layout.moduleRects, undefined, showHeader),
 				  }
 				: layout
 		),

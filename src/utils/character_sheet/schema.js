@@ -696,13 +696,17 @@ export function createCustomCard(title) {
 // { x, y, width, height } (px, multiples of 5) on the page canvas. moduleOrder is
 // this page's own arrangement of the card's modules (which ones are included;
 // removing one here never deletes its data), each with its own rect in moduleRects.
-export function createCardLayout(card, { moduleOrder = null, rect = null, moduleRects = {} } = {}) {
+// showHeader is whether this placement's header stays pinned open or tucks
+// away until hovered (see setLayoutShowHeader in sheetOps.js) — like sizing,
+// a per-placement choice, not card data.
+export function createCardLayout(card, { moduleOrder = null, rect = null, moduleRects = {}, showHeader = true } = {}) {
 	return {
 		id: makeId("layout"),
 		cardId: card.id,
 		rect,
 		moduleOrder: [...(moduleOrder || card.moduleOrder)],
 		moduleRects: { ...moduleRects },
+		showHeader,
 	};
 }
 
