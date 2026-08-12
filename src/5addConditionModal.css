@@ -45,8 +45,11 @@
 .dual-modal-wrapper {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
+  max-width: 100%;
+  row-gap: 10px;
 }
 
 .characters-conditions {
@@ -300,11 +303,11 @@
 }
 
 .custom-modal-open-width {
- width: 968px;
+  width: clamp(600px, 60vw, 968px);
 }
 
 .custom-modal-closed-width {
-  width: 1076px;
+  width: clamp(600px, 68vw, 1076px);
 }
 
 .mobile-characters-dropdown {

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node test8.js)",
+      "Bash(node test9.js)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

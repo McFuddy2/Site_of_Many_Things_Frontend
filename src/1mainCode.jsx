@@ -96,6 +96,8 @@ export default function MainCode() {
   const nextSummonFocusIndexRef = useRef(null);
   const initiativeListContentRef = useRef(null);
   const pendingActiveRowDataIndexRef = useRef(null);
+  const isEditingInitiativeRef = useRef(false);
+  const [sortNonce, setSortNonce] = useState(0);
   const wsRef = useRef(null);
   const isSyncingFromWs = useRef(false);
   const hasStartedJoinRef = useRef(false);
@@ -1006,6 +1008,20 @@ export default function MainCode() {
   const handleAddConditionClick = (rowIndex) => {
     setIsAddConditionModalOpen(rowIndex);
     setMobileAddConditionStep(1);
+
+    // Pre-select the character only when explicitly in the "view character
+    // conditions" state (i.e. a row was clicked), not for the default
+    // active-character view.
+    const viewedRow = viewCharacterIndex !== null ? displayedSortedRowData[viewCharacterIndex] : null;
+
+    if (viewedRow) {
+      const viewedTarget = conditionTargets.find(
+        (target) => target.rowIndex === viewedRow.index && !target.isSummon
+      );
+      if (viewedTarget) {
+        setSelectedCharacters([viewedTarget.id]);
+      }
+    }
   };
 
   const handleFullReset = () => {
@@ -1990,23 +2006,41 @@ export default function MainCode() {
   const handleInitiativeChange = (index, value) => {
     const newInitiative = value ? parseFloat(value) : null;
 
-    // If there's an active character and this row's new initiative beats theirs,
-    // queue this row to become the new active after re-sort.
     if (
-      newInitiative !== null &&
       shiftedRowIndex !== null &&
       sortedRowData[shiftedRowIndex] &&
-      sortedRowData[shiftedRowIndex].index !== index
+      sortedRowData[shiftedRowIndex].index === index
     ) {
-      const activeInitiative = sortedRowData[shiftedRowIndex].initiative ?? -Infinity;
-      if (newInitiative > activeInitiative) {
-        pendingActiveRowDataIndexRef.current = index;
+      // The currently active character is changing their own initiative --
+      // their turn passes to whoever was next in the order. Editing anyone
+      // else's initiative just reorders the list and leaves the active
+      // character's turn alone.
+      const nonOverlayRows = sortedRowData.filter((row) => !overlayActive[row.index]);
+      if (nonOverlayRows.length > 1) {
+        const nextPosition = (shiftedRowIndex + 1) % nonOverlayRows.length;
+        pendingActiveRowDataIndexRef.current = nonOverlayRows[nextPosition].index;
       }
     }
 
     const updatedData = [...rowData];
     updatedData[index] = { ...updatedData[index], initiative: newInitiative };
     setRowData(updatedData);
+  };
+
+  const handleInitiativeInputFocus = () => {
+    isEditingInitiativeRef.current = true;
+  };
+
+  const handleInitiativeInputBlur = () => {
+    isEditingInitiativeRef.current = false;
+    setSortNonce((n) => n + 1);
+  };
+
+  const handleInitiativeInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.target.blur();
+    }
   };
 
   const handleArmorClassChange = (index, value) => {
@@ -2510,6 +2544,12 @@ export default function MainCode() {
   }, [shiftedRowIndex]);
 
   useEffect(() => {
+    // While a character's initiative box is focused, hold off on re-sorting
+    // the list until the value is committed (Enter or click away).
+    if (isEditingInitiativeRef.current) {
+      return;
+    }
+
     const previousActiveRowIndex =
       shiftedRowIndex !== null && sortedRowData[shiftedRowIndex]
         ? sortedRowData[shiftedRowIndex].index
@@ -2548,7 +2588,7 @@ export default function MainCode() {
       const nextShiftedRowIndex = sortedRows.findIndex((row) => row.index === previousActiveRowIndex);
       setShiftedRowIndex(nextShiftedRowIndex >= 0 ? nextShiftedRowIndex : null);
     }
-  }, [rowData, rowVisibility, overlayActive])
+  }, [rowData, rowVisibility, overlayActive, sortNonce])
 
   useEffect(() => {
     localStorage.setItem('show-armor-class', JSON.stringify(showArmorClass));
@@ -2978,6 +3018,9 @@ export default function MainCode() {
                       placeholder="#"
                       value={rowData[index].initiative ?? ''}
                       onChange={(e) => handleInitiativeChange(index, e.target.value)}
+                      onFocus={handleInitiativeInputFocus}
+                      onBlur={handleInitiativeInputBlur}
+                      onKeyDown={handleInitiativeInputKeyDown}
                     />
                     {isRoundDividerTarget && (
                       <div className="round-inline-counter">Round {round + 1}</div>
@@ -4035,7 +4078,7 @@ export default function MainCode() {
 {/* Add-Condition Modal */}
 {isAddConditionModalOpen !== null && (
   <div className="modal-overlay">
-    <div className="dual-modal-wrapper" style={{marginLeft: isCustomConditionModalOpen ? '255px' : '0'}}>
+    <div className="dual-modal-wrapper">
       <div className={`condition-modal ${isCustomConditionModalOpen ? 'custom-modal-open-width' : 'custom-modal-closed-width'}`}>
         <div className="condition-modal-header">
           <h2>Add Condition</h2>
