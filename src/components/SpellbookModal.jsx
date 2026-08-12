@@ -21,7 +21,7 @@ const RANGE_FILTER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30
 const FEET_PER_MILE = 5280;
 const RANGE_FILTER_FEET = {
 	Self: 0,
-	Touch: 0,
+	Touch: 1,
 	"5ft": 5,
 	"10ft": 10,
 	"15ft": 15,
@@ -293,7 +293,8 @@ function getSecondaryFilterOptions(field, availableSourceNames) {
 function getRangeFeetValue(rawRange) {
 	const text = `${rawRange ?? ""}`.trim().toLowerCase();
 	if (!text) return null;
-	if (text === "self" || text === "touch" || text.includes("emanation")) return 0;
+	if (text === "self" || text.includes("emanation")) return 0;
+	if (text === "touch") return 1;
 	if (text === "sight" || text === "unlimited" || text === "special") return Infinity;
 	const match = text.match(/(\d+(?:\.\d+)?)\s*(mile|miles|foot|feet|ft)\b/);
 	if (!match) return null;
@@ -303,6 +304,70 @@ function getRangeFeetValue(rawRange) {
 
 function isRitualEligible(spell) {
 	return `${spell?.ritual ?? ""}`.trim().toLowerCase() === "yes";
+}
+
+function getCastingTimeBucket(spell) {
+	const raw = `${spell?.castingTime ?? ""}`.trim().toLowerCase();
+	if (!raw) return null;
+
+	const match = raw.match(/^(\d+)\s*(bonus action|action|reaction|minute|minutes|hour|hours|day|days)\b/);
+	if (!match) {
+		// Some reaction spells are missing their "1 Reaction" prefix in the source data and
+		// start straight into the trigger text (e.g. "which you take when...").
+		if (/^(which you take|taken when)/.test(raw)) return "Reaction";
+		return null;
+	}
+
+	const amount = Number(match[1]);
+	const unit = match[2];
+
+	if (unit === "bonus action") return "Bonus Action";
+	if (unit === "action") return "Action";
+	if (unit === "reaction") return "Reaction";
+	if (unit === "minute" || unit === "minutes") {
+		if (amount === 1) return "1 Minute";
+		if (amount === 10) return "10 Minutes";
+		return ">1 Hour";
+	}
+	if (unit === "hour" || unit === "hours") {
+		return amount === 1 ? "1 Hour" : ">1 Hour";
+	}
+	if (unit === "day" || unit === "days") return ">1 Hour";
+	return null;
+}
+
+function getDurationBucket(spell) {
+	const display = getDurationDisplayValue(spell).trim().toLowerCase();
+	if (!display) return null;
+	if (display === "instantaneous") return "Instantaneous";
+
+	const match = display.match(/(\d+)\s*(round|rounds|minute|minutes|hour|hours|day|days)\b/);
+	if (!match) return null;
+
+	const amount = Number(match[1]);
+	const unit = match[2];
+
+	if (unit === "round" || unit === "rounds") return amount === 1 ? "1 Round" : null;
+	if (unit === "minute" || unit === "minutes") {
+		if (amount === 1) return "1 Minute";
+		if (amount === 10) return "10 Minutes";
+		return null;
+	}
+	if (unit === "hour" || unit === "hours") {
+		return amount === 1 ? "1 Hour" : ">1 Hour";
+	}
+	if (unit === "day" || unit === "days") return ">1 Hour";
+	return null;
+}
+
+function getComponentFlags(spell) {
+	const raw = `${spell?.components ?? ""}`;
+	const withoutParens = raw.replace(/\([^)]*\)/g, "");
+	const hasVerbal = /\bV\b/.test(withoutParens);
+	const hasSomatic = /\bS\b/.test(withoutParens);
+	const hasMaterial = /\bM\b/.test(withoutParens);
+	const hasCost = /\d[\d,]*\+?\s*(?:gp|sp|cp|pp|ep)\b/i.test(raw);
+	return { hasVerbal, hasSomatic, hasMaterial, hasCost };
 }
 
 function spellMatchesField(spell, field, value, options = {}) {
@@ -333,7 +398,7 @@ function spellMatchesField(spell, field, value, options = {}) {
 		case "Source":
 			return `${spell.source ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
 		case "Casting Time":
-			return `${spell.castingTime ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
+			return getCastingTimeBucket(spell) === value.trim();
 		case "Range": {
 			const spellFeet = getRangeFeetValue(spell.range);
 			const filterKey = value.trim();
@@ -348,19 +413,25 @@ function spellMatchesField(spell, field, value, options = {}) {
 			if (options.rangeAtLeast) {
 				return spellFeet >= filterFeet;
 			}
-			// Self and Touch both measure as 0ft, so an exact match has to fall back to the
-			// spell's actual range text to tell them apart.
-			if (filterFeet === 0) {
-				return `${spell.range ?? ""}`.trim().toLowerCase() === filterKey.toLowerCase();
-			}
 			return spellFeet === filterFeet;
 		}
-		case "Duration": {
-			const durationDisplay = getDurationDisplayValue(spell).trim().toLowerCase();
-			return durationDisplay === value.trim().toLowerCase();
+		case "Duration":
+			return getDurationBucket(spell) === value.trim();
+		case "Components": {
+			const { hasVerbal, hasSomatic, hasMaterial, hasCost } = getComponentFlags(spell);
+			switch (value.trim()) {
+				case "Verbal":
+					return hasVerbal;
+				case "Somatic":
+					return hasSomatic;
+				case "Component":
+					return hasMaterial;
+				case "Cost Component":
+					return hasMaterial && hasCost;
+				default:
+					return false;
+			}
 		}
-		case "Components":
-			return `${spell.components ?? ""}`.toLowerCase().includes(value.trim().toLowerCase());
 		case "Ritual":
 			return `${spell.ritual ?? ""}`.trim().toLowerCase() === value.trim().toLowerCase();
 		case "Concentration": {
