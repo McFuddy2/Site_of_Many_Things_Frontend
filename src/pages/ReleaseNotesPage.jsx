@@ -21,6 +21,73 @@ export default function ReleaseNotesPage() {
         A living record of updates to the Site of Many Things and its D&D initiative tracker tools.
       </p>
 <div className="release-notes-card">
+  <h2 className="release-version">Summer 2026 Update</h2>
+  <p className="release-date">Released: August 2026</p>
+  <div className="release-top-row">
+    <div className="release-left">
+      <h3 className="section-title">Initiative Tracker — now shared, live, at the whole table</h3>
+      <ul className="bullets">
+        <li>Run one initiative tracker that everyone can see and edit at the same time — no more passing a laptop around.</li>
+        <li>The host starts a session and shares a join code or link; players join from their own devices.</li>
+        <li>Edits appear live for everyone — add a combatant, change hit points, drop a condition, and the whole table sees it instantly.</li>
+        <li>The session stays open as long as the host keeps it running, so players can drop and rejoin without losing the board.</li>
+        <li>No account needed — start a session and share the link.</li>
+      </ul>
+      <h3 className="section-title">Initiative Tracker — Updates</h3>
+      <ul className="bullets">
+        <li>Effect durations now track how many rounds a condition has left.</li>
+        <li>Add new combatants mid-fight without resetting the tracker.</li>
+      </ul>
+      <h3 className="section-title">Spell Searcher — Spellbooks (new)</h3>
+      <ul className="bullets">
+        <li>Save spells straight from the Spell Searcher into a personal spellbook.</li>
+        <li>Keep up to 8 spellbooks, each with its own color.</li>
+        <li>Filter and search inside your spellbook the same way you can on the full Spell Searcher.</li>
+        <li>Track your spell slots right in the spellbook.</li>
+        <li>Spellbooks save right in your browser — nothing to sign up for to start using them.</li>
+      </ul>
+      <h3 className="section-title">Spell Searcher — Fixes</h3>
+      <ul className="bullets">
+        <li>Fixed a filtering bug where Touch-range spells weren't reliably separated from Self-range spells.</li>
+        <li>Corrected material components and durations on several dozen spells across the database.</li>
+      </ul>
+    </div>
+    <div className="release-right">
+      <h3 className="section-title">Site updates</h3>
+      <ul className="bullets">
+        <li>
+          New article published:{" "}
+          <Link to="/articles/5e-spells-you-can-cast-while-blinded">
+            Blinded in Combat? Here's How to Find Spells You Can Still Cast
+          </Link>.
+        </li>
+        <li>
+          <a href="https://ko-fi.com/siteofmanythings" target="_blank" rel="noopener noreferrer">Ko-fi supporter</a> callouts added across the tools.
+        </li>
+      </ul>
+      <h3 className="section-title">How to help</h3>
+      <p className="faq-item">Bug reports</p>
+      <p className="faq-text">
+        If something breaks during a session, a screenshot plus what you clicked helps us fix it faster.
+        Send feedback using the email listed on the{" "}
+        <Link to="/about" className="release-notes-text-link">About page</Link>.
+      </p>
+      <p className="faq-item">Feature requests</p>
+      <p className="faq-text">
+        Tell us what slows combat down at your table. Features that reduce friction for DMs are prioritized first.
+      </p>
+    </div>
+  </div>
+  <div className="release-notes-actions">
+    <Link to="/spell-search" className="btn-primary">
+      Open the Spell Searcher →
+    </Link>
+    <Link to="/initiative" className="btn-primary">
+      Open the Tracker →
+    </Link>
+  </div>
+</div>
+<div className="release-notes-card">
   <h2 className="release-version">Spring 2026 Update</h2>
   <p className="release-date">Released: May 2026</p>
 
