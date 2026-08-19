@@ -227,61 +227,62 @@ Any recurring supporters?
 Monthly revenue number
 
 
-Sprint 9 — Live Shared Initiative Tracker
-Primary Goal: The word-of-mouth feature. Ships and gets posted on Reddit.
-Revenue Goal: Revenue growing month over month.
-Success Metric: Live session works end to end. Posted on Reddit same sprint.
-Frontend — Jess + Caleb if available
-
-Session creation — generates shareable code or link
-Session join — enter code or follow link, enter display name, no account required
-Account holders get name pre-populated on join
-Real-time tracker view shared across all participants
-Session end handling — creator closes or all disconnect
-Clean UX for both "I have an account" and "I'm just joining" flows
-
-Backend/Business — Glenn
-
-WebSocket or polling infrastructure for real-time session sync
-Session/room model in backend
-Write SEO article #6
-Post live initiative tracker launch on Reddit immediately when it ships
-Send Buttondown newsletter announcing the feature
-
-Sprint 9 Review (Glenn)
-
-Live sessions working end to end?
-Reddit post made?
-Monthly revenue number — compare to last sprint
-
-
-Sprint 10 — Combat Manager MVP
-Primary Goal: Third differentiated tool live.
+Sprint 9 — Combat Manager MVP
+Primary Goal: Third differentiated tool live. Layers on the live shared session 
+infrastructure that shipped early, in Sprint 6.
 Revenue Goal: Revenue growing month over month.
 Success Metric: Combat Manager usable, linked to live sessions, posted on Reddit.
-Frontend — Jess + Caleb if available
 
-DM-only view accessible from an active shared session
-HP tracking with quick damage/heal buttons per combatant
-Condition add/remove per combatant
-Notes field per combatant — DM-only, invisible to players
-Round and turn tracking linked to live session state
-Clean DM-focused layout at /combat
-Linked from initiative tracker
+Frontend — Jess + Caleb if available
+- DM-only view accessible from an active shared session
+- HP tracking with quick damage/heal buttons per combatant
+- Condition add/remove per combatant
+- Notes field per combatant — DM-only, invisible to players
+- Round and turn tracking linked to live session state
+- Group vs individual tracking (for mobs)
+- Clean DM-focused layout at /combat
+- Linked from initiative tracker
 
 Backend/Business — Glenn
+- Any backend needed for Combat Manager (likely minimal — shares live session state)
+- Write SEO article #6
+- Post Combat Manager launch on Reddit
+- Send Buttondown newsletter (even sprint)
 
-Any backend needed for Combat Manager (likely minimal — shares live session state)
-Write SEO article #7
-Post Combat Manager launch on Reddit
-Full revenue review: what is working? What is not? Plan Phase 3 based on real data
-Send Buttondown newsletter (even sprint)
+Sprint 9 Review (Glenn)
+- Combat Manager working end to end? DM notes confirmed invisible to players?
+- Reddit post made?
+- Monthly revenue number — compare to last sprint
+
+
+Sprint 10 — Encounter and Combat Generator
+Primary Goal: Fourth tool live, feeding directly into the Combat Manager — 
+unique because of that connection.
+Revenue Goal: Revenue growing month over month.
+Success Metric: Generator produces a usable encounter that loads directly into 
+an active Combat Manager session. Posted on Reddit.
+
+Before coding begins
+- Fill in mvp-spec.md for Encounter and Combat Generator, review with Glenn and Jess
+
+Frontend — Jess + Caleb if available
+- Party size and level inputs
+- Difficulty selection
+- Monster suggestions from OGL list
+- One-click load into active Combat Manager session
+- Clean layout matching site branding
+
+Backend/Business — Glenn
+- Any backend needed for encounter generation logic
+- Write SEO article #7
+- Post Encounter Generator launch on Reddit
+- Full revenue review: what is working? What is not? Plan Phase 3 based on real data
+- Send Buttondown newsletter (even sprint)
 
 Sprint 10 Review (Glenn)
-
-Three live, differentiated tools?
-Monthly revenue number
-What does Phase 3 look like based on what we now know?
+- Four live, differentiated tools?
+- Monthly revenue number
+- What does Phase 3 look like based on what we now know?
 
 
 Phase 3 — Scale What Works (Sprint 11+)

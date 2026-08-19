@@ -133,7 +133,18 @@ AI tools — Phase 3 or later, only when revenue absorbs cost
 
 
 Tools Roadmap Summary
-ToolStatusScheduledInitiative TrackerLive — Phase 1 features in Sprint 5–6Mobile/tablet Sprint 5Spell SearcherLive — QC pass underwaySpellbook (localStorage) Sprint 6User AccountsNot startedSprint 7Ko-fi IntegrationNot startedSprint 8Cloud SpellbooksNot startedSprint 8Live Shared SessionsNot startedSprint 9Combat ManagerPlanning — spec in mvp-spec.mdSprint 10Encounter GeneratorBacklogSprint 11AI GeneratorsDeferredPhase 3Campaign ManagerDeferredPhase 3+
+| Tool | Status | Scheduled |
+|---|---|---|
+| Initiative Tracker | Live — Phase 1 features in Sprint 5–6 | Mobile/tablet Sprint 5 |
+| Spell Searcher | Live — QC pass underway | Spellbook (localStorage) Sprint 6 |
+| User Accounts | Not started | Sprint 7 |
+| Ko-fi Integration | Not started | Sprint 8 |
+| Cloud Spellbooks | Not started | Sprint 8 |
+| Live Shared Sessions | Live | Shipped Sprint 6 — 3 sprints ahead of schedule |
+| Combat Manager | Planning — spec in mvp-spec.md | Sprint 9 |
+| Encounter Generator | Backlog | Sprint 10 |
+| AI Generators | Deferred | Phase 3 |
+| Campaign Manager | Deferred | Phase 3+ |
 
 Key Principles That Do Not Change
 
