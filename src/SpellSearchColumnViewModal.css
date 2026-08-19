@@ -71,6 +71,19 @@
 	cursor: pointer;
 }
 
+.column-view-secondary-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.25);
+	padding-top: 0.8rem;
+}
+
+.column-view-secondary-section .column-view-option-grid {
+	flex: none;
+	grid-template-columns: minmax(0, 1fr);
+}
+
 .column-view-modal-close {
 	position: absolute;
 	top: 0.5rem;

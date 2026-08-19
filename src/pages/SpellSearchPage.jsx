@@ -12,6 +12,7 @@ import { getSpells, getSpell, queryAdvancedSpells, getSources } from "../API/spe
 import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, MAX_SAVED_SPELLBOOKS } from "../utils/spellbookStorage";
+import { getStoredSpellRatings, saveSpellRating } from "../utils/spellRatingStorage";
 
 const RANGE_SLIDER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
@@ -82,6 +83,7 @@ export default function SpellSearchPage() {
 		"Components",
 		"Ritual",
 		"Concentration",
+		"Spellbook",
 	];
 	const [isColumnViewOpen, setIsColumnViewOpen] = useState(false);
 	const [visibleColumns, setVisibleColumns] = useState({
@@ -96,6 +98,9 @@ export default function SpellSearchPage() {
 	});
 	const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
 	const isCompactSpellRow = visibleColumnCount <= 4;
+	const [showSpellRatings, setShowSpellRatings] = useState(false);
+	const [spellRatings, setSpellRatings] = useState(() => getStoredSpellRatings());
+	const [hoveredRatingValue, setHoveredRatingValue] = useState(0);
 	const [sortBy, setSortBy] = useState("level");
 	const isAlphabetical = sortBy === "alphabetical";
 	const [sortDirection, setSortDirection] = useState("ascending");
@@ -381,6 +386,7 @@ export default function SpellSearchPage() {
 			includeComponents = [],
 			includeRituals = [],
 			includeConcentrations = [],
+			includeSpellbooks = [],
 			excludeKeywords = [],
 			excludeLevels = [],
 			excludeSchools = [],
@@ -391,7 +397,8 @@ export default function SpellSearchPage() {
 			excludeDurations = [],
 			excludeComponents = [],
 			excludeRituals = [],
-			excludeConcentrations = [];
+			excludeConcentrations = [],
+			excludeSpellbooks = [];
 
 		if (includeSelections.length > 0) {
 			includeKeywords = includeSelections
@@ -440,6 +447,9 @@ export default function SpellSearchPage() {
 			includeConcentrations = includeSelections
 				.filter((entry) => entry.field === "Concentration")
 				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => entry.value);
+			includeSpellbooks = includeSelections
+				.filter((entry) => entry.field === "Spellbook")
 				.map((entry) => entry.value);
 		}
 
@@ -490,6 +500,9 @@ export default function SpellSearchPage() {
 			excludeConcentrations = excludeSelections
 				.filter((entry) => entry.field === "Concentration")
 				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => entry.value);
+			excludeSpellbooks = excludeSelections
+				.filter((entry) => entry.field === "Spellbook")
 				.map((entry) => entry.value);
 		}
 
@@ -595,6 +608,17 @@ export default function SpellSearchPage() {
 				})),
 			);
 		}
+		if (includeSpellbooks.length > 0) {
+			// An empty result here means the selected spellbook(s) hold no spells; fall back to
+			// an id that can never match so the include filter still restricts to "nothing"
+			// rather than silently being dropped (which would match every spell instead).
+			const spellbookSpellIds = getSpellIdsForSpellbookNames(includeSpellbooks);
+			pushIncludeGroup(
+				(spellbookSpellIds.length > 0 ? spellbookSpellIds : [-1]).map((spellId) => ({
+					term: { field: "id", value: spellId }
+				})),
+			);
+		}
 
 		if (excludeKeywords.length > 0) {
 			pushExcludeGroup(
@@ -671,6 +695,16 @@ export default function SpellSearchPage() {
 					term: { field: "concentration", value: concentrationValue }
 				})),
 			);
+		}
+		if (excludeSpellbooks.length > 0) {
+			const spellbookSpellIds = getSpellIdsForSpellbookNames(excludeSpellbooks);
+			if (spellbookSpellIds.length > 0) {
+				pushExcludeGroup(
+					spellbookSpellIds.map((spellId) => ({
+						term: { field: "id", value: spellId }
+					})),
+				);
+			}
 		}
 
 		let filter;
@@ -907,6 +941,21 @@ export default function SpellSearchPage() {
 		}));
 	};
 
+	const handleSetSpellRating = (spellId, rating) => {
+		setSpellRatings(saveSpellRating(spellId, rating));
+	};
+
+	// Resolves selected spellbook names to the union of spell ids they contain.
+	const getSpellIdsForSpellbookNames = (spellbookNames) => {
+		const nameSet = new Set(spellbookNames);
+		const matchingBooks = getSavedSpellbooks().filter((book) => nameSet.has(book.name));
+		const spellIds = new Set();
+		matchingBooks.forEach((book) => {
+			(book.spells || []).forEach((spell) => spellIds.add(spell.id));
+		});
+		return [...spellIds];
+	};
+
 	const getSecondaryFilterOptions = (field) => {
 		switch (field) {
 			case "Casting Time":
@@ -927,6 +976,8 @@ export default function SpellSearchPage() {
 				return ["Yes", "No"];
 			case "Concentration":
 				return ["Yes", "No"];
+			case "Spellbook":
+				return getSavedSpellbooks().map((book) => book.name);
 			default:
 				return [];
 		}
@@ -954,6 +1005,8 @@ export default function SpellSearchPage() {
 				return "Select Ritual";
 			case "Concentration":
 				return "Select Concentration";
+			case "Spellbook":
+				return "Select Spellbook";
 			default:
 				return "";
 		}
@@ -1102,16 +1155,19 @@ export default function SpellSearchPage() {
 	const excludeSecondaryOptions = getSecondaryFilterOptions(excludeFilterField);
 	const advancedSecondaryOptions = getSecondaryFilterOptions(advancedFilterField);
 	const isSingleSelectField = (field) => field === "Ritual" || field === "Concentration";
+	// Spellbook membership is a real, meaningful restriction even when every spellbook is
+	// selected, unlike other multi-select fields where selecting every option is a no-op.
+	const offersSelectAllOption = (field) => !isSingleSelectField(field) && field !== "Spellbook";
 	const usesDeferredSecondaryMenu = (field) => field && !isSingleSelectField(field) && !isTextEntryField(field) && field !== "Range";
-	const includeSecondaryDropdownOptions = isSingleSelectField(includeFilterField)
-		? includeSecondaryOptions
-		: ["ALL", ...includeSecondaryOptions];
-	const excludeSecondaryDropdownOptions = isSingleSelectField(excludeFilterField)
-		? excludeSecondaryOptions
-		: ["ALL", ...excludeSecondaryOptions];
-	const advancedSecondaryDropdownOptions = isSingleSelectField(advancedFilterField)
-		? advancedSecondaryOptions
-		: ["ALL", ...advancedSecondaryOptions];
+	const includeSecondaryDropdownOptions = offersSelectAllOption(includeFilterField)
+		? ["ALL", ...includeSecondaryOptions]
+		: includeSecondaryOptions;
+	const excludeSecondaryDropdownOptions = offersSelectAllOption(excludeFilterField)
+		? ["ALL", ...excludeSecondaryOptions]
+		: excludeSecondaryOptions;
+	const advancedSecondaryDropdownOptions = offersSelectAllOption(advancedFilterField)
+		? ["ALL", ...advancedSecondaryOptions]
+		: advancedSecondaryOptions;
 	const isMobileIncludeMode = mobileFilterMode === "include";
 	const mobileActiveFilterField = isMobileIncludeMode ? mobileIncludeFilterField : mobileExcludeFilterField;
 	const mobileActiveFilterValue = isMobileIncludeMode ? mobileIncludeFilterValue : mobileExcludeFilterValue;
@@ -1119,9 +1175,9 @@ export default function SpellSearchPage() {
 		? mobileWorkingIncludeSelections
 		: mobileWorkingExcludeSelections;
 	const mobileActiveSecondaryOptions = getSecondaryFilterOptions(mobileActiveFilterField);
-	const mobileActiveSecondaryDropdownOptions = isSingleSelectField(mobileActiveFilterField)
-		? mobileActiveSecondaryOptions
-		: ["ALL", ...mobileActiveSecondaryOptions];
+	const mobileActiveSecondaryDropdownOptions = offersSelectAllOption(mobileActiveFilterField)
+		? ["ALL", ...mobileActiveSecondaryOptions]
+		: mobileActiveSecondaryOptions;
 	const mobileActivePendingSecondaryValues = isMobileIncludeMode
 		? mobilePendingIncludeSecondaryValues
 		: mobilePendingExcludeSecondaryValues;
@@ -1358,6 +1414,10 @@ export default function SpellSearchPage() {
 
 		if (isSingleSelectField(field)) {
 			return dedupedValues.length > 0 ? [dedupedValues[dedupedValues.length - 1]] : [];
+		}
+
+		if (!offersSelectAllOption(field)) {
+			return secondaryOptions.filter((option) => dedupedValues.includes(option));
 		}
 
 		if (dedupedValues.includes("ALL")) {
@@ -2716,6 +2776,33 @@ export default function SpellSearchPage() {
 								aria-hidden={expandedSpellId !== spell.id}
 							>
 								<div className="spell-row-accordion-content">
+									{showSpellRatings ? (
+										<div
+											className="spell-rating-stars"
+											onMouseLeave={() => setHoveredRatingValue(0)}
+											role="group"
+											aria-label={`Rate ${spell.name}`}
+										>
+											{[1, 2, 3, 4, 5].map((starValue) => {
+												const currentRating = spellRatings[spell.id] ?? 0;
+												const displayValue = hoveredRatingValue || currentRating;
+												return (
+													<button
+														type="button"
+														key={starValue}
+														className={`spell-rating-star${starValue <= displayValue ? " is-filled" : ""}`}
+														aria-label={`Rate ${starValue} star${starValue === 1 ? "" : "s"}`}
+														onMouseEnter={() => setHoveredRatingValue(starValue)}
+														onClick={() =>
+															handleSetSpellRating(spell.id, currentRating === starValue ? 0 : starValue)
+														}
+													>
+														★
+													</button>
+												);
+											})}
+										</div>
+									) : null}
 									<button
 										type="button"
 										className={`spell-copy-description-button${copiedSpellId === spell.id ? " is-copied" : ""}`}
@@ -3647,6 +3734,19 @@ export default function SpellSearchPage() {
 										<span>{option.label}</span>
 									</label>
 								))}
+							</div>
+							<div className="column-view-secondary-section">
+								<p className="column-view-modal-description">Other options:</p>
+								<div className="column-view-option-grid">
+									<label className="column-view-option-item">
+										<input
+											type="checkbox"
+											checked={showSpellRatings}
+											onChange={() => setShowSpellRatings((previous) => !previous)}
+										/>
+										<span>Star Ratings</span>
+									</label>
+								</div>
 							</div>
 						</div>
 						<button

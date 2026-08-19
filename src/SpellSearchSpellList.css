@@ -971,6 +971,31 @@
 	background-color: #ffffff;
 }
 
+.spell-rating-stars {
+	display: flex;
+	gap: 0.2rem;
+	margin-bottom: 0.5rem;
+}
+
+.spell-rating-star {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 0;
+	font-size: 1.5rem;
+	line-height: 1;
+	color: rgba(0, 0, 0, 0.2);
+	transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.spell-rating-star:hover {
+	transform: scale(1.15);
+}
+
+.spell-rating-star.is-filled {
+	color: var(--golden-highlight);
+}
+
 /* Copy Description button inside spell accordion */
 .spell-copy-description-button {
 	float: right;
