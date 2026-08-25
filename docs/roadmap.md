@@ -1,6 +1,6 @@
 Roadmap — The Site of Many Things
 A living strategic document. Sprint-level detail lives in tasks.md.
-Last updated: May 2026.
+Last updated: Aug 2026.
 
 # Milestone Log
 
@@ -8,6 +8,9 @@ A running record of meaningful milestones hit. Updated each sprint review.
 
 | Date | Milestone |
 |---|---|
+| Aug 2026 | Live Shared Initiative Tracker shipped — real-time multi-user sync, table-tested to 7 devices, three sprints ahead of the original Sprint 9 target |
+| Aug 2026 | Third SEO article published — completes the Phase 1 goal of 3 SEO articles |
+| Aug 2026 | AdSense application submitted — completes Phase 1 goal, approval still pending |
 | May 2026 | Bug report pipeline live — Google Form routes directly to ClickUp |
 | May 2026 | First Reddit post made — r/DungeonMasters |
 | May 2026 | Two SEO articles published |
