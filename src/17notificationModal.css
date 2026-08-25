@@ -1,0 +1,176 @@
+@import './1colors.css';
+
+.notification-modal .modal {
+  width: 460px;
+  max-width: 92%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-modal-description {
+  font-size: 0.9rem;
+  text-align: left;
+  margin: 0 0 12px;
+  color: var(--character-modal-text, inherit);
+}
+
+.notification-character-list {
+  overflow-y: auto;
+  max-height: 40vh;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.notification-character-list-empty {
+  padding: 10px 0;
+  text-align: left;
+  font-style: italic;
+}
+
+.notification-character-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 70px;
+  align-items: center;
+  column-gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+
+.notification-character-row:last-child {
+  border-bottom: none;
+}
+
+.notification-character-row-header {
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.notification-character-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-character-checkbox,
+.notification-character-checkbox-label {
+  display: flex;
+  justify-content: center;
+}
+
+.notification-mode-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.notification-mode-label {
+  font-weight: bold;
+}
+
+.notification-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notification-mode-warning {
+  font-size: 0.8rem;
+  color: #c62828;
+}
+
+@media screen and (max-width: 599px) {
+  .notification-modal .modal {
+    width: 100%;
+  }
+
+  .notification-character-row {
+    grid-template-columns: 1fr 60px 60px;
+  }
+}
+
+.turn-notification-banner-stack {
+  position: fixed;
+  top: var(--header-height, 0px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  pointer-events: none;
+}
+
+.turn-notification-banner {
+  position: relative;
+  /* The banner shouldn't block clicks on whatever it's floating over (e.g. the Next
+     turn button) -- only its own close button re-enables pointer events. */
+  pointer-events: none;
+  background-color: var(--site-modal-background);
+  color: var(--dark-purple-text);
+  font-family: 'Eagle Lake', cursive;
+  font-weight: bold;
+  font-size: 1.4rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 16px 52px 16px 24px;
+  border-radius: 10px;
+  animation: turnNotificationGlowPulse 1.25s ease-in-out infinite;
+}
+
+.turn-notification-banner-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  pointer-events: auto;
+  background: none;
+  border: none;
+  color: var(--dark-purple-text);
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px;
+}
+
+@keyframes turnNotificationGlowPulse {
+  0% {
+    box-shadow: 0 0 6px rgba(255, 230, 0, 0.90),
+      0 0 12px rgba(255, 230, 0, 0.75),
+      0 0 22px rgba(255, 230, 0, 0.55);
+  }
+  25% {
+    box-shadow: 0 0 10px rgba(255, 210, 0, 0.95),
+      0 0 20px rgba(255, 210, 0, 0.80),
+      0 0 32px rgba(255, 210, 0, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(170, 0, 255, 1),
+      0 0 28px rgba(170, 0, 255, 0.95),
+      0 0 42px rgba(170, 0, 255, 0.75);
+  }
+  75% {
+    box-shadow: 0 0 14px rgba(200, 50, 255, 0.95),
+      0 0 26px rgba(200, 50, 255, 0.85),
+      0 0 38px rgba(200, 50, 255, 0.70);
+  }
+  100% {
+    box-shadow: 0 0 6px rgba(255, 230, 0, 0.90),
+      0 0 12px rgba(255, 230, 0, 0.75),
+      0 0 22px rgba(255, 230, 0, 0.55);
+  }
+}
+
+@media screen and (max-width: 599px) {
+  .turn-notification-banner {
+    font-size: 1.1rem;
+    padding: 12px 44px 12px 16px;
+  }
+}

@@ -18,15 +18,38 @@ import infoIcon from './media/information-button.png';
 import cornerBorder from './media/corner-border.png';
 import './9deleteCharacterModal.css';
 import './16tutorialModal.css';
+import './17notificationModal.css';
 import AdSlot from './components/AdSlot';
 import ToolPageFooter from './components/ToolPageFooter';
 import EmailSignup from './components/EmailSignup';
 import { setMetaDescription, setCanonical } from "./utils/seo";
 import { createSession, getSession, sessionWsUrl } from './API/initiative/sessions';
+import {
+  getStoredNotificationSettings,
+  saveNotificationSettings,
+  getStoredNotificationMode,
+  saveNotificationMode,
+} from './utils/initiativeNotificationStorage';
+
+const NOTIFICATION_SOUND_SELF_URL = '/notification-sound.mp3';
+const NOTIFICATION_SOUND_PRIOR_URL = '/notification-sound-2.mp3';
 
 
 export default function MainCode() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState(() => getStoredNotificationSettings());
+  const [notificationMode, setNotificationMode] = useState(() => getStoredNotificationMode());
+  const [pendingNotificationSettings, setPendingNotificationSettings] = useState({});
+  const [pendingNotificationMode, setPendingNotificationMode] = useState('onscreen');
+  const [desktopPermissionState, setDesktopPermissionState] = useState(() =>
+    typeof window !== 'undefined' && typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  );
+  const notificationAudioRefs = useRef({});
+  const hasHydratedTurnRef = useRef(false);
+  const lastNotifiedTurnRef = useRef(null);
+  const [notificationBanners, setNotificationBanners] = useState([]);
+  const notificationBannerIdRef = useRef(0);
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
   );
@@ -1691,7 +1714,97 @@ export default function MainCode() {
       return previousRowIndex === sortedRows.length - 1 ? Math.max(prevRound - 1, 1) : prevRound;
     });
   };
-  
+
+  const handleStartCombat = () => {
+    if (initiativeListContentRef.current) {
+      initiativeListContentRef.current.scrollTop = 0;
+    }
+
+    const sortedRows = [...sortedRowData].filter((row) => !overlayActive[row.index]);
+    if (sortedRows.length === 0) {
+      return;
+    }
+
+    setViewCharacterIndex(null);
+    setViewedSummon(null);
+    setShiftedRowIndex(0);
+  };
+
+  const handleOpenNotificationModal = () => {
+    setPendingNotificationSettings(notificationSettings);
+    setPendingNotificationMode(notificationMode);
+    setIsNotificationModalOpen(true);
+  };
+
+  const updatePendingNotificationSetting = (rowIndex, key, value) => {
+    setPendingNotificationSettings((prev) => ({
+      ...prev,
+      [rowIndex]: { ...(prev[rowIndex] || { notifyPrior: false, notifySelf: false }), [key]: value },
+    }));
+  };
+
+  const handleNotificationSettingsSubmit = (e) => {
+    e.preventDefault();
+
+    const cleanedSettings = {};
+    Object.entries(pendingNotificationSettings).forEach(([rowIndex, setting]) => {
+      if (setting?.notifyPrior || setting?.notifySelf) {
+        cleanedSettings[rowIndex] = { notifyPrior: !!setting.notifyPrior, notifySelf: !!setting.notifySelf };
+      }
+    });
+
+    setNotificationSettings(cleanedSettings);
+    saveNotificationSettings(cleanedSettings);
+    setNotificationMode(pendingNotificationMode);
+    saveNotificationMode(pendingNotificationMode);
+
+    if (pendingNotificationMode === 'desktop' && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().then((permission) => setDesktopPermissionState(permission));
+    }
+
+    setIsNotificationModalOpen(false);
+  };
+
+  const playNotificationSound = (soundUrl) => {
+    try {
+      if (!notificationAudioRefs.current[soundUrl]) {
+        notificationAudioRefs.current[soundUrl] = new Audio(soundUrl);
+      }
+      const audio = notificationAudioRefs.current[soundUrl];
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  };
+
+  const showNotificationBanner = (bannerText, expiryRowDataIndex) => {
+    const id = ++notificationBannerIdRef.current;
+    setNotificationBanners((prev) => [...prev, { id, text: bannerText, expiryRowDataIndex }]);
+  };
+
+  const dismissNotificationBanner = (id) => {
+    setNotificationBanners((prev) => prev.filter((banner) => banner.id !== id));
+  };
+
+  // kind is 'self' (the character's own turn) or 'prior' (the turn right before theirs),
+  // each with its own sound. desktopMessage is the descriptive text used for the OS-level
+  // Notification body; bannerText is the short on-screen banner copy the user asked for.
+  const fireTurnNotification = (kind, desktopMessage, bannerText, expiryRowDataIndex) => {
+    playNotificationSound(kind === 'prior' ? NOTIFICATION_SOUND_PRIOR_URL : NOTIFICATION_SOUND_SELF_URL);
+
+    if (notificationMode === 'desktop' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification('Initiative Tracker', { body: desktopMessage });
+        return;
+      } catch (error) {
+        console.error('Error showing desktop notification:', error);
+      }
+    }
+
+    showNotificationBanner(bannerText, expiryRowDataIndex);
+  };
+
   const handleOpenModal = (rowIndex) => {
     setIsModalOpen(rowIndex);
     setCharacterName('');
@@ -2590,6 +2703,53 @@ export default function MainCode() {
     }
   }, [rowData, rowVisibility, overlayActive, sortNonce])
 
+  // Fires a turn notification when the active turn (shiftedRowIndex) moves to a new
+  // character. Skips the very first run after mount so restoring a saved session doesn't
+  // fire a stale notification for whichever turn happened to be active on page load.
+  useEffect(() => {
+    if (!hasHydratedTurnRef.current) {
+      hasHydratedTurnRef.current = true;
+      lastNotifiedTurnRef.current = shiftedRowIndex === null ? null : `${round}-${shiftedRowIndex}`;
+      return;
+    }
+
+    if (shiftedRowIndex === null) {
+      lastNotifiedTurnRef.current = null;
+      return;
+    }
+
+    const turnKey = `${round}-${shiftedRowIndex}`;
+    if (lastNotifiedTurnRef.current === turnKey) {
+      return;
+    }
+    lastNotifiedTurnRef.current = turnKey;
+
+    const activeRows = sortedRowData.filter((row) => !overlayActive[row.index]);
+    const currentRow = activeRows[shiftedRowIndex];
+    if (!currentRow) {
+      return;
+    }
+
+    // A banner's "selected character" is whichever character's checkbox triggered it; it
+    // persists on screen until the turn reaches the character right after that one.
+    setNotificationBanners((prev) => prev.filter((banner) => banner.expiryRowDataIndex !== currentRow.index));
+
+    const nextRow = activeRows[(shiftedRowIndex + 1) % activeRows.length];
+    const currentName = rowData[currentRow.index]?.name || 'No Name';
+
+    if (notificationSettings[currentRow.index]?.notifySelf) {
+      const expiryIndex = nextRow ? nextRow.index : currentRow.index;
+      fireTurnNotification('self', `It's now ${currentName}'s turn.`, "IT'S YOUR TURN", expiryIndex);
+    }
+
+    if (nextRow && nextRow.index !== currentRow.index && notificationSettings[nextRow.index]?.notifyPrior) {
+      const nextName = rowData[nextRow.index]?.name || 'No Name';
+      const rowAfterNext = activeRows[(shiftedRowIndex + 2) % activeRows.length];
+      const expiryIndex = rowAfterNext ? rowAfterNext.index : nextRow.index;
+      fireTurnNotification('prior', `${currentName}'s turn just started — ${nextName} is up next.`, "IT'S ALMOST YOUR TURN", expiryIndex);
+    }
+  }, [shiftedRowIndex, round, sortedRowData, overlayActive, rowData, notificationSettings, notificationMode]);
+
   useEffect(() => {
     localStorage.setItem('show-armor-class', JSON.stringify(showArmorClass));
   }, [showArmorClass]);
@@ -2892,6 +3052,111 @@ export default function MainCode() {
       </div>
     )}
 
+    {isNotificationModalOpen && (
+      <div className="modal-overlay notification-modal">
+        <div className="modal">
+          <h2>Turn Notifications</h2>
+          <p className="notification-modal-description">
+            Check the left box to be notified on the turn right before a character's turn, and/or the right box
+            to be notified on that character's own turn. Leave both unchecked for no notification.
+          </p>
+          <form onSubmit={handleNotificationSettingsSubmit}>
+            <div className="notification-character-list">
+              {characterRows.length === 0 ? (
+                <div className="notification-character-list-empty">No characters in the initiative list yet.</div>
+              ) : (
+                <>
+                  <div className="notification-character-row notification-character-row-header">
+                    <span className="notification-character-name">Character</span>
+                    <span className="notification-character-checkbox-label">Prior Turn</span>
+                    <span className="notification-character-checkbox-label">This Turn</span>
+                  </div>
+                  {characterRows.map(({ index }) => {
+                    const name = rowData[index]?.name || 'No Name';
+                    const setting = pendingNotificationSettings[index] || { notifyPrior: false, notifySelf: false };
+                    return (
+                      <div className="notification-character-row" key={index}>
+                        <span className="notification-character-name">{name}</span>
+                        <label className="notification-character-checkbox" aria-label={`Notify me on the turn before ${name}`}>
+                          <input
+                            type="checkbox"
+                            checked={!!setting.notifyPrior}
+                            onChange={(e) => updatePendingNotificationSetting(index, 'notifyPrior', e.target.checked)}
+                          />
+                        </label>
+                        <label className="notification-character-checkbox" aria-label={`Notify me on ${name}'s turn`}>
+                          <input
+                            type="checkbox"
+                            checked={!!setting.notifySelf}
+                            onChange={(e) => updatePendingNotificationSetting(index, 'notifySelf', e.target.checked)}
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+            <div className="notification-mode-group">
+              <span className="notification-mode-label">Notify me with:</span>
+              <label className="notification-mode-option">
+                <input
+                  type="radio"
+                  name="notification-mode"
+                  checked={pendingNotificationMode === 'onscreen'}
+                  onChange={() => setPendingNotificationMode('onscreen')}
+                />
+                On-Screen Notifications
+              </label>
+              <label className="notification-mode-option">
+                <input
+                  type="radio"
+                  name="notification-mode"
+                  checked={pendingNotificationMode === 'desktop'}
+                  onChange={() => setPendingNotificationMode('desktop')}
+                />
+                Desktop Notifications
+              </label>
+              {pendingNotificationMode === 'desktop' && desktopPermissionState === 'denied' && (
+                <span className="notification-mode-warning">
+                  Desktop notifications are blocked for this site in your browser settings.
+                </span>
+              )}
+              {pendingNotificationMode === 'desktop' && desktopPermissionState === 'unsupported' && (
+                <span className="notification-mode-warning">
+                  Your browser doesn't support desktop notifications.
+                </span>
+              )}
+            </div>
+            <div className="modal-button-group">
+              <button type="submit" className="submit-button">Submit</button>
+              <button type="button" className="close-modal-button" onClick={() => setIsNotificationModalOpen(false)}>
+                X
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {notificationBanners.length > 0 && (
+      <div className="turn-notification-banner-stack">
+        {notificationBanners.map((banner) => (
+          <div className="turn-notification-banner" key={banner.id}>
+            <span>{banner.text}</span>
+            <button
+              type="button"
+              className="turn-notification-banner-close"
+              onClick={() => dismissNotificationBanner(banner.id)}
+              aria-label="Dismiss notification"
+            >
+              X
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+
     <div className="wrapper">
       <div className="app-container">
           <div
@@ -2924,17 +3189,38 @@ export default function MainCode() {
                   <img src={gearIcon} alt="Settings" className="gear-icon-img" />
                 </button>
               </div>
-              <div className="round-counter">Round {round}</div>
+              <div className="banner-bell-icon">
+                <button
+                  className="bell-icon-button"
+                  onClick={handleOpenNotificationModal}
+                  aria-label="Open Turn Notifications"
+                  title="Turn Notifications"
+                >
+                  <svg viewBox="0 0 24 24" className="bell-icon-svg" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="round-counter">Round {shiftedRowIndex === null ? 0 : round}</div>
               <div className="initiative-title">Initiative List</div>
               <div className="next-back">
                 {/* Conditionally render the buttons based on the overlay of the first row */}
                 {!overlayActive[0] && (
-                  <>
-                    <button className="back-button" onClick={handlePreviousRound}>
+                  shiftedRowIndex === null ? (
+                    <button className="start-combat-button" onClick={handleStartCombat}>
+                      Start Combat
                     </button>
-                    <button className="next-button" onClick={handleNextRound}>
-                    </button>
-                  </>
+                  ) : (
+                    <>
+                      <button className="back-button" onClick={handlePreviousRound}>
+                      </button>
+                      <button className="next-button" onClick={handleNextRound}>
+                      </button>
+                    </>
+                  )
                 )}
               </div>
             </div>

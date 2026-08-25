@@ -16,6 +16,9 @@ import { getStoredSpellRatings, saveSpellRating } from "../utils/spellRatingStor
 
 const RANGE_SLIDER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
+const SPELL_RATING_FILTER_OPTIONS = ["Unrated", "1 Star", "2 Stars", "3 Stars", "4 Stars", "5 Stars"];
+// A spell with no stored rating is treated as a rating of 0 ("Unrated").
+const spellRatingLabelToValue = (label) => (label === "Unrated" ? 0 : parseInt(label, 10));
 const emptySpellMessage = "No spells match your current filters.";
 const DEFAULT_SPELLBOOK_SPINE_COLOR = "#412a85";
 const DEFAULT_SPELLBOOK_FONT_COLOR = "#e0a63a";
@@ -83,6 +86,7 @@ export default function SpellSearchPage() {
 		"Components",
 		"Ritual",
 		"Concentration",
+		"Spell Rating",
 		"Spellbook",
 	];
 	const [isColumnViewOpen, setIsColumnViewOpen] = useState(false);
@@ -386,6 +390,7 @@ export default function SpellSearchPage() {
 			includeComponents = [],
 			includeRituals = [],
 			includeConcentrations = [],
+			includeSpellRatings = [],
 			includeSpellbooks = [],
 			excludeKeywords = [],
 			excludeLevels = [],
@@ -398,6 +403,7 @@ export default function SpellSearchPage() {
 			excludeComponents = [],
 			excludeRituals = [],
 			excludeConcentrations = [],
+			excludeSpellRatings = [],
 			excludeSpellbooks = [];
 
 		if (includeSelections.length > 0) {
@@ -446,6 +452,10 @@ export default function SpellSearchPage() {
 				.map((entry) => entry.value);
 			includeConcentrations = includeSelections
 				.filter((entry) => entry.field === "Concentration")
+				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => entry.value);
+			includeSpellRatings = includeSelections
+				.filter((entry) => entry.field === "Spell Rating")
 				.filter((entry) => entry.value !== "ALL")
 				.map((entry) => entry.value);
 			includeSpellbooks = includeSelections
@@ -501,6 +511,10 @@ export default function SpellSearchPage() {
 				.filter((entry) => entry.field === "Concentration")
 				.filter((entry) => entry.value !== "ALL")
 				.map((entry) => entry.value);
+			excludeSpellRatings = excludeSelections
+				.filter((entry) => entry.field === "Spell Rating")
+				.filter((entry) => entry.value !== "ALL")
+				.map((entry) => entry.value);
 			excludeSpellbooks = excludeSelections
 				.filter((entry) => entry.field === "Spellbook")
 				.map((entry) => entry.value);
@@ -535,7 +549,11 @@ export default function SpellSearchPage() {
 		if (includeKeywords.length > 0) {
 			pushIncludeGroup(
 				includeKeywords.map((keyword) => ({
-					term: { field: "name", value: keyword }
+					op: "OR",
+					args: [
+						{ term: { field: "name", value: keyword } },
+						{ term: { field: "component_text", value: keyword } },
+					],
 				})),
 			);
 		}
@@ -608,6 +626,9 @@ export default function SpellSearchPage() {
 				})),
 			);
 		}
+		if (includeSpellRatings.length > 0) {
+			pushIncludeGroup(getRatingFilterArgs(includeSpellRatings));
+		}
 		if (includeSpellbooks.length > 0) {
 			// An empty result here means the selected spellbook(s) hold no spells; fall back to
 			// an id that can never match so the include filter still restricts to "nothing"
@@ -623,7 +644,11 @@ export default function SpellSearchPage() {
 		if (excludeKeywords.length > 0) {
 			pushExcludeGroup(
 				excludeKeywords.map((keyword) => ({
-					term: { field: "name", value: keyword }
+					op: "OR",
+					args: [
+						{ term: { field: "name", value: keyword } },
+						{ term: { field: "component_text", value: keyword } },
+					],
 				})),
 			);
 		}
@@ -695,6 +720,9 @@ export default function SpellSearchPage() {
 					term: { field: "concentration", value: concentrationValue }
 				})),
 			);
+		}
+		if (excludeSpellRatings.length > 0) {
+			pushExcludeGroup(getRatingFilterArgs(excludeSpellRatings));
 		}
 		if (excludeSpellbooks.length > 0) {
 			const spellbookSpellIds = getSpellIdsForSpellbookNames(excludeSpellbooks);
@@ -956,6 +984,36 @@ export default function SpellSearchPage() {
 		return [...spellIds];
 	};
 
+	// Ratings live only in localStorage (never on the backend spell record), so a rating
+	// filter has to resolve to concrete spell ids before it can be sent as a query term.
+	// "Unrated" can't be expressed as a positive id list (we don't know every spell id that
+	// exists client-side), so it's built as "not one of the ids that have any stored rating".
+	const getRatingFilterArgs = (ratingLabels) => {
+		const currentRatings = getStoredSpellRatings();
+		const ratedIds = Object.keys(currentRatings).map((id) => Number(id));
+		const args = [];
+
+		ratingLabels.forEach((label) => {
+			if (label === "Unrated") {
+				const ratedIdArg = ratedIds.length > 0
+					? { op: "OR", args: ratedIds.map((id) => ({ term: { field: "id", value: id } })) }
+					: { term: { field: "id", value: -1 } };
+				args.push({ op: "NOT", arg: ratedIdArg });
+				return;
+			}
+
+			const ratingValue = spellRatingLabelToValue(label);
+			const matchingIds = ratedIds.filter((id) => currentRatings[id] === ratingValue);
+			if (matchingIds.length > 0) {
+				matchingIds.forEach((id) => args.push({ term: { field: "id", value: id } }));
+			} else {
+				args.push({ term: { field: "id", value: -1 } });
+			}
+		});
+
+		return args;
+	};
+
 	const getSecondaryFilterOptions = (field) => {
 		switch (field) {
 			case "Casting Time":
@@ -976,6 +1034,8 @@ export default function SpellSearchPage() {
 				return ["Yes", "No"];
 			case "Concentration":
 				return ["Yes", "No"];
+			case "Spell Rating":
+				return SPELL_RATING_FILTER_OPTIONS;
 			case "Spellbook":
 				return getSavedSpellbooks().map((book) => book.name);
 			default:
@@ -1005,6 +1065,8 @@ export default function SpellSearchPage() {
 				return "Select Ritual";
 			case "Concentration":
 				return "Select Concentration";
+			case "Spell Rating":
+				return "Select Rating";
 			case "Spellbook":
 				return "Select Spellbook";
 			default:
