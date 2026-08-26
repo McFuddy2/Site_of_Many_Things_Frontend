@@ -1,0 +1,42 @@
+@import '../../1colors.css';
+
+.som-notification-badge {
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background-color: var(--initiative-banner);
+	border: 2px solid #ffffff;
+	box-shadow: 0 0 6px rgba(163, 0, 0, 0.75);
+	pointer-events: none;
+	z-index: 5;
+	animation: somBadgePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes somBadgePulse {
+	0%, 100% {
+		transform: scale(1);
+		box-shadow: 0 0 5px rgba(163, 0, 0, 0.7);
+	}
+	50% {
+		transform: scale(1.18);
+		box-shadow: 0 0 11px rgba(163, 0, 0, 0.95);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.som-notification-badge {
+		animation: none;
+	}
+}
+
+/* Anchors for the badge on each step of the breadcrumb. */
+.header-menu-button,
+.header-mobile-menu,
+.sidebar-button-spell-search,
+.mob-menu-button,
+.spellbook-action-button {
+	position: relative;
+}

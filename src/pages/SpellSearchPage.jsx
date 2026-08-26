@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../SpellSearchMainStyles.css";
 import "../SpellSearchSpellList.css";
@@ -11,8 +11,16 @@ import copyScrollIcon from "../media/copy-scroll.png";
 import { getSpells, getSpell, queryAdvancedSpells, getSources } from "../API/spell_search/spells";
 import ToolPageFooter from "../components/ToolPageFooter";
 import { setMetaDescription, setCanonical } from "../utils/seo";
-import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, MAX_SAVED_SPELLBOOKS } from "../utils/spellbookStorage";
+import { getSavedSpellbooks, saveSpellbook, addSpellsToSpellbook, getSpellbookLimit } from "../utils/spellbookStorage";
 import { getStoredSpellRatings, saveSpellRating } from "../utils/spellRatingStorage";
+import { subscribeToStorage } from "../storage";
+import { useAuth } from "../auth/AuthContext";
+import { hasFeature } from "../config/tiers";
+import UpgradePromptModal from "../components/account/UpgradePromptModal";
+import LimitReachedModal from "../components/account/LimitReachedModal";
+import NotificationBadge from "../components/ui/NotificationBadge";
+import { useOverLimit } from "../storage/OverLimitContext";
+import { ERROR_CODES, getUserMessage } from "../API/errors";
 
 const RANGE_SLIDER_VALUES = ["Self", "Touch", "5ft", "10ft", "15ft", "20ft", "30ft", "60ft", "120ft", "300ft", "1mile", ">1mile"];
 const RANGE_SLIDER_MAX = RANGE_SLIDER_VALUES.length - 1;
@@ -74,6 +82,16 @@ const KeywordFilterInput = forwardRef(function KeywordFilterInput(
 
 export default function SpellSearchPage() {
 	const navigate = useNavigate();
+	const { effectiveTier } = useAuth();
+	// Star ratings are a tier perk. Guests can't set them, so the rating column
+	// and the rating filter are both withheld rather than shown and broken.
+	const canRateSpells = hasFeature(effectiveTier, "spellRatings");
+	const [isRatingUpgradeOpen, setIsRatingUpgradeOpen] = useState(false);
+	const [isSpellbookLimitOpen, setIsSpellbookLimitOpen] = useState(false);
+	const [saveSpellbookError, setSaveSpellbookError] = useState(null);
+	const { isOverLimit } = useOverLimit();
+	const spellbooksNeedAttention = isOverLimit("spellbooks");
+
 	const filterFieldOptions = [
 		"Key Word",
 		"Level",
@@ -86,7 +104,7 @@ export default function SpellSearchPage() {
 		"Components",
 		"Ritual",
 		"Concentration",
-		"Spell Rating",
+		...(canRateSpells ? ["Spell Rating"] : []),
 		"Spellbook",
 	];
 	const [isColumnViewOpen, setIsColumnViewOpen] = useState(false);
@@ -103,7 +121,12 @@ export default function SpellSearchPage() {
 	const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
 	const isCompactSpellRow = visibleColumnCount <= 4;
 	const [showSpellRatings, setShowSpellRatings] = useState(false);
-	const [spellRatings, setSpellRatings] = useState(() => getStoredSpellRatings());
+	// Ratings and spellbooks may live in localStorage or on the backend depending
+	// on the profile tier, so both are loaded asynchronously and mirrored in state.
+	// Everything that reads them during render reads the state, not storage.
+	const [spellRatings, setSpellRatings] = useState({});
+	const [savedSpellbooks, setSavedSpellbooks] = useState([]);
+	const spellbookLimit = getSpellbookLimit();
 	const [hoveredRatingValue, setHoveredRatingValue] = useState(0);
 	const [sortBy, setSortBy] = useState("level");
 	const isAlphabetical = sortBy === "alphabetical";
@@ -969,14 +992,77 @@ export default function SpellSearchPage() {
 		}));
 	};
 
-	const handleSetSpellRating = (spellId, rating) => {
-		setSpellRatings(saveSpellRating(spellId, rating));
+	const handleToggleSpellRatings = () => {
+		if (!canRateSpells) {
+			setIsRatingUpgradeOpen(true);
+			return;
+		}
+		setShowSpellRatings((previous) => !previous);
+	};
+
+	// Logging out (or a session expiring) drops the tier back to Guest, so the
+	// column can't stay on from a previous session.
+	useEffect(() => {
+		if (!canRateSpells && showSpellRatings) {
+			setShowSpellRatings(false);
+		}
+	}, [canRateSpells, showSpellRatings]);
+
+	const refreshSavedSpellbooks = useCallback(async () => {
+		try {
+			setSavedSpellbooks(await getSavedSpellbooks());
+		} catch (error) {
+			console.error("Failed to load spellbooks:", error);
+		}
+	}, []);
+
+	useEffect(() => {
+		refreshSavedSpellbooks();
+		// Keep in step with saves made elsewhere (the Library's spellbook modal).
+		return subscribeToStorage((resourceName) => {
+			if (resourceName === "spellbooks" || resourceName === null) {
+				refreshSavedSpellbooks();
+			}
+		});
+	}, [refreshSavedSpellbooks]);
+
+	useEffect(() => {
+		if (!canRateSpells) {
+			setSpellRatings({});
+			return undefined;
+		}
+		let isStale = false;
+		getStoredSpellRatings()
+			.then((ratings) => {
+				if (!isStale) {
+					setSpellRatings(ratings);
+				}
+			})
+			.catch((error) => console.error("Failed to load spell ratings:", error));
+		return () => {
+			isStale = true;
+		};
+	}, [canRateSpells]);
+
+	const handleSetSpellRating = async (spellId, rating) => {
+		// Update optimistically so the stars respond immediately, then reconcile
+		// with whatever storage actually persisted.
+		setSpellRatings((previous) => {
+			const next = { ...previous };
+			if (rating > 0) {
+				next[spellId] = rating;
+			} else {
+				delete next[spellId];
+			}
+			return next;
+		});
+		setSpellRatings(await saveSpellRating(spellId, rating));
 	};
 
 	// Resolves selected spellbook names to the union of spell ids they contain.
 	const getSpellIdsForSpellbookNames = (spellbookNames) => {
 		const nameSet = new Set(spellbookNames);
-		const matchingBooks = getSavedSpellbooks().filter((book) => nameSet.has(book.name));
+		const matchingBooks = savedSpellbooks.filter((book) => nameSet.has(book.name));
 		const spellIds = new Set();
 		matchingBooks.forEach((book) => {
 			(book.spells || []).forEach((spell) => spellIds.add(spell.id));
@@ -984,12 +1070,12 @@ export default function SpellSearchPage() {
 		return [...spellIds];
 	};
 
-	// Ratings live only in localStorage (never on the backend spell record), so a rating
+	// Ratings are resolved from state (they may be stored locally or on the account), so a rating
 	// filter has to resolve to concrete spell ids before it can be sent as a query term.
 	// "Unrated" can't be expressed as a positive id list (we don't know every spell id that
 	// exists client-side), so it's built as "not one of the ids that have any stored rating".
 	const getRatingFilterArgs = (ratingLabels) => {
-		const currentRatings = getStoredSpellRatings();
+		const currentRatings = spellRatings;
 		const ratedIds = Object.keys(currentRatings).map((id) => Number(id));
 		const args = [];
 
@@ -1037,7 +1123,7 @@ export default function SpellSearchPage() {
 			case "Spell Rating":
 				return SPELL_RATING_FILTER_OPTIONS;
 			case "Spellbook":
-				return getSavedSpellbooks().map((book) => book.name);
+				return savedSpellbooks.map((book) => book.name);
 			default:
 				return [];
 		}
@@ -1732,12 +1818,12 @@ export default function SpellSearchPage() {
 		setSaveSpellbookModalStep("existing");
 	};
 
-	const handleSaveToExistingSpellbook = (spellbookId) => {
+	const handleSaveToExistingSpellbook = async (spellbookId) => {
 		if (selectedSpells.size === 0) {
 			return;
 		}
 
-		const updatedSpellbook = addSpellsToSpellbook(spellbookId, Array.from(selectedSpells.values()));
+		const updatedSpellbook = await addSpellsToSpellbook(spellbookId, Array.from(selectedSpells.values()));
 		if (!updatedSpellbook) {
 			return;
 		}
@@ -1747,7 +1833,7 @@ export default function SpellSearchPage() {
 		navigate("/library", { state: { openSpellbookId: spellbookId } });
 	};
 
-	const handleSaveNewSpellbook = () => {
+	const handleSaveNewSpellbook = async () => {
 		if (selectedSpells.size === 0) {
 			return;
 		}
@@ -1762,8 +1848,18 @@ export default function SpellSearchPage() {
 			createdAt: new Date().toISOString(),
 		};
 
-		const didSave = saveSpellbook(newSpellbook);
-		if (!didSave) {
+		setSaveSpellbookError(null);
+		try {
+			await saveSpellbook(newSpellbook);
+		} catch (error) {
+			// Covers both the local pre-check and a 409 from the server.
+			if (error?.code === ERROR_CODES.LIMIT_EXCEEDED) {
+				handleCloseSaveSpellbookModal();
+				setIsSpellbookLimitOpen(true);
+				return;
+			}
+			console.error("Failed to save spellbook:", error);
+			setSaveSpellbookError(getUserMessage(error));
 			return;
 		}
 
@@ -3722,6 +3818,9 @@ export default function SpellSearchPage() {
 								onClick={() => navigate("/library")}
 							>
 								<img src={bookStack} alt="Stacked books" />
+								{spellbooksNeedAttention ? (
+									<NotificationBadge label="Your saved Spell Books need attention" />
+								) : null}
 							</button>
 							<span className="spellbook-action-label">View spellbooks</span>
 						</div>
@@ -3804,7 +3903,7 @@ export default function SpellSearchPage() {
 										<input
 											type="checkbox"
 											checked={showSpellRatings}
-											onChange={() => setShowSpellRatings((previous) => !previous)}
+											onChange={handleToggleSpellRatings}
 										/>
 										<span>Star Ratings</span>
 									</label>
@@ -3822,6 +3921,20 @@ export default function SpellSearchPage() {
 					</div>
 				</div>
 			) : null}
+
+			<LimitReachedModal
+				isOpen={isSpellbookLimitOpen}
+				onClose={() => setIsSpellbookLimitOpen(false)}
+				resource="spellbooks"
+				tier={effectiveTier}
+			/>
+
+			<UpgradePromptModal
+				isOpen={isRatingUpgradeOpen}
+				onClose={() => setIsRatingUpgradeOpen(false)}
+				title="Star Ratings"
+				message="This feature is not available with your profile type. Would you like to upgrade? It's free, and just needs an email to sign up!"
+			/>
 
 			{isSaveSpellbookModalOpen ? (
 				<div
@@ -3848,7 +3961,6 @@ export default function SpellSearchPage() {
 											type="button"
 											className="save-spellbook-modal-action-button"
 											onClick={handleStartNewSpellbook}
-											disabled={getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS}
 										>
 											Save to New Spellbook
 										</button>
@@ -3856,14 +3968,14 @@ export default function SpellSearchPage() {
 											type="button"
 											className="save-spellbook-modal-action-button"
 											onClick={handleStartExistingSpellbook}
-											disabled={getSavedSpellbooks().length === 0}
+											disabled={savedSpellbooks.length === 0}
 										>
 											Save to Existing Spellbook
 										</button>
 									</div>
-									{getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS ? (
+									{savedSpellbooks.length >= spellbookLimit ? (
 										<p className="save-spellbook-limit-message">
-											You&apos;ve reached the maximum of {MAX_SAVED_SPELLBOOKS} saved spellbooks. Delete one from The Library to save a new one.
+											You&apos;ve saved {spellbookLimit} of {spellbookLimit} Spell Books for this profile type.
 										</p>
 									) : null}
 								</div>
@@ -3871,7 +3983,7 @@ export default function SpellSearchPage() {
 								<div className="save-spellbook-modal-existing-form">
 									<p className="save-spellbook-modal-title">Choose a Spellbook:</p>
 									<ul className="save-spellbook-existing-list">
-										{getSavedSpellbooks().map((book) => {
+										{savedSpellbooks.map((book) => {
 											const spellCount = Array.isArray(book.spells) ? book.spells.length : 0;
 											return (
 												<li key={book.id}>
@@ -3941,11 +4053,13 @@ export default function SpellSearchPage() {
 											</span>
 										</div>
 									</div>
+									{saveSpellbookError ? (
+										<p className="save-spellbook-limit-message">{saveSpellbookError}</p>
+									) : null}
 									<button
 										type="button"
 										className="save-spellbook-save-button"
 										onClick={handleSaveNewSpellbook}
-										disabled={getSavedSpellbooks().length >= MAX_SAVED_SPELLBOOKS}
 									>
 										Save
 									</button>

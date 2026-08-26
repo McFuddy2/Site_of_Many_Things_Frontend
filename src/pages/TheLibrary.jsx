@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import "../TheLibraryStyles.css";
 import ToolPageFooter from "../components/ToolPageFooter";
 import SpellbookModal from "../components/SpellbookModal";
 import { setMetaDescription, setCanonical } from "../utils/seo";
 import { getSavedSpellbooks } from "../utils/spellbookStorage";
+import { getUserMessage } from "../API/errors";
+import { subscribeToStorage } from "../storage";
+import { useOverLimit } from "../storage/OverLimitContext";
+import OverLimitGate from "../components/account/OverLimitGate";
 import bookSpinesImage from "../media/book-spines.png";
 
 const HELP_STORAGE_KEY = "the_library_help_hidden_v1";
@@ -104,9 +108,43 @@ export default function TheLibrary() {
 		return saved === "true";
 	});
 	const [learnMoreOpen, setLearnMoreOpen] = useState(true);
-	const [savedSpellbooks, setSavedSpellbooks] = useState(() => getSavedSpellbooks());
+	// Spellbooks may come from localStorage or the backend depending on the
+	// profile tier, so loading is asynchronous either way.
+	const [savedSpellbooks, setSavedSpellbooks] = useState([]);
+	const [isLoadingSpellbooks, setIsLoadingSpellbooks] = useState(true);
+	const [spellbookLoadError, setSpellbookLoadError] = useState(null);
 	const [openSpellbookId, setOpenSpellbookId] = useState(() => location.state?.openSpellbookId ?? null);
-	const openSpellbook = savedSpellbooks.find((book) => book.id === openSpellbookId) ?? null;
+	// While over the limit the shelf and its contents stay hidden entirely — the
+	// user has to upgrade or trim before anything is viewable again.
+	const { isOverLimit } = useOverLimit();
+	const isOverSpellbookLimit = isOverLimit("spellbooks");
+	const openSpellbook = isOverSpellbookLimit
+		? null
+		: savedSpellbooks.find((book) => book.id === openSpellbookId) ?? null;
+
+	const loadSpellbooks = useCallback(async () => {
+		setIsLoadingSpellbooks(true);
+		setSpellbookLoadError(null);
+		try {
+			setSavedSpellbooks(await getSavedSpellbooks());
+		} catch (error) {
+			console.error("Failed to load spellbooks:", error);
+			setSpellbookLoadError(getUserMessage(error));
+		} finally {
+			setIsLoadingSpellbooks(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		loadSpellbooks();
+		// Reload when spellbooks change elsewhere, and when logging in or out
+		// swaps which store they come from.
+		return subscribeToStorage((resourceName) => {
+			if (resourceName === "spellbooks" || resourceName === null) {
+				loadSpellbooks();
+			}
+		});
+	}, [loadSpellbooks]);
 
 	useEffect(() => {
 		setMetaDescription(
@@ -117,11 +155,11 @@ export default function TheLibrary() {
 
 	useEffect(() => {
 		if (location.state?.openSpellbookId) {
-			setSavedSpellbooks(getSavedSpellbooks());
+			loadSpellbooks();
 			setOpenSpellbookId(location.state.openSpellbookId);
 			navigate(location.pathname, { replace: true, state: {} });
 		}
-	}, [location.state, location.pathname, navigate]);
+	}, [location.state, location.pathname, navigate, loadSpellbooks]);
 
 	const showHelp = () => {
 		setHelpHidden(false);
@@ -150,7 +188,26 @@ export default function TheLibrary() {
 							Back to Spellsearcher
 						</Link>
 						<div className="library-page-panel">
-							{savedSpellbooks.length === 0 ? (
+							{isOverSpellbookLimit ? (
+								<div className="library-empty-state">
+									<img src={bookSpinesImage} alt="" className="library-empty-state-image" />
+									<p className="library-page-placeholder-text">
+										Your shelf is locked until you sort out your saved Spell Books.
+									</p>
+								</div>
+							) : isLoadingSpellbooks ? (
+								<div className="library-empty-state">
+									<img src={bookSpinesImage} alt="" className="library-empty-state-image" />
+									<p className="library-page-placeholder-text">Opening the library&hellip;</p>
+								</div>
+							) : spellbookLoadError ? (
+								<div className="library-empty-state">
+									<p className="library-page-placeholder-text">{spellbookLoadError}</p>
+									<button type="button" className="library-retry-button" onClick={loadSpellbooks}>
+										Try again
+									</button>
+								</div>
+							) : savedSpellbooks.length === 0 ? (
 								<div className="library-empty-state">
 									<img src={bookSpinesImage} alt="" className="library-empty-state-image" />
 									<p className="library-page-placeholder-text">
@@ -189,6 +246,8 @@ export default function TheLibrary() {
 					hideAd
 				/>
 			</div>
+
+			{isOverSpellbookLimit ? <OverLimitGate resource="spellbooks" /> : null}
 
 			{openSpellbook ? (
 				<SpellbookModal

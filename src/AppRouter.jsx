@@ -23,6 +23,13 @@ import CharacterSheetPage from "./pages/CharacterSheetPage";
 import ArticlesIndexPage from "./pages/ArticlesIndexPage";
 import ArticlePage from "./pages/ArticlePage";
 
+import ProfilePage from "./pages/ProfilePage";
+import VerifyPage from "./pages/VerifyPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import { AuthProvider } from "./auth/AuthContext";
+import AccountDataSync from "./components/account/AccountDataSync";
+import { OverLimitProvider } from "./storage/OverLimitContext";
+
 
 
 function AppContent() {
@@ -55,6 +62,7 @@ function AppContent() {
     <>
       <Header toggleSidebar={toggleSidebar} />
       <SideBar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      <AccountDataSync />
 
       <main className="page-content">
         <Routes>
@@ -65,6 +73,10 @@ function AppContent() {
           <Route path="/library" element={<TheLibrary />} />
           <Route path="/character-sheet" element={<CharacterSheetPage />} />
 
+
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
@@ -91,7 +103,11 @@ function AppContent() {
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <OverLimitProvider>
+          <AppContent />
+        </OverLimitProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

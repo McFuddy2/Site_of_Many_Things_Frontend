@@ -2,13 +2,19 @@ import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import MobileNavMenu from "./MobileNavMenu";
+import ProfileButton from "./account/ProfileButton";
+import NotificationBadge from "./ui/NotificationBadge";
+import { useOverLimit } from "../storage/OverLimitContext";
 import menuIcon from '../media/menu.png'
 import bugIcon from '../media/bug-icon-purple-opacity.png'
 import "./HeaderStyling.css";
 
+const OVER_LIMIT_BADGE_LABEL = "Something in your saved work needs attention";
+
 export default function Header({toggleSidebar}) {
   const [showMobileModalMenu, setShowMobileModalMenu] = useState(false);
   const location = useLocation();
+  const { hasAnyOverLimit } = useOverLimit();
 
   const titleMap = {
     "/about": "About",
@@ -21,6 +27,9 @@ export default function Header({toggleSidebar}) {
     "/library": "The Library",
     "/articles": "Articles",
     "/character-sheet": "Character Sheet",
+    "/profile": "Profile",
+    "/verify": "Verify Email",
+    "/reset-password": "Reset Password",
   };
   const mapped = titleMap[location.pathname];
   const isArticle = location.pathname.startsWith("/articles");
@@ -32,6 +41,7 @@ export default function Header({toggleSidebar}) {
         {/* <h1>The Site of Many Things!</h1> */}
         <div className="header-mobile-menu" onClick={() => setShowMobileModalMenu(true)}>
           <img src={menuIcon}></img>
+          {hasAnyOverLimit ? <NotificationBadge label={OVER_LIMIT_BADGE_LABEL} /> : null}
         </div>
       </div>
       <nav className="header-nav">
@@ -54,6 +64,7 @@ export default function Header({toggleSidebar}) {
               d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
             />
           </svg>
+          {hasAnyOverLimit ? <NotificationBadge label={OVER_LIMIT_BADGE_LABEL} /> : null}
         </button>
 
         <div className="header-spacer"></div>
@@ -74,6 +85,7 @@ export default function Header({toggleSidebar}) {
         >
           Support Us
         </a>
+        <ProfileButton />
       </nav>
       <Link to="/" className="header-brand">
         {"Site of Many Things"}
@@ -81,17 +93,20 @@ export default function Header({toggleSidebar}) {
           <span className="header-brand-suffix">{` - ${pageSuffix}`}</span>
         ) : null}
       </Link>
-      <a
-        href="https://docs.google.com/forms/d/e/1FAIpQLScfTZJf-0mJFXCdnGfaPcoypZFUPLXzDLfC9i6-5ndEanGURw/viewform"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="header-bug-report-button-mobile-tablet"
-        aria-label="Report a bug"
-      >
-        <img src={bugIcon} alt="Report bug" />
-      </a>
+      <div className="header-mobile-actions">
+        <ProfileButton variant="mobile" />
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLScfTZJf-0mJFXCdnGfaPcoypZFUPLXzDLfC9i6-5ndEanGURw/viewform"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="header-bug-report-button-mobile-tablet"
+          aria-label="Report a bug"
+        >
+          <img src={bugIcon} alt="Report bug" />
+        </a>
+      </div>
       <AnimatePresence>
-        {showMobileModalMenu && <MobileNavMenu setShowMobileModalMenu={setShowMobileModalMenu} />}
+        {showMobileModalMenu && <MobileNavMenu setShowMobileModalMenu={setShowMobileModalMenu} hasOverLimit={hasAnyOverLimit} />}
       </AnimatePresence>
     </header>
   );

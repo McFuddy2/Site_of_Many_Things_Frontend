@@ -1,0 +1,400 @@
+@import './1colors.css';
+
+/* Profile page, plus the shared button and form-field styles used by the
+   account modals. Page framing deliberately mirrors .about-page-wrapper so the
+   two pages sit identically in the layout. */
+
+.profile-page-wrapper {
+	background-color: var(--page-background);
+	background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+	padding: 2% 2% 3% 2%;
+	margin-left: 5%;
+	margin-right: 5%;
+	margin-top: 2%;
+	border-radius: 10px 10px 0px 0px;
+	max-height: calc(var(--app-vh) * 0.9);
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: rgb(79, 70, 229) rgba(79, 70, 229, 0.1);
+}
+
+.profile-page-wrapper::-webkit-scrollbar {
+	width: 12px;
+}
+
+.profile-page-wrapper::-webkit-scrollbar-track {
+	background: rgba(79, 70, 229, 0.1);
+	border-radius: 10px;
+}
+
+.profile-page-wrapper::-webkit-scrollbar-thumb {
+	background-color: rgb(79, 70, 229);
+	border-radius: 10px;
+	border: 2px solid var(--page-background);
+}
+
+.profile-page-wrapper::-webkit-scrollbar-thumb:hover {
+	background-color: rgb(67, 56, 202);
+}
+
+.profile-heading {
+	margin: 0 0 1.5rem;
+	font-size: 2rem;
+	font-weight: 600;
+	color: var(--dark-purple-text);
+}
+
+/* 25 / 75 split, stacking on tablet and below. */
+.profile-columns {
+	display: flex;
+	align-items: flex-start;
+	gap: 2rem;
+}
+
+.profile-column-left {
+	flex: 0 0 25%;
+	max-width: 25%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+}
+
+.profile-column-right {
+	flex: 1 1 75%;
+	min-width: 0;
+}
+
+/* Square with rounded corners; object-fit does the centre-crop, so no crop UI. */
+.profile-picture {
+	width: 100%;
+	max-width: 14rem;
+	aspect-ratio: 1 / 1;
+	object-fit: cover;
+	object-position: center;
+	border-radius: 12px;
+	border: 3px solid var(--dark-purple-text);
+	background-color: rgba(255, 255, 255, 0.5);
+}
+
+.profile-picture-hint {
+	margin: 0;
+	font-size: 0.8rem;
+	text-align: center;
+	color: #4b4257;
+}
+
+.profile-tier-heading {
+	margin: 0 0 0.75rem;
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--dark-purple-text);
+}
+
+.profile-perks {
+	margin: 0 0 1.5rem;
+	padding-left: 1.5rem;
+	list-style: disc;
+}
+
+.profile-perks li {
+	margin-bottom: 0.35rem;
+}
+
+.profile-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(65, 42, 133, 0.25);
+}
+
+/* Unverified accounts: logged in, but Guest perks until they confirm. */
+.profile-verify-notice {
+	margin: 0 0 1.5rem;
+	padding: 0.9rem 1.1rem;
+	border-radius: 8px;
+	border-left: 4px solid var(--golden-highlight);
+	background-color: rgba(224, 166, 58, 0.18);
+}
+
+.profile-verify-notice p {
+	margin: 0 0 0.6rem;
+}
+
+.profile-status-message {
+	margin: 0.75rem 0 0;
+	font-size: 0.9rem;
+}
+
+.profile-status-error {
+	color: #a30000;
+}
+
+.profile-status-success {
+	color: #1c6b2b;
+}
+
+/* ---------- Shared buttons ---------- */
+
+.som-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.55rem 1.2rem;
+	border: none;
+	border-radius: 0.375rem;
+	font-size: 1rem;
+	font-weight: 600;
+	font-family: inherit;
+	cursor: pointer;
+	text-decoration: none;
+	transition: filter 150ms ease-in-out, background-color 150ms ease-in-out;
+}
+
+.som-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.som-btn-primary {
+	background-color: var(--dark-purple-text);
+	color: #ffffff;
+}
+
+.som-btn-primary:hover:not(:disabled) {
+	filter: brightness(1.2);
+}
+
+.som-btn-secondary {
+	background-color: rgba(255, 255, 255, 0.65);
+	color: var(--dark-purple-text);
+	border: 1px solid var(--dark-purple-text);
+}
+
+.som-btn-secondary:hover:not(:disabled) {
+	background-color: #ffffff;
+}
+
+.som-btn-gold {
+	background-color: var(--golden-highlight);
+	color: #000000;
+}
+
+.som-btn-gold:hover:not(:disabled) {
+	filter: brightness(1.1);
+}
+
+.som-btn-danger {
+	background-color: var(--initiative-banner);
+	color: #ffffff;
+}
+
+.som-btn-danger:hover:not(:disabled) {
+	filter: brightness(1.15);
+}
+
+.som-btn-link {
+	padding: 0;
+	background: none;
+	border: none;
+	color: var(--dark-purple-text);
+	font-weight: 600;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* Google button keeps its own treatment so it reads as a third-party action. */
+.som-btn-google {
+	background-color: #ffffff;
+	color: #3c4043;
+	border: 1px solid #adb2b8;
+	gap: 0.55rem;
+}
+
+.som-btn-google:hover:not(:disabled) {
+	background-color: #f5f5f5;
+}
+
+/* ---------- Shared form fields ---------- */
+
+.som-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin-bottom: 1rem;
+}
+
+.som-field-label {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--dark-purple-text);
+}
+
+.som-field-input {
+	padding: 0.55rem 0.7rem;
+	border: 1px solid rgba(65, 42, 133, 0.45);
+	border-radius: 0.375rem;
+	font-size: 1rem;
+	font-family: inherit;
+	background-color: rgba(255, 255, 255, 0.85);
+	color: #1f1633;
+}
+
+.som-field-input:focus {
+	outline: 2px solid var(--dark-purple-text);
+	outline-offset: 1px;
+}
+
+.som-field-hint {
+	font-size: 0.82rem;
+	min-height: 1.1rem;
+}
+
+.som-field-hint-error {
+	color: #a30000;
+}
+
+.som-field-hint-success {
+	color: #1c6b2b;
+}
+
+.som-field-hint-checking {
+	color: #4b4257;
+	font-style: italic;
+}
+
+/* Live password rule checklist. */
+.som-password-rules {
+	margin: 0.25rem 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 0.85rem;
+}
+
+.som-password-rule {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-bottom: 0.15rem;
+	color: #4b4257;
+}
+
+.som-password-rule-passed {
+	color: #1c6b2b;
+}
+
+.som-form-error {
+	margin: 0 0 0.9rem;
+	padding: 0.6rem 0.8rem;
+	border-radius: 0.375rem;
+	background-color: rgba(163, 0, 0, 0.12);
+	border-left: 3px solid #a30000;
+	color: #7a0000;
+	font-size: 0.9rem;
+}
+
+.som-form-divider {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 1.1rem 0;
+	font-size: 0.85rem;
+	color: #4b4257;
+}
+
+.som-form-divider::before,
+.som-form-divider::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background-color: rgba(65, 42, 133, 0.3);
+}
+
+/* ---------- Tier comparison inside the Manage Profile Type modal ---------- */
+
+.tier-comparison {
+	display: flex;
+	gap: 1rem;
+	margin-bottom: 1.25rem;
+}
+
+.tier-comparison-column {
+	flex: 1 1 50%;
+	padding: 0.9rem 1rem;
+	border-radius: 8px;
+	background-color: rgba(255, 255, 255, 0.5);
+	border: 1px solid rgba(65, 42, 133, 0.25);
+}
+
+.tier-comparison-column-highlight {
+	border-color: var(--golden-highlight);
+	border-width: 2px;
+	background-color: rgba(224, 166, 58, 0.16);
+}
+
+.tier-comparison-title {
+	margin: 0 0 0.5rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+	color: var(--dark-purple-text);
+}
+
+.tier-comparison-list {
+	margin: 0;
+	padding-left: 1.2rem;
+	font-size: 0.9rem;
+}
+
+.tier-comparison-list li {
+	margin-bottom: 0.3rem;
+}
+
+.tier-signup-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+
+@media screen and (max-width: 1024px) {
+	.profile-columns {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 1.5rem;
+	}
+
+	.profile-column-left,
+	.profile-column-right {
+		flex: 1 1 auto;
+		max-width: 100%;
+	}
+
+	.profile-picture {
+		max-width: 11rem;
+	}
+
+	.profile-page-wrapper {
+		height: 90%;
+		overflow-y: auto;
+		border-radius: 10px;
+	}
+
+	.tier-comparison {
+		flex-direction: column;
+	}
+}
+
+@media screen and (max-width: 599px) {
+	.profile-heading {
+		font-size: 1.6rem;
+	}
+
+	.profile-actions {
+		flex-direction: column;
+	}
+
+	.profile-actions .som-btn {
+		width: 100%;
+	}
+}

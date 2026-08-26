@@ -1,9 +1,14 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import HelpDialog from "./ui/HelpDialog";
+import NotificationBadge from "./ui/NotificationBadge";
+import { useOverLimit } from "../storage/OverLimitContext";
 import "./SideBarStyling.css";
 
 export default function SideBar({ isOpen, toggleSidebar }) {
+  const { isOverLimit } = useOverLimit();
+  const spellbooksNeedAttention = isOverLimit("spellbooks");
+
   return (
     <>
       {isOpen && (
@@ -22,7 +27,10 @@ export default function SideBar({ isOpen, toggleSidebar }) {
             <div className="sidebar-divider" />
 
             <Link to="/initiative" className="sidebar-button-initiative" onClick={toggleSidebar}>Initiative <br /> Tracker</Link>
-            <Link to="/spell-search" className="sidebar-button-spell-search" onClick={toggleSidebar}>Spell <br /> Searcher</Link>
+            <Link to="/spell-search" className="sidebar-button-spell-search" onClick={toggleSidebar}>
+              Spell <br /> Searcher
+              {spellbooksNeedAttention ? <NotificationBadge label="Your saved Spell Books need attention" /> : null}
+            </Link>
           </div>
 
           <div className="sidebar-bottom">

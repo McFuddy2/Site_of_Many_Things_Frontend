@@ -30,7 +30,19 @@ import {
   getStoredNotificationMode,
   saveNotificationMode,
 } from './utils/initiativeNotificationStorage';
+import { storage } from './storage';
+import { getUserMessage } from './API/errors';
+import {
+  createDefaultRowData,
+  createDefaultRowVisibility,
+  createDefaultOverlayActive,
+  createDefaultTrackerData,
+  DEFAULT_CONDITION_COLORS,
+  DEFAULT_CONDITION_DESCRIPTIONS,
+} from './utils/initiative/defaults';
+import { DEFAULT_TRACKER_NAME } from './utils/initiative/trackerDocument';
 
+const TRACKER_AUTOSAVE_DELAY_MS = 600;
 const NOTIFICATION_SOUND_SELF_URL = '/notification-sound.mp3';
 const NOTIFICATION_SOUND_PRIOR_URL = '/notification-sound-2.mp3';
 
@@ -58,13 +70,9 @@ export default function MainCode() {
       ? window.matchMedia('(min-width: 600px) and (max-width: 1024px)').matches
       : false
   );
-  const [showArmorClass, setShowArmorClass] = useState(
-    JSON.parse(localStorage.getItem('show-armor-class')) ?? true
-  );
+  const [showArmorClass, setShowArmorClass] = useState(true);
   const [viewArmorClassToggle, setViewArmorClassToggle] = useState(true);
-  const [showHitPoints, setShowHitPoints] = useState(
-    JSON.parse(localStorage.getItem('show-hit-points')) ?? true
-  );
+  const [showHitPoints, setShowHitPoints] = useState(true);
   const [viewHitPointsToggle, setViewHitPointsToggle] = useState(true);
   const [resetRound, setResetRound] = useState(false);
   const [resetInitiative, setResetInitiative] = useState(false);
@@ -127,78 +135,34 @@ export default function MainCode() {
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
-  const [round, setRound] = useState(JSON.parse(localStorage.getItem('round')) ?? 1);
+  // The tracker's saved state now comes through the storage layer, which reads
+  // from localStorage for Guests and from the backend for verified Trailblazers.
+  // That makes loading asynchronous, so every piece of tracker state starts at its
+  // default and is replaced once hydration finishes. Saving is held back until
+  // then, so an empty default is never written over real saved data.
+  const [isTrackerHydrated, setIsTrackerHydrated] = useState(false);
+  const [trackerLoadError, setTrackerLoadError] = useState(null);
+  const [trackerSaveError, setTrackerSaveError] = useState(null);
+  const trackerMetaRef = useRef({ id: null, name: DEFAULT_TRACKER_NAME });
 
-  const [rowVisibility, setRowVisibility] = useState(JSON.parse(localStorage.getItem('row-visibility')) ??
-    Array(20).fill(false).map((_, index) => index === 0)
-  );
+  const [round, setRound] = useState(1);
 
-  const [overlayActive, setOverlayActive] = useState(JSON.parse(localStorage.getItem('overlay-active')) ??
-    Array(20).fill(false).map((_, index) => index === 0)
-  );
+  const [rowVisibility, setRowVisibility] = useState(createDefaultRowVisibility);
 
-  const [rowData, setRowData] = useState(JSON.parse(localStorage.getItem('row-data')) ??
-    Array(20).fill({ name: '', affiliation: '', initiative: null, conditions: [], summons: [], summonConditions: {} })
-  );
+  const [overlayActive, setOverlayActive] = useState(createDefaultOverlayActive);
 
-  const [shiftedRowIndex, setShiftedRowIndex] = useState(JSON.parse(localStorage.getItem('shifted-row-index')) ?? null);
+  const [rowData, setRowData] = useState(createDefaultRowData);
+
+  const [shiftedRowIndex, setShiftedRowIndex] = useState(null);
   const [wiggleShiftedRowIndex, setWiggleShiftedRowIndex] = useState(null);
   const skipInitialShiftWiggleRef = useRef(true);
   const shiftWiggleTimeoutRef = useRef(null);
 
-  const [customConditions, setCustomConditions] = useState(JSON.parse(localStorage.getItem("custom-conditions")) ?? []);
+  const [customConditions, setCustomConditions] = useState([]);
 
-  const [conditionColors, setConditionColors] = useState(JSON.parse(localStorage.getItem("condition-colors")) ?? {
-    Blinded: 'var(--bad-condition-background)',
-    Charmed: 'var(--bad-condition-background)',
-    Deafened: 'var(--bad-condition-background)',
-    Frightened: 'var(--bad-condition-background)',
-    Grappled: 'var(--bad-condition-background)',
-    Incapacitated: 'var(--bad-condition-background)',
-    Invisible: 'var(--good-condition-background)',
-    Paralyzed: 'var(--bad-condition-background)',
-    Petrified: 'var(--bad-condition-background)',
-    Poisoned: 'var(--bad-condition-background)',
-    Prone: 'var(--neutral-condition-background)',
-    Restrained: 'var(--bad-condition-background)',
-    Stunned: 'var(--bad-condition-background)',
-    Unconscious: 'var(--bad-condition-background)',
-    'Exhaustion1': 'var(--bad-condition-background)',
-    'Exhaustion2': 'var(--bad-condition-background)',
-    'Exhaustion3': 'var(--bad-condition-background)',
-    'Exhaustion4': 'var(--bad-condition-background)',
-    'Exhaustion5': 'var(--bad-condition-background)',
-    'Exhaustion6': 'var(--bad-condition-background)',
-    Other1: 'var(--neutral-condition-background)',
-    Other2: 'var(--neutral-condition-background)',
-    Other3: 'var(--neutral-condition-background)',
-    Other4: 'var(--neutral-condition-background)',
-    '(Custom)': 'var(--neutral-condition-background)',
-  });
+  const [conditionColors, setConditionColors] = useState(() => ({ ...DEFAULT_CONDITION_COLORS }));
 
-  const [conditionDescriptions, setConditionDescriptions] = useState(JSON.parse(localStorage.getItem("condition-descriptions-v2")) ?? {
-    Blinded: "• Can't See. You can't see and automatically fail any ability check that requires sight.???• Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.",
-    Charmed: "• Can't Harm the Charmer. You can't attack the charmer or target the charmer with damaging abilities or magical effects.???• Social Advantage. The charmer has Advantage on any ability check to interact with you socially.",
-    Deafened: "• Can't Hear. You can't hear and automatically fail any ability check that requires hearing.",
-    Frightened: "• Ability Checks and Attacks Affected. You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight.???• Can't Approach. You can't willingly move closer to the source of fear.",
-    Grappled: "• Speed 0. Your Speed is 0 and can't increase.???• Attacks Affected. You have Disadvantage on attack rolls against any target other than the grappler.???• Movable. The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot unless you are Tiny or two or more sizes smaller than it.",
-    Incapacitated: "• Inactive. You can't take any action, Bonus Action, or Reaction.???• No Concentration. Your Concentration is broken.???• Speechless. You can't speak.???• Surprised. If you're Incapacitated when you roll Initiative, you have Disadvantage on the roll.",
-    Invisible: "• Surprise. If you're Invisible when you roll Initiative, you have Advantage on the roll.???• Concealed. You aren't affected by any effect that requires its target to be seen unless the effect's creator can somehow see you. Any equipment you are wearing or carrying is also concealed.???• Attacks Affected. Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you don't gain this benefit against that creature.",
-    Paralyzed: "• Incapacitated. You have the Incapacitated condition.???• Speed 0. Your Speed is 0 and can't increase.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Attacks Affected. Attack rolls against you have Advantage.???• Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.",
-    Petrified: "• Turned to Inanimate Substance. You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging.???• Incapacitated. You have the Incapacitated condition.???• Speed 0. Your Speed is 0 and can't increase.???• Attacks Affected. Attack rolls against you have Advantage.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Resist Damage. You have Resistance to all damage.???• Poison Immunity. You have Immunity to the Poisoned condition.",
-    Poisoned: "• Ability Checks and Attacks Affected. You have Disadvantage on attack rolls and ability checks.",
-    Prone: "• Restricted Movement. Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you can't right yourself.???• Attacks Affected. You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage.",
-    Restrained: "• Speed 0. Your Speed is 0 and can't increase.???• Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.???• Saving Throws Affected. You have Disadvantage on Dexterity saving throws.",
-    Stunned: "• Incapacitated. You have the Incapacitated condition.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Attacks Affected. Attack rolls against you have Advantage.",
-    Unconscious: "• Inert. You have the Incapacitated and Prone conditions, and you drop whatever you're holding. When this condition ends, you remain Prone.???• Speed 0. Your Speed is 0 and can't increase.???• Attacks Affected. Attack rolls against you have Advantage.???• Saving Throws Affected. You automatically fail Strength and Dexterity saving throws.???• Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.???• Unaware. You're unaware of your surroundings.",
-    Exhaustion1: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 2.???• Speed Reduced. Your Speed is reduced by 5 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion2: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 4.???• Speed Reduced. Your Speed is reduced by 10 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion3: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 6.???• Speed Reduced. Your Speed is reduced by 15 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion4: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 8.???• Speed Reduced. Your Speed is reduced by 20 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion5: "• D20 Tests Affected. When you make a D20 Test, the roll is reduced by 10.???• Speed Reduced. Your Speed is reduced by 25 feet.???• Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
-    Exhaustion6: "• You are Dead.???• If you are revived after dying this way, you return to life with Exhaustion5.",
-    "(Custom)": "Filler description for custom condition.",
-  });
+  const [conditionDescriptions, setConditionDescriptions] = useState(() => ({ ...DEFAULT_CONDITION_DESCRIPTIONS }));
   
   const [sortedRowData, setSortedRowData] = useState([]);
 
@@ -337,8 +301,57 @@ export default function MainCode() {
     )
   ];
 
+  // Load the saved tracker. Runs once on mount, ahead of the session-restore and
+  // auto-join effects below, both of which wait on isTrackerHydrated so a slow
+  // load can't land on top of a live session's state.
+  useEffect(() => {
+    let isStale = false;
+
+    const applyTrackerData = (data) => {
+      const defaults = createDefaultTrackerData();
+      setRowData(data.rowData ?? defaults.rowData);
+      setRound(data.round ?? defaults.round);
+      setRowVisibility(data.rowVisibility ?? defaults.rowVisibility);
+      setOverlayActive(data.overlayActive ?? defaults.overlayActive);
+      setShiftedRowIndex(data.shiftedRowIndex ?? defaults.shiftedRowIndex);
+      setCustomConditions(data.customConditions ?? defaults.customConditions);
+      setConditionColors({ ...DEFAULT_CONDITION_COLORS, ...(data.conditionColors ?? {}) });
+      setConditionDescriptions({ ...DEFAULT_CONDITION_DESCRIPTIONS, ...(data.conditionDescriptions ?? {}) });
+      setShowArmorClass(data.showArmorClass ?? defaults.showArmorClass);
+      setShowHitPoints(data.showHitPoints ?? defaults.showHitPoints);
+    };
+
+    storage.initiativeTrackers
+      .list()
+      .then((trackers) => {
+        if (isStale) return;
+        const [tracker] = trackers;
+        if (tracker) {
+          trackerMetaRef.current = { id: tracker.id, name: tracker.name || DEFAULT_TRACKER_NAME };
+          applyTrackerData(tracker.data || {});
+        }
+        setTrackerLoadError(null);
+      })
+      .catch((error) => {
+        if (isStale) return;
+        console.error('Failed to load initiative tracker:', error);
+        setTrackerLoadError(getUserMessage(error));
+      })
+      .finally(() => {
+        if (!isStale) {
+          setIsTrackerHydrated(true);
+        }
+      });
+
+    return () => {
+      isStale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Restore own tracker state saved before joining a session (runs before auto-join)
   useEffect(() => {
+    if (!isTrackerHydrated) return;
     const saved = localStorage.getItem('initiative_own_data');
     if (!saved) return;
     try {
@@ -351,10 +364,11 @@ export default function MainCode() {
     } catch {}
     localStorage.removeItem('initiative_own_data');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isTrackerHydrated]);
 
   // Auto-reconnect as host (from localStorage) or auto-join as joiner (from URL) on mount
   useEffect(() => {
+    if (!isTrackerHydrated) return;
     if (hasStartedJoinRef.current) return;
     hasStartedJoinRef.current = true;
 
@@ -2615,16 +2629,59 @@ export default function MainCode() {
     return expirationText === "NA / Unknown" || expirationText.includes("NA / Unknown");
   };
 
+  // Autosave through the storage layer. Debounced because a backend-backed save is
+  // a network call, where the old localStorage write was free — without this every
+  // keystroke in a character name would be a request. Held back until hydration so
+  // the defaults this component starts with are never saved over real data.
   useEffect(() => {
-    localStorage.setItem("row-data", JSON.stringify(rowData));
-    localStorage.setItem("overlay-active", JSON.stringify(overlayActive));
-    localStorage.setItem("row-visibility", JSON.stringify(rowVisibility));
-    localStorage.setItem("round", JSON.stringify(round));
-    localStorage.setItem("shifted-row-index", JSON.stringify(shiftedRowIndex));
-    localStorage.setItem("custom-conditions", JSON.stringify(customConditions));
-    localStorage.setItem("condition-colors", JSON.stringify(conditionColors));
-    localStorage.setItem("condition-descriptions-v2", JSON.stringify(conditionDescriptions));
-  }, [rowData, rowVisibility, overlayActive, round, shiftedRowIndex, customConditions, conditionColors, conditionDescriptions]);
+    if (!isTrackerHydrated) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      const trackerDocument = {
+        id: trackerMetaRef.current.id || undefined,
+        name: trackerMetaRef.current.name,
+        data: {
+          rowData,
+          round,
+          rowVisibility,
+          overlayActive,
+          shiftedRowIndex,
+          customConditions,
+          conditionColors,
+          conditionDescriptions,
+          showArmorClass,
+          showHitPoints,
+        },
+      };
+
+      storage.initiativeTrackers
+        .save(trackerDocument)
+        .then((saved) => {
+          if (saved?.id) {
+            trackerMetaRef.current = { id: saved.id, name: saved.name || DEFAULT_TRACKER_NAME };
+          }
+          setTrackerSaveError(null);
+        })
+        .catch((error) => {
+          console.error('Failed to save initiative tracker:', error);
+          setTrackerSaveError(getUserMessage(error));
+        });
+    }, TRACKER_AUTOSAVE_DELAY_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    isTrackerHydrated,
+    rowData,
+    rowVisibility,
+    overlayActive,
+    round,
+    shiftedRowIndex,
+    customConditions,
+    conditionColors,
+    conditionDescriptions,
+    showArmorClass,
+    showHitPoints,
+  ]);
 
   useEffect(() => {
     if (skipInitialShiftWiggleRef.current) {
@@ -2707,6 +2764,10 @@ export default function MainCode() {
   // character. Skips the very first run after mount so restoring a saved session doesn't
   // fire a stale notification for whichever turn happened to be active on page load.
   useEffect(() => {
+    if (!isTrackerHydrated) {
+      return;
+    }
+
     if (!hasHydratedTurnRef.current) {
       hasHydratedTurnRef.current = true;
       lastNotifiedTurnRef.current = shiftedRowIndex === null ? null : `${round}-${shiftedRowIndex}`;
@@ -2748,15 +2809,7 @@ export default function MainCode() {
       const expiryIndex = rowAfterNext ? rowAfterNext.index : nextRow.index;
       fireTurnNotification('prior', `${currentName}'s turn just started — ${nextName} is up next.`, "IT'S ALMOST YOUR TURN", expiryIndex);
     }
-  }, [shiftedRowIndex, round, sortedRowData, overlayActive, rowData, notificationSettings, notificationMode]);
-
-  useEffect(() => {
-    localStorage.setItem('show-armor-class', JSON.stringify(showArmorClass));
-  }, [showArmorClass]);
-
-  useEffect(() => {
-    localStorage.setItem('show-hit-points', JSON.stringify(showHitPoints));
-  }, [showHitPoints]);
+  }, [isTrackerHydrated, shiftedRowIndex, round, sortedRowData, overlayActive, rowData, notificationSettings, notificationMode]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2816,8 +2869,23 @@ export default function MainCode() {
   const showMobileConditionStep = isAddConditionMobileLayout && mobileAddConditionStep === 2;
   const showMobileExpirationStep = isAddConditionMobileLayout && mobileAddConditionStep === 3;
   
+  if (!isTrackerHydrated) {
+    return (
+      <div className="initiative-page-scroll">
+        <div className="tracker-loading-state">
+          <p className="tracker-loading-text">Loading your tracker&hellip;</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="initiative-page-scroll">
+    {(trackerLoadError || trackerSaveError) && (
+      <div className="tracker-storage-banner" role="status">
+        {trackerLoadError || trackerSaveError}
+      </div>
+    )}
     {sessionEnded && (
       <div className="session-ended-overlay">
         <div className="session-ended-modal">

@@ -1,0 +1,86 @@
+@import '../../1colors.css';
+
+/* The trimming list inside the over-limit gate. */
+
+.over-limit-list {
+	margin: 0.5rem 0 1rem;
+	padding: 0;
+	list-style: none;
+	max-height: 40vh;
+	overflow-y: auto;
+	border: 1px solid rgba(65, 42, 133, 0.3);
+	border-radius: 8px;
+	background-color: rgba(255, 255, 255, 0.45);
+}
+
+.over-limit-list li {
+	border-bottom: 1px solid rgba(65, 42, 133, 0.15);
+}
+
+.over-limit-list li:last-child {
+	border-bottom: none;
+}
+
+.over-limit-item {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.6rem 0.8rem;
+	cursor: pointer;
+}
+
+.over-limit-item:hover {
+	background-color: rgba(255, 255, 255, 0.6);
+}
+
+.over-limit-item input[type="checkbox"] {
+	flex-shrink: 0;
+	width: 1.05rem;
+	height: 1.05rem;
+	cursor: pointer;
+}
+
+.over-limit-item input[type="checkbox"]:disabled {
+	cursor: not-allowed;
+	opacity: 0.4;
+}
+
+.over-limit-item-swatch {
+	flex-shrink: 0;
+	width: 0.85rem;
+	height: 1.5rem;
+	border-radius: 2px;
+	border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.over-limit-item-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.over-limit-item-count {
+	flex-shrink: 0;
+	font-size: 0.82rem;
+	color: #4b4257;
+}
+
+.over-limit-status {
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--dark-purple-text);
+}
+
+.over-limit-confirm-list {
+	margin: 0.5rem 0 1rem;
+	padding-left: 1.4rem;
+}
+
+.over-limit-confirm-list li {
+	margin-bottom: 0.3rem;
+	font-weight: 600;
+}

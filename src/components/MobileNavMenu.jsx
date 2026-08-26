@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import NotificationBadge from "./ui/NotificationBadge";
 
-export default function MobileNavMenu({setShowMobileModalMenu}) {
+export default function MobileNavMenu({setShowMobileModalMenu, hasOverLimit}) {
   return (
     <motion.div
       className="mobile-header-menu-modal-wrapper"
@@ -54,6 +55,7 @@ export default function MobileNavMenu({setShowMobileModalMenu}) {
                 onClick={() => setShowMobileModalMenu(false)}
               >
                 Spell Searcher
+                {hasOverLimit ? <NotificationBadge label="Your saved Spell Books need attention" /> : null}
               </Link>
             </div>
           </div>
