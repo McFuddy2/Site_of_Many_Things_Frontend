@@ -1,48 +1,59 @@
-export const SPELLBOOKS_STORAGE_KEY = "spellbooks_v1";
-export const MAX_SAVED_SPELLBOOKS = 8;
+// Spellbook persistence.
+//
+// These functions now delegate to the shared storage layer, which decides
+// whether a read or write lands in localStorage (Guest) or on the backend
+// (verified Trailblazer). The domain logic below is unchanged — only the
+// persistence call underneath it moved, and every function became async as a
+// result.
+//
+// The stored spellbook shape is untouched, because the backend stores it as
+// JSONB exactly as it appears here.
 
-export function getSavedSpellbooks() {
+import { storage } from "../storage";
+import { SPELLBOOKS_STORAGE_KEY } from "../storage/resources";
+import { getEffectiveTier } from "../auth/session";
+import { getResourceLimit } from "../config/tiers";
+import { ApiError, ERROR_CODES } from "../API/errors";
+
+export { SPELLBOOKS_STORAGE_KEY };
+
+export async function getSavedSpellbooks() {
 	try {
-		const raw = localStorage.getItem(SPELLBOOKS_STORAGE_KEY);
-		const parsed = raw ? JSON.parse(raw) : [];
-		return Array.isArray(parsed) ? parsed : [];
+		return await storage.spellbooks.list();
 	} catch (error) {
 		console.error("Error reading saved spellbooks:", error);
 		return [];
 	}
 }
 
-// Returns true on success, false if the spellbook cap was reached or storage failed.
-export function saveSpellbook(spellbook) {
-	try {
-		const existingSpellbooks = getSavedSpellbooks();
-		if (existingSpellbooks.length >= MAX_SAVED_SPELLBOOKS) {
-			return false;
-		}
+// How many spellbooks the current profile may hold. UI feedback only — the
+// backend enforces the real cap and may still answer a write with 409.
+export function getSpellbookLimit(tier = getEffectiveTier()) {
+	return getResourceLimit(tier, "spellbooks");
+}
 
-		const updatedSpellbooks = [...existingSpellbooks, spellbook];
-		localStorage.setItem(SPELLBOOKS_STORAGE_KEY, JSON.stringify(updatedSpellbooks));
-		return true;
-	} catch (error) {
-		console.error("Error saving spellbook:", error);
-		return false;
+// Returns the created spellbook. Throws an ApiError with code `limit_exceeded`
+// when the profile is full, so the caller can show the upgrade prompt — the same
+// shape the backend returns on a 409, letting one catch handle both.
+export async function saveSpellbook(spellbook) {
+	if (await storage.spellbooks.isAtLimit()) {
+		throw new ApiError({
+			code: ERROR_CODES.LIMIT_EXCEEDED,
+			resource: "spellbooks",
+			limit: getSpellbookLimit(),
+		});
 	}
+	return storage.spellbooks.create(spellbook);
 }
 
 // Returns the updated spellbook on success, or null if it couldn't be found/saved.
-export function updateSpellbook(spellbookId, updater) {
+export async function updateSpellbook(spellbookId, updater) {
 	try {
-		const existingSpellbooks = getSavedSpellbooks();
-		const index = existingSpellbooks.findIndex((book) => book.id === spellbookId);
-		if (index === -1) {
+		const existingSpellbook = await storage.spellbooks.get(spellbookId);
+		if (!existingSpellbook) {
 			return null;
 		}
-
-		const updatedSpellbook = updater(existingSpellbooks[index]);
-		const updatedSpellbooks = [...existingSpellbooks];
-		updatedSpellbooks[index] = updatedSpellbook;
-		localStorage.setItem(SPELLBOOKS_STORAGE_KEY, JSON.stringify(updatedSpellbooks));
-		return updatedSpellbook;
+		return await storage.spellbooks.update(spellbookId, updater(existingSpellbook));
 	} catch (error) {
 		console.error("Error updating spellbook:", error);
 		return null;
@@ -171,15 +182,9 @@ export function removeSpellFromSpellbook(spellbookId, spellId) {
 }
 
 // Deletes a saved spellbook. Returns true on success, false if it couldn't be found/saved.
-export function deleteSpellbook(spellbookId) {
+export async function deleteSpellbook(spellbookId) {
 	try {
-		const existingSpellbooks = getSavedSpellbooks();
-		const updatedSpellbooks = existingSpellbooks.filter((book) => book.id !== spellbookId);
-		if (updatedSpellbooks.length === existingSpellbooks.length) {
-			return false;
-		}
-		localStorage.setItem(SPELLBOOKS_STORAGE_KEY, JSON.stringify(updatedSpellbooks));
-		return true;
+		return await storage.spellbooks.delete(spellbookId);
 	} catch (error) {
 		console.error("Error deleting spellbook:", error);
 		return false;

@@ -766,7 +766,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		});
 	};
 
-	const toggleSpellFlag = (spellId, flag) => {
+	const toggleSpellFlag = async (spellId, flag) => {
 		const currentSpell = spellDetailsById[spellId];
 		if (!currentSpell) return;
 		const nextValue = !currentSpell[flag];
@@ -784,7 +784,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			[spellId]: { ...previous[spellId], ...updates },
 		}));
 
-		const updatedBook = setSpellbookSpellFlags(spellbook.id, spellId, updates);
+		const updatedBook = await setSpellbookSpellFlags(spellbook.id, spellId, updates);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
@@ -794,7 +794,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		setExpandedSpellId((previous) => (previous === spellId ? null : spellId));
 	};
 
-	const handleDeleteSpell = (event, spellId) => {
+	const handleDeleteSpell = async (event, spellId) => {
 		event.stopPropagation();
 		setSpellDetailsById((previous) => {
 			const next = { ...previous };
@@ -807,7 +807,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		if (expandedSpellId === spellId) {
 			setExpandedSpellId(null);
 		}
-		const updatedBook = removeSpellFromSpellbook(spellbook.id, spellId);
+		const updatedBook = await removeSpellFromSpellbook(spellbook.id, spellId);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
@@ -819,7 +819,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		setNotesDraft(spell.notes ?? "");
 	};
 
-	const commitNotes = () => {
+	const commitNotes = async () => {
 		if (!notesSpellId) return;
 		const spellId = notesSpellId;
 		const trimmedNotes = notesDraft;
@@ -828,14 +828,14 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			...previous,
 			[spellId]: { ...previous[spellId], notes: trimmedNotes },
 		}));
-		const updatedBook = setSpellbookSpellFlag(spellbook.id, spellId, "notes", trimmedNotes);
+		const updatedBook = await setSpellbookSpellFlag(spellbook.id, spellId, "notes", trimmedNotes);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 		setNotesSpellId(null);
 	};
 
-	const commitNameEdit = () => {
+	const commitNameEdit = async () => {
 		const trimmedName = nameDraft.trim();
 
 		if (!trimmedName || trimmedName === spellbook.name) {
@@ -843,7 +843,7 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 			return;
 		}
 
-		const updatedBook = renameSpellbook(spellbook.id, trimmedName);
+		const updatedBook = await renameSpellbook(spellbook.id, trimmedName);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		} else {
@@ -856,24 +856,24 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		setIsEditMode(false);
 	};
 
-	const handleSpineColorChange = (event) => {
-		const updatedBook = setSpellbookColors(spellbook.id, { spineColor: event.target.value });
+	const handleSpineColorChange = async (event) => {
+		const updatedBook = await setSpellbookColors(spellbook.id, { spineColor: event.target.value });
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 	};
 
-	const handleFontColorChange = (event) => {
-		const updatedBook = setSpellbookColors(spellbook.id, { fontColor: event.target.value });
+	const handleFontColorChange = async (event) => {
+		const updatedBook = await setSpellbookColors(spellbook.id, { fontColor: event.target.value });
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 	};
 
-	const handleMaxPreparedChange = (event) => {
+	const handleMaxPreparedChange = async (event) => {
 		const digitsOnly = event.target.value.replace(/\D/g, "");
 		const nextValue = digitsOnly === "" ? "" : Number(digitsOnly);
-		const updatedBook = setSpellbookMaxPrepared(spellbook.id, nextValue);
+		const updatedBook = await setSpellbookMaxPrepared(spellbook.id, nextValue);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
@@ -884,10 +884,10 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		setSlotMaxDraft(currentMax > 0 ? String(currentMax) : "");
 	};
 
-	const commitSlotEditor = (level) => {
+	const commitSlotEditor = async (level) => {
 		const digitsOnly = slotMaxDraft.replace(/\D/g, "");
 		const nextMax = digitsOnly === "" ? 0 : Math.min(Number(digitsOnly), MAX_SPELL_SLOTS_PER_LEVEL);
-		const updatedBook = setSpellbookSpellSlotMax(spellbook.id, level, nextMax);
+		const updatedBook = await setSpellbookSpellSlotMax(spellbook.id, level, nextMax);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
@@ -895,29 +895,29 @@ export default function SpellbookModal({ spellbook, onClose, onSpellbookUpdated,
 		setSlotMaxDraft("");
 	};
 
-	const handleToggleSpellSlotUsed = (level, index) => {
-		const updatedBook = toggleSpellbookSpellSlotUsed(spellbook.id, level, index);
+	const handleToggleSpellSlotUsed = async (level, index) => {
+		const updatedBook = await toggleSpellbookSpellSlotUsed(spellbook.id, level, index);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 	};
 
-	const handleReplenishSpellSlots = () => {
-		const updatedBook = replenishSpellbookSpellSlots(spellbook.id);
+	const handleReplenishSpellSlots = async () => {
+		const updatedBook = await replenishSpellbookSpellSlots(spellbook.id);
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 	};
 
-	const handleSectionSettingChange = (key, value) => {
-		const updatedBook = setSpellbookSectionSettings(spellbook.id, { [key]: value });
+	const handleSectionSettingChange = async (key, value) => {
+		const updatedBook = await setSpellbookSectionSettings(spellbook.id, { [key]: value });
 		if (updatedBook && onSpellbookUpdated) {
 			onSpellbookUpdated(updatedBook);
 		}
 	};
 
-	const handleConfirmDelete = () => {
-		const didDelete = deleteSpellbook(spellbook.id);
+	const handleConfirmDelete = async () => {
+		const didDelete = await deleteSpellbook(spellbook.id);
 		setIsDeleteConfirmOpen(false);
 		if (didDelete) {
 			if (onSpellbookDeleted) {
