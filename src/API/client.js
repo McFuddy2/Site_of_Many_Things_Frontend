@@ -15,14 +15,15 @@ import { clearSession, getAccessToken, setAccessToken } from "../auth/session";
 
 const isDev = import.meta.env.DEV;
 const devApiBaseUrl = import.meta.env.VITE_DEV_API_BASE_URL || "";
-const prodApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://siteofmanythings-production.up.railway.app";
+const prodApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://api.thesiteofmanythings.com";
 const API_BASE = isDev ? devApiBaseUrl : prodApiBaseUrl;
 
 export const API_PREFIX = "/api/v1";
 
 // In dev with no explicit API URL we go through Vite's /api proxy, which makes
-// requests same-origin. Note that this differs from production, where the API is
-// cross-site and the refresh cookie needs SameSite=None; Secure to survive.
+// requests same-origin. In production the API lives on api.thesiteofmanythings.com,
+// a sibling of the frontend's own domain, so the refresh cookie is same-site and
+// SameSite=Lax carries it.
 export const API_ROOT = isDev && !devApiBaseUrl ? API_PREFIX : `${API_BASE}${API_PREFIX}`;
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === "true";

@@ -5,14 +5,18 @@
 // backend has confirmed it holds the data. Every failure path leaves
 // localStorage exactly as it was so the user can retry.
 
-import { storage, readAllLocalData, clearAllLocalData, RESOURCES, COLLECTION_RESOURCES } from "./index";
+import { storage, readAllLocalData, clearAllLocalData, MIGRATABLE_RESOURCES, COLLECTION_RESOURCES } from "./index";
 import { getResourceLimit } from "../config/tiers";
 import { getEffectiveTier } from "../auth/session";
 
 // Local data keyed by resource name rather than by the wire format's migrate key.
+//
+// Only the migratable resources: a localOnly resource lives on this device on
+// both sides of a login, so it is neither moved nor something the user could be
+// asked to choose between.
 export function getLocalSnapshot() {
 	const snapshot = {};
-	Object.values(RESOURCES).forEach((resource) => {
+	MIGRATABLE_RESOURCES.forEach((resource) => {
 		snapshot[resource.name] =
 			resource.kind === "collection" ? resource.localStore.readAll() : resource.localStore.read();
 	});
@@ -20,7 +24,7 @@ export function getLocalSnapshot() {
 }
 
 export function isSnapshotEmpty(snapshot) {
-	return Object.values(RESOURCES).every((resource) => {
+	return MIGRATABLE_RESOURCES.every((resource) => {
 		const value = snapshot[resource.name];
 		if (resource.kind === "collection") {
 			return !Array.isArray(value) || value.length === 0;
@@ -38,7 +42,7 @@ export function hasLocalData() {
 export async function getAccountSnapshot() {
 	const snapshot = {};
 	await Promise.all(
-		Object.values(RESOURCES).map(async (resource) => {
+		MIGRATABLE_RESOURCES.map(async (resource) => {
 			if (resource.kind === "collection") {
 				snapshot[resource.name] = await storage[resource.name].list();
 			} else {
@@ -70,11 +74,26 @@ export async function detectSyncAction() {
 	return { action: "conflict", local, account };
 }
 
+// One key per migration attempt, minted by the caller and reused across every
+// retry of that attempt. crypto.randomUUID needs a secure context, which
+// localhost and production both are; the fallback covers anything else.
+export function createIdempotencyKey() {
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return crypto.randomUUID();
+	}
+	return `migrate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 // POST /migrate with everything held locally, then — and only then — clear the
 // migrated keys. A failure anywhere leaves local data untouched.
-export async function migrateLocalToAccount() {
+//
+// `idempotencyKey` identifies the migration attempt, not the request: the caller
+// holds one key for an attempt and passes the same one back on every retry, so a
+// request that actually succeeded before the response was lost can't import the
+// data twice.
+export async function migrateLocalToAccount(idempotencyKey) {
 	const payload = readAllLocalData();
-	const result = await storage.migrate(payload);
+	const result = await storage.migrate(payload, { idempotencyKey });
 	clearAllLocalData();
 	return result;
 }
@@ -93,7 +112,6 @@ export async function keepDeviceData() {
 	for (const resource of COLLECTION_RESOURCES) {
 		await storage[resource.name].replaceAll(local[resource.name] || []);
 	}
-	await storage.spellRatings.save(local.spellRatings || {});
 
 	// Only once every write has come back clean.
 	clearAllLocalData();
@@ -110,14 +128,6 @@ export async function mergeData() {
 		const localItems = local[resource.name] || [];
 		await storage[resource.name].replaceAll([...accountItems, ...localItems]);
 	}
-
-	// Ratings are a map, so a merge has to pick a winner per spell. The account's
-	// value wins, making the merge purely additive — a rating already on the
-	// account is never overwritten, and local ratings fill in the gaps.
-	await storage.spellRatings.save({
-		...(local.spellRatings || {}),
-		...(account.spellRatings || {}),
-	});
 
 	clearAllLocalData();
 }
@@ -147,10 +157,9 @@ export async function getOverLimitResources(tier = getEffectiveTier()) {
 
 // Counts for the conflict prompt, so the user can see what they're choosing between.
 export function summarizeSnapshot(snapshot) {
-	if (!snapshot) return { spellbooks: 0, initiativeTrackers: 0, spellRatings: 0 };
+	if (!snapshot) return { spellbooks: 0, initiativeTrackers: 0 };
 	return {
 		spellbooks: (snapshot.spellbooks || []).length,
 		initiativeTrackers: (snapshot.initiativeTrackers || []).length,
-		spellRatings: Object.keys(snapshot.spellRatings || {}).length,
 	};
 }

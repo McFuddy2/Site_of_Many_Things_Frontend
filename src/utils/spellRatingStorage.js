@@ -1,8 +1,10 @@
 // Spell rating persistence.
 //
-// Ratings are a map of spell id -> 1-5 stars. They move to the account on
-// verification like spellbooks and trackers do, so they go through the storage
-// layer rather than touching localStorage directly.
+// Ratings are a map of spell id -> 1-5 stars. They stay on the device for every
+// tier — there is no ratings endpoint, and the feature is being reworked into
+// personal + community ratings — but they still go through the storage layer
+// rather than touching localStorage directly, so the day that endpoint arrives
+// only the resource descriptor changes. See RESOURCES.spellRatings.
 
 import { storage } from "../storage";
 import { SPELL_RATINGS_STORAGE_KEY } from "../storage/resources";

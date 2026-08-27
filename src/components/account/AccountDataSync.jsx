@@ -17,6 +17,7 @@ import Modal from "../ui/Modal";
 import { useAuth } from "../../auth/AuthContext";
 import { getUserMessage } from "../../API/errors";
 import {
+	createIdempotencyKey,
 	detectSyncAction,
 	getOverLimitResources,
 	keepAccountData,
@@ -39,9 +40,6 @@ function SnapshotSummary({ title, snapshot }) {
 				<li>
 					{counts.initiativeTrackers} {getResourceLabel("initiativeTrackers", counts.initiativeTrackers)}
 				</li>
-				<li>
-					{counts.spellRatings} spell {counts.spellRatings === 1 ? "rating" : "ratings"}
-				</li>
 			</ul>
 		</div>
 	);
@@ -60,6 +58,13 @@ export default function AccountDataSync() {
 	// that touches the tier would kick off another check.
 	const handledForUserRef = useRef(null);
 
+	// The idempotency key for the migration attempt in progress. It is minted
+	// once and deliberately survives the "Try again" button: the backend
+	// deduplicates on this key, so a retry that reuses it can't double-import
+	// data that a first attempt actually landed before the response was lost.
+	// Cleared only once the attempt has finished for good.
+	const migrationKeyRef = useRef(null);
+
 	const isBackendBacked = effectiveTier === TRAILBLAZER_TIER;
 
 	// After any resolution, an over-limit resource hands off to the trimming flow.
@@ -75,12 +80,18 @@ export default function AccountDataSync() {
 	const runMigration = useCallback(async () => {
 		setStatus("migrating");
 		setErrorMessage(null);
+		// Only minted when there isn't one already, so a retry sends the same key
+		// the failed attempt did.
+		if (!migrationKeyRef.current) {
+			migrationKeyRef.current = createIdempotencyKey();
+		}
 		try {
-			await migrateLocalToAccount();
+			await migrateLocalToAccount(migrationKeyRef.current);
+			migrationKeyRef.current = null;
 			await finishAndCheckLimits();
 		} catch (error) {
 			console.error("Migration failed:", error);
-			// Local data is untouched; the user can retry.
+			// Local data is untouched, and the key is kept, so the user can retry.
 			setErrorMessage(getUserMessage(error));
 			setStatus("error");
 		}
@@ -90,8 +101,10 @@ export default function AccountDataSync() {
 		if (isBootstrapping) return;
 
 		if (!isBackendBacked) {
-			// Logged out or dropped back to Guest — allow a fresh check next time.
+			// Logged out or dropped back to Guest — allow a fresh check next time,
+			// as a new session starts a new migration attempt.
 			handledForUserRef.current = null;
+			migrationKeyRef.current = null;
 			setStatus("idle");
 			return;
 		}

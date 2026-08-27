@@ -10,7 +10,9 @@
 import { apiFetch, API_ROOT, USE_MOCK_API } from "./client";
 import { mockAuth } from "./mockAuth";
 
-export const VERIFY_ROUTE = "/verify";
+// The path the backend's verification emails point at. /verify is still routed
+// as well, for links already sitting in inboxes.
+export const VERIFY_ROUTE = "/verify-email";
 export const RESET_PASSWORD_ROUTE = "/reset-password";
 
 export async function checkUsernameAvailable(username) {

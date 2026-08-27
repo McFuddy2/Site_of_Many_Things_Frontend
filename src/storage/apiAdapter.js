@@ -76,8 +76,17 @@ export const apiAdapter = {
 	},
 
 	// Bulk import of a Guest's local data into a freshly verified account.
-	async migrate(payload) {
-		return apiFetch("/migrate", { method: "POST", body: payload });
+	//
+	// Idempotency-Key is required, and the same key must be sent on every retry of
+	// one migration attempt — the backend deduplicates on it, so a fresh key on a
+	// retry would import the data a second time. The caller owns the key for that
+	// reason; this layer only passes it along.
+	async migrate(payload, { idempotencyKey } = {}) {
+		return apiFetch("/migrate", {
+			method: "POST",
+			body: payload,
+			headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+		});
 	},
 
 	async getDocument(resource) {

@@ -9,8 +9,11 @@
 // session's effective tier — Guests (including registered-but-unverified users)
 // stay local, verified Trailblazers go to the backend. Feature components must
 // never branch on that themselves; that is the whole reason this layer exists.
+//
+// The exception is a resource marked localOnly, which has no endpoint behind it
+// and stays on localStorage for every tier. See RESOURCES.spellRatings.
 
-import { RESOURCES, COLLECTION_RESOURCES, getAllLocalKeys } from "./resources";
+import { RESOURCES, COLLECTION_RESOURCES, MIGRATABLE_RESOURCES, getMigratableLocalKeys } from "./resources";
 import { localAdapter } from "./localAdapter";
 import { apiAdapter } from "./apiAdapter";
 import { mockAdapter } from "./mockAdapter";
@@ -23,16 +26,21 @@ function getRemoteAdapter() {
 	return USE_MOCK_API ? mockAdapter : apiAdapter;
 }
 
-function getAdapter() {
+function getAdapter(resource) {
+	// A localOnly resource has no endpoint behind it, so it stays on localStorage
+	// whatever the tier. Everything else follows the session.
+	if (resource?.localOnly) {
+		return localAdapter;
+	}
 	return isBackendBacked() ? getRemoteAdapter() : localAdapter;
 }
 
 // Every read and write waits for the session to finish restoring, so a component
 // that loads on mount can't race the auth bootstrap and read localStorage when
 // the visitor actually has an account. Resolves immediately once ready.
-async function getReadyAdapter() {
+async function getReadyAdapter(resource) {
 	await waitForSessionReady();
-	return getAdapter();
+	return getAdapter(resource);
 }
 
 // Change notification, so independent consumers (the Library, the header
@@ -64,21 +72,21 @@ function createCollectionApi(resource) {
 		resource,
 
 		async list() {
-			return (await getReadyAdapter()).list(resource);
+			return (await getReadyAdapter(resource)).list(resource);
 		},
 
 		async get(id) {
-			return (await getReadyAdapter()).get(resource, id);
+			return (await getReadyAdapter(resource)).get(resource, id);
 		},
 
 		async create(item) {
-			const created = await (await getReadyAdapter()).create(resource, item);
+			const created = await (await getReadyAdapter(resource)).create(resource, item);
 			notifyChange(resource.name);
 			return created;
 		},
 
 		async update(id, item) {
-			const updated = await (await getReadyAdapter()).update(resource, id, item);
+			const updated = await (await getReadyAdapter(resource)).update(resource, id, item);
 			notifyChange(resource.name);
 			return updated;
 		},
@@ -90,7 +98,7 @@ function createCollectionApi(resource) {
 			if (item?.id) {
 				let updated = null;
 				try {
-					updated = await (await getReadyAdapter()).update(resource, item.id, item);
+					updated = await (await getReadyAdapter(resource)).update(resource, item.id, item);
 				} catch (error) {
 					if (error?.status !== 404) {
 						throw error;
@@ -105,7 +113,7 @@ function createCollectionApi(resource) {
 		},
 
 		async delete(id) {
-			const removed = await (await getReadyAdapter()).remove(resource, id);
+			const removed = await (await getReadyAdapter(resource)).remove(resource, id);
 			notifyChange(resource.name);
 			return removed;
 		},
@@ -113,7 +121,7 @@ function createCollectionApi(resource) {
 		// Used by the merge and trimming flows, which need to set the whole
 		// collection at once rather than item by item.
 		async replaceAll(items) {
-			const result = await (await getReadyAdapter()).replaceAll(resource, items);
+			const result = await (await getReadyAdapter(resource)).replaceAll(resource, items);
 			notifyChange(resource.name);
 			return result;
 		},
@@ -154,11 +162,11 @@ function createDocumentApi(resource) {
 		resource,
 
 		async get() {
-			return (await getReadyAdapter()).getDocument(resource);
+			return (await getReadyAdapter(resource)).getDocument(resource);
 		},
 
 		async save(value) {
-			const saved = await (await getReadyAdapter()).saveDocument(resource, value);
+			const saved = await (await getReadyAdapter(resource)).saveDocument(resource, value);
 			notifyChange(resource.name);
 			return saved;
 		},
@@ -180,8 +188,8 @@ export const storage = {
 
 	// Bulk import of a Guest's local data into their account. Only meaningful on
 	// a backend-backed session; the caller clears local data once this resolves.
-	async migrate(payload) {
-		const result = await getRemoteAdapter().migrate(payload);
+	async migrate(payload, options) {
+		const result = await getRemoteAdapter().migrate(payload, options);
 		notifyChange(null);
 		return result;
 	},
@@ -192,7 +200,7 @@ export const storage = {
 // Everything held locally, in the shape POST /migrate expects.
 export function readAllLocalData() {
 	const payload = {};
-	Object.values(RESOURCES).forEach((resource) => {
+	MIGRATABLE_RESOURCES.forEach((resource) => {
 		const value =
 			resource.kind === "collection" ? resource.localStore.readAll() : resource.localStore.read();
 		payload[resource.migrateKey] = value;
@@ -202,7 +210,7 @@ export function readAllLocalData() {
 
 // True when this browser holds anything worth migrating or reconciling.
 export function hasAnyLocalData() {
-	return Object.values(RESOURCES).some((resource) =>
+	return MIGRATABLE_RESOURCES.some((resource) =>
 		resource.kind === "collection"
 			? resource.localStore.readAll().length > 0
 			: Object.keys(resource.localStore.read() || {}).length > 0,
@@ -211,8 +219,8 @@ export function hasAnyLocalData() {
 
 // Only ever called after the backend has confirmed a migration succeeded.
 export function clearAllLocalData() {
-	removeKeys(getAllLocalKeys());
+	removeKeys(getMigratableLocalKeys());
 	notifyChange(null);
 }
 
-export { RESOURCES, COLLECTION_RESOURCES };
+export { RESOURCES, COLLECTION_RESOURCES, MIGRATABLE_RESOURCES };
