@@ -54,16 +54,21 @@ export const RESOURCES = {
 		localStore: createTrackerLocalStore(),
 		...identityEnvelope,
 	},
-	// NOTE: /spell-ratings is not in the agreed API contract yet — it is proposed,
-	// pending confirmation from the backend developer. Ratings are a map keyed by
-	// spell id rather than a list, so they don't fit the REST collection shape.
-	// If the backend settles on a different shape, this entry and the document
-	// branch of apiAdapter are the only places that need to change.
+	// There is no /spell-ratings endpoint, and there isn't going to be one in this
+	// shape: ratings have been reframed as a larger "personal + community ratings"
+	// feature that is still in the backlog. Until that lands, ratings stay on this
+	// device for every tier — `localOnly` pins them to the local adapter, and with
+	// no migrateKey they are left out of the /migrate payload and out of the
+	// local-data clear that follows a migration. Sending them to the API instead
+	// would 404, and the swallowed error would make a Trailblazer's ratings look
+	// saved right up until they vanished.
+	//
+	// The Trailblazer-only gate on the rating UI is unaffected and stays as it is.
 	spellRatings: {
 		name: "spellRatings",
 		kind: "document",
-		endpoint: "/spell-ratings",
-		migrateKey: "spell_ratings",
+		localOnly: true,
+		migrateKey: null,
 		localStore: createKeyedDocumentStore(SPELL_RATINGS_STORAGE_KEY, {}),
 	},
 };
@@ -71,8 +76,14 @@ export const RESOURCES = {
 export const COLLECTION_RESOURCES = Object.values(RESOURCES).filter((resource) => resource.kind === "collection");
 export const ALL_RESOURCES = Object.values(RESOURCES);
 
-// Every localStorage key owned by the storage layer, used when clearing local
-// data after a confirmed migration.
-export function getAllLocalKeys() {
-	return ALL_RESOURCES.flatMap((resource) => resource.localStore.keys);
+// The resources that live on the account once a session is backend-backed, and
+// so are the ones a migration moves and reconciles. A localOnly resource never
+// leaves the device, so it takes no part in any of that.
+export const MIGRATABLE_RESOURCES = ALL_RESOURCES.filter((resource) => !resource.localOnly);
+
+// The localStorage keys cleared once a migration is confirmed. Deliberately only
+// the migratable resources: clearing a localOnly key would delete data the
+// backend was never sent.
+export function getMigratableLocalKeys() {
+	return MIGRATABLE_RESOURCES.flatMap((resource) => resource.localStore.keys);
 }

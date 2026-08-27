@@ -26,6 +26,8 @@ import ArticlePage from "./pages/ArticlePage";
 import ProfilePage from "./pages/ProfilePage";
 import VerifyPage from "./pages/VerifyPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import OAuthCompletePage from "./pages/OAuthCompletePage";
+import OAuthErrorPage from "./pages/OAuthErrorPage";
 import { AuthProvider } from "./auth/AuthContext";
 import AccountDataSync from "./components/account/AccountDataSync";
 import { OverLimitProvider } from "./storage/OverLimitContext";
@@ -75,8 +77,15 @@ function AppContent() {
 
 
           <Route path="/profile" element={<ProfilePage />} />
+          {/* The backend's verification emails link to /verify-email; /verify is
+              kept so links already sitting in inboxes still land somewhere. */}
           <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/verify-email" element={<VerifyPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Where the backend returns the user after a Google sign-in. */}
+          <Route path="/oauth-complete" element={<OAuthCompletePage />} />
+          <Route path="/oauth-error" element={<OAuthErrorPage />} />
 
           <Route path="/about" element={<AboutPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />

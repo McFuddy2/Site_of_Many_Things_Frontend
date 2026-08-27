@@ -284,14 +284,18 @@ export const mockAuth = {
 			reader.onerror = () => reject(new ApiError({ code: ERROR_CODES.INVALID_IMAGE, status: 400 }));
 			reader.readAsDataURL(file);
 		});
-		user.profile_picture_url = dataUrl;
-		writeState(state);
-		return { profile_picture_url: dataUrl };
+		// Mirrors the real endpoint's 202: uploads go to manual review, so the
+		// stored picture is left alone and the caller is told it's pending. The
+		// data URL is read above only to validate the file the same way.
+		void dataUrl;
+		return { profile_picture_url: user.profile_picture_url ?? null, status: "pending_review" };
 	},
 
 	googleAuthorizeUrl(username) {
 		// There is no Google to redirect to in mock mode. Create the account
-		// straight away as a verified Google user and land on the profile page.
+		// straight away as a verified Google user, then return to the same
+		// /oauth-complete route the real backend redirects to, so the mock
+		// exercises that page rather than skipping past it.
 		const state = readState();
 		let user = findByUsername(state, username);
 		if (!user) {
@@ -308,7 +312,7 @@ export const mockAuth = {
 		}
 		state.sessionUserId = user.id;
 		writeState(state);
-		return "/profile?mock_google=1";
+		return "/oauth-complete?mock_google=1";
 	},
 };
 

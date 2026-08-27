@@ -24,6 +24,10 @@ import fillerProfilePic from "../media/filler-profile-pic.png";
 const MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_RESEND_COOLDOWN_SECONDS = 60;
 
+// Uploads go to manual review, so a successful upload answers 202 with the
+// picture still in place and status "pending_review".
+const PENDING_REVIEW_STATUS = "pending_review";
+
 export default function ProfilePage() {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -31,6 +35,7 @@ export default function ProfilePage() {
 
 	const [openModal, setOpenModal] = useState(null);
 	const [uploadError, setUploadError] = useState(null);
+	const [uploadNotice, setUploadNotice] = useState(null);
 	const [isUploading, setIsUploading] = useState(false);
 	const [resendCooldown, setResendCooldown] = useState(0);
 	const [resendNotice, setResendNotice] = useState(null);
@@ -70,6 +75,7 @@ export default function ProfilePage() {
 
 	const handlePickFile = () => {
 		setUploadError(null);
+		setUploadNotice(null);
 		fileInputRef.current?.click();
 	};
 
@@ -86,9 +92,19 @@ export default function ProfilePage() {
 
 		setIsUploading(true);
 		setUploadError(null);
+		setUploadNotice(null);
 		try {
 			const result = await uploadProfilePicture(file);
-			updateUser({ profile_picture_url: result?.profile_picture_url ?? null });
+			// A pending upload comes back with the picture that is already on the
+			// account, unchanged. Assigning it would look like the change silently
+			// failed, so the user is told it's waiting on review instead.
+			if (result?.status === PENDING_REVIEW_STATUS) {
+				setUploadNotice(
+					"Submitted for review. Your current picture stays up until a moderator approves the new one.",
+				);
+			} else {
+				updateUser({ profile_picture_url: result?.profile_picture_url ?? null });
+			}
 		} catch (error) {
 			setUploadError(getUserMessage(error));
 		} finally {
@@ -179,6 +195,7 @@ export default function ProfilePage() {
 						{canUploadPicture ? (
 							<p className="profile-picture-hint">JPG, PNG, GIF or WebP. Up to 5 MB.</p>
 						) : null}
+						{uploadNotice ? <p className="profile-status-message">{uploadNotice}</p> : null}
 						{uploadError ? (
 							<p className="profile-status-message profile-status-error">{uploadError}</p>
 						) : null}
