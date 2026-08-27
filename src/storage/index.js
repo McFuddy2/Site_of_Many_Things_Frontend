@@ -202,7 +202,9 @@ export function readAllLocalData() {
 	const payload = {};
 	MIGRATABLE_RESOURCES.forEach((resource) => {
 		const value =
-			resource.kind === "collection" ? resource.localStore.readAll() : resource.localStore.read();
+			resource.kind === "collection"
+				? resource.localStore.readAll().map((item) => (resource.toEnvelope ? resource.toEnvelope(item) : item))
+				: resource.localStore.read();
 		payload[resource.migrateKey] = value;
 	});
 	return payload;
