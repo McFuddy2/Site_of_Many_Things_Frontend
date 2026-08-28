@@ -30,6 +30,7 @@ import OAuthCompletePage from "./pages/OAuthCompletePage";
 import OAuthErrorPage from "./pages/OAuthErrorPage";
 import { AuthProvider } from "./auth/AuthContext";
 import AccountDataSync from "./components/account/AccountDataSync";
+import SessionExpiredNotice from "./components/account/SessionExpiredNotice";
 import { OverLimitProvider } from "./storage/OverLimitContext";
 
 
@@ -65,6 +66,7 @@ function AppContent() {
       <Header toggleSidebar={toggleSidebar} />
       <SideBar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <AccountDataSync />
+      <SessionExpiredNotice />
 
       <main className="page-content">
         <Routes>

@@ -115,6 +115,30 @@ export function clearSession() {
 	notify();
 }
 
+// Separate from the snapshot listeners above: components that just need to
+// know "the session died out from under me, tell the user" without
+// re-rendering on every ordinary session change.
+const expiryListeners = new Set();
+
+export function onSessionExpired(listener) {
+	expiryListeners.add(listener);
+	return () => expiryListeners.delete(listener);
+}
+
+// Called when a request finds the access token invalid and the refresh
+// cookie can't renew it either -- as opposed to clearSession() alone, which
+// also covers a plain "was never logged in" Guest and a deliberate sign-out.
+export function expireSession() {
+	clearSession();
+	expiryListeners.forEach((listener) => {
+		try {
+			listener();
+		} catch (error) {
+			console.error("Session-expired listener failed:", error);
+		}
+	});
+}
+
 // The critical rule from the spec: a registered but unverified user is a Guest.
 // Every tier decision goes through here, so there is exactly one place that can
 // get this wrong. Never infer the tier from "is there a logged-in user".
