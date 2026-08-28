@@ -2800,14 +2800,14 @@ export default function MainCode() {
 
     if (notificationSettings[currentRow.index]?.notifySelf) {
       const expiryIndex = nextRow ? nextRow.index : currentRow.index;
-      fireTurnNotification('self', `It's now ${currentName}'s turn.`, "IT'S YOUR TURN", expiryIndex);
+      fireTurnNotification('self', `It's now ${currentName}'s turn.`, `IT'S ${currentName.toUpperCase()}'S TURN`, expiryIndex);
     }
 
     if (nextRow && nextRow.index !== currentRow.index && notificationSettings[nextRow.index]?.notifyPrior) {
       const nextName = rowData[nextRow.index]?.name || 'No Name';
       const rowAfterNext = activeRows[(shiftedRowIndex + 2) % activeRows.length];
       const expiryIndex = rowAfterNext ? rowAfterNext.index : nextRow.index;
-      fireTurnNotification('prior', `${currentName}'s turn just started — ${nextName} is up next.`, "IT'S ALMOST YOUR TURN", expiryIndex);
+      fireTurnNotification('prior', `${currentName}'s turn just started — ${nextName} is up next.`, `IT'S ALMOST ${nextName.toUpperCase()}'S TURN`, expiryIndex);
     }
   }, [isTrackerHydrated, shiftedRowIndex, round, sortedRowData, overlayActive, rowData, notificationSettings, notificationMode]);
 
@@ -3137,7 +3137,7 @@ export default function MainCode() {
                   <div className="notification-character-row notification-character-row-header">
                     <span className="notification-character-name">Character</span>
                     <span className="notification-character-checkbox-label">Prior Turn</span>
-                    <span className="notification-character-checkbox-label">This Turn</span>
+                    <span className="notification-character-checkbox-label">On Turn</span>
                   </div>
                   {characterRows.map(({ index }) => {
                     const name = rowData[index]?.name || 'No Name';
