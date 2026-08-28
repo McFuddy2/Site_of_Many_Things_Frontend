@@ -14,7 +14,25 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: devProxyTarget,
           changeOrigin: true,
-          secure: devProxyTarget.startsWith('https://')
+          secure: devProxyTarget.startsWith('https://'),
+          configure: (proxy) => {
+            // The dev server itself is plain http://localhost:5173. When the
+            // proxy target is the production API (https), its Set-Cookie for
+            // the refresh token carries `Secure`, which a browser silently
+            // refuses to store on a non-https page -- the refresh cookie
+            // never lands, so every reload (and any 401 mid-session) looks
+            // like a logout. Strip `Secure` only on this local relay; the
+            // real production deployment (frontend and API both https, no
+            // proxy involved) never goes through this code path.
+            proxy.on('proxyRes', (proxyRes) => {
+              const setCookie = proxyRes.headers['set-cookie']
+              if (setCookie) {
+                proxyRes.headers['set-cookie'] = setCookie.map((cookie) =>
+                  cookie.replace(/;\s*Secure/gi, '')
+                )
+              }
+            })
+          }
         }
       }
     }

@@ -11,7 +11,7 @@
 // bundle. Only the API base URL is read here.
 
 import { ApiError, ERROR_CODES, toApiError } from "./errors";
-import { clearSession, getAccessToken, setAccessToken } from "../auth/session";
+import { expireSession, getAccessToken, setAccessToken } from "../auth/session";
 
 const isDev = import.meta.env.DEV;
 const devApiBaseUrl = import.meta.env.VITE_DEV_API_BASE_URL || "";
@@ -118,7 +118,7 @@ async function requestWithRetry(path, options, mayRetry) {
 		if (nextToken) {
 			return requestWithRetry(path, options, false);
 		}
-		clearSession();
+		expireSession();
 		throw new ApiError({ code: ERROR_CODES.SESSION_EXPIRED, status: 401 });
 	}
 
