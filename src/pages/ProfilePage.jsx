@@ -17,7 +17,10 @@ import ManageProfileTypeModal from "../components/account/ManageProfileTypeModal
 import SignUpModal from "../components/account/SignUpModal";
 import LoginModal from "../components/account/LoginModal";
 import ForgotPasswordModal from "../components/account/ForgotPasswordModal";
+import SwitchAccountModal from "../components/account/SwitchAccountModal";
+import ProfilePictureModal from "../components/account/ProfilePictureModal";
 import fillerProfilePic from "../media/filler-profile-pic.png";
+import guestFillerProfilePic from "../media/guest-filler-profile-pic.png";
 
 // Checked here for fast feedback. The server enforces the real cap and can still
 // answer with file_too_large.
@@ -131,10 +134,12 @@ export default function ProfilePage() {
 		await signOut();
 	};
 
-	// Log out, then open the login modal straight away.
-	const handleSwitchAccount = async () => {
-		await signOut();
-		setOpenModal("login");
+	// Opens the switch-account modal without touching the current session.
+	// SwitchAccountModal signs the new account in on success, which is what
+	// actually swaps the session over; "Nevermind" or closing it leaves the
+	// current account signed in.
+	const handleSwitchAccount = () => {
+		setOpenModal("switch-account");
 	};
 
 	if (isBootstrapping) {
@@ -174,7 +179,7 @@ export default function ProfilePage() {
 					<div className="profile-column-left">
 						<img
 							className="profile-picture"
-							src={user?.profile_picture_url || fillerProfilePic}
+							src={user?.profile_picture_url || (isGuestTier ? guestFillerProfilePic : fillerProfilePic)}
 							alt={`${displayName}'s profile picture`}
 						/>
 						<input
@@ -188,7 +193,7 @@ export default function ProfilePage() {
 							type="button"
 							className="som-btn som-btn-primary"
 							disabled={!canUploadPicture || isUploading}
-							onClick={handlePickFile}
+							onClick={() => setOpenModal("picture-picker")}
 						>
 							{uploadButtonLabel()}
 						</button>
@@ -219,21 +224,17 @@ export default function ProfilePage() {
 				</div>
 
 				<div className="profile-actions">
+					{isAuthenticated ? (
+						<button type="button" className="som-btn som-btn-secondary" onClick={handleSwitchAccount}>
+							Switch Account
+						</button>
+					) : null}
 					<button
 						type="button"
-						className="som-btn som-btn-secondary"
-						disabled={!isAuthenticated}
-						onClick={handleSwitchAccount}
+						className={`som-btn ${isAuthenticated ? "som-btn-danger" : "som-btn-primary"}`}
+						onClick={isAuthenticated ? handleLogOut : () => setOpenModal("login")}
 					>
-						Switch Account
-					</button>
-					<button
-						type="button"
-						className="som-btn som-btn-danger"
-						disabled={!isAuthenticated}
-						onClick={handleLogOut}
-					>
-						Log Out
+						{isAuthenticated ? "Log Out" : "Log In"}
 					</button>
 				</div>
 			</div>
@@ -263,6 +264,15 @@ export default function ProfilePage() {
 				isOpen={openModal === "forgot-password"}
 				onClose={() => setOpenModal(null)}
 				onBackToLogin={() => setOpenModal("login")}
+			/>
+
+			<SwitchAccountModal isOpen={openModal === "switch-account"} onClose={() => setOpenModal(null)} />
+
+			<ProfilePictureModal
+				isOpen={openModal === "picture-picker"}
+				onClose={() => setOpenModal(null)}
+				onPictureSelected={(profilePictureUrl) => updateUser({ profile_picture_url: profilePictureUrl })}
+				onUploadOwn={handlePickFile}
 			/>
 		</main>
 	);

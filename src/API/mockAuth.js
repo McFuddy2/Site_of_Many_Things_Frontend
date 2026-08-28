@@ -10,6 +10,21 @@
 
 import { ApiError, ERROR_CODES } from "./errors";
 
+// Plain public/ paths, not imports -- mirrors how the real backend resolves
+// these (PROFILE_PICTURE_PRESETS in app/api/users.py), which points at the
+// same stable, unhashed public/profile-picture-presets/ files rather than
+// Vite's fingerprinted src/media copies.
+const PRESET_PICTURE_URLS = {
+	"guest-filler-profile-pic": "/profile-picture-presets/guest-filler-profile-pic.png",
+	"filler-profile-pic": "/profile-picture-presets/filler-profile-pic.png",
+	"profile-pic-option-fairy": "/profile-picture-presets/profile-pic-option-fairy.png",
+	"profile-pic-option-gryphon": "/profile-picture-presets/profile-pic-option-gryphon.png",
+	"profile-pic-option-knight": "/profile-picture-presets/profile-pic-option-knight.png",
+	"profile-pic-option-mermaid": "/profile-picture-presets/profile-pic-option-mermaid.png",
+	"profile-pic-option-ogre": "/profile-picture-presets/profile-pic-option-ogre.png",
+	"profile-pic-option-unicorn": "/profile-picture-presets/profile-pic-option-unicorn.png",
+};
+
 const MOCK_AUTH_KEY = "__mock_auth_state__";
 const MOCK_LATENCY_MS = 220;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -289,6 +304,25 @@ export const mockAuth = {
 		// data URL is read above only to validate the file the same way.
 		void dataUrl;
 		return { profile_picture_url: user.profile_picture_url ?? null, status: "pending_review" };
+	},
+
+	async selectProfilePicture(presetId) {
+		await delay();
+		const state = readState();
+		const user = state.users.find((candidate) => candidate.id === state.sessionUserId);
+		if (!user) {
+			throw new ApiError({ code: ERROR_CODES.SESSION_EXPIRED, status: 401 });
+		}
+		if (!user.is_verified) {
+			throw new ApiError({ code: ERROR_CODES.NOT_VERIFIED, status: 403 });
+		}
+		const url = PRESET_PICTURE_URLS[presetId];
+		if (!url) {
+			throw new ApiError({ code: ERROR_CODES.NOT_FOUND, status: 404 });
+		}
+		user.profile_picture_url = url;
+		writeState(state);
+		return { profile_picture_url: url, status: "active" };
 	},
 
 	googleAuthorizeUrl(username) {
