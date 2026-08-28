@@ -111,6 +111,20 @@ export async function uploadProfilePicture(file) {
 	return apiFetch("/users/me/profile-picture", { method: "POST", body: formData });
 }
 
+// Complimentary pictures are pre-approved, so — unlike uploadProfilePicture —
+// this never comes back pending review. Backed by POST /users/me/profile-
+// picture/preset (app/api/users.py in the backend repo), which resolves
+// presetId against its own PROFILE_PICTURE_PRESETS allowlist and points the
+// account at the matching file in this app's public/profile-picture-presets/
+// — not yet deployed as of writing, so confirm it has shipped before relying
+// on this in prod.
+export async function selectProfilePicture(presetId) {
+	if (USE_MOCK_API) {
+		return mockAuth.selectProfilePicture(presetId);
+	}
+	return apiFetch("/users/me/profile-picture/preset", { method: "POST", body: { preset: presetId } });
+}
+
 // Full-page redirect: the backend hands off to Google and brings the user back.
 export function startGoogleAuthorize(username) {
 	if (USE_MOCK_API) {
