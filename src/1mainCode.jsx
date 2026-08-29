@@ -91,6 +91,9 @@ export default function MainCode() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [sessionEnded, setSessionEnded] = useState(false);
+  // null when there is no session, 'connected' while the socket is live,
+  // 'reconnecting' while it is being re-established after an unexpected drop.
+  const [sessionConnection, setSessionConnection] = useState(null);
 
   const HELP_STORAGE_KEY = "initiative_help_hidden_v1";
   const [helpHidden, setHelpHidden] = useState(false);
@@ -132,6 +135,15 @@ export default function MainCode() {
   const wsRef = useRef(null);
   const isSyncingFromWs = useRef(false);
   const hasStartedJoinRef = useRef(false);
+  // Session socket lifecycle. wsSessionRef doubles as the "should be
+  // connected" flag: it is set while in a session and cleared on a
+  // deliberate leave/end, so onclose can tell a drop from an intentional close.
+  const wsSessionRef = useRef(null);
+  const wsReconnectTimerRef = useRef(null);
+  const wsHeartbeatTimerRef = useRef(null);
+  const wsAttemptRef = useRef(0);
+  const wsHasConnectedRef = useRef(false);
+  const liveTrackerStateRef = useRef(null);
   const supportsGroupedIndividuals = (selectedAffiliation) =>
     ['Enemy', 'Ally', 'Neutral/Environmental'].includes(selectedAffiliation);
 
@@ -446,11 +458,54 @@ export default function MainCode() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowData, round, rowVisibility, overlayActive, shiftedRowIndex]);
 
-  // Clean up WebSocket on unmount
+  // Clean up WebSocket on unmount. Detach onclose first so teardown doesn't
+  // schedule a reconnect against an unmounted component.
   useEffect(() => {
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      if (wsReconnectTimerRef.current) clearTimeout(wsReconnectTimerRef.current);
+      if (wsHeartbeatTimerRef.current) clearInterval(wsHeartbeatTimerRef.current);
+      wsSessionRef.current = null;
+      const ws = wsRef.current;
+      wsRef.current = null;
+      if (ws) {
+        ws.onclose = null;
+        ws.onmessage = null;
+        ws.close();
+      }
     };
+  }, []);
+
+  // Newest local tracker state, so a reconnecting host can restore the server
+  // from its own copy rather than adopt the snapshot it left behind.
+  useEffect(() => {
+    liveTrackerStateRef.current = { rowData, round, rowVisibility, overlayActive, shiftedRowIndex };
+  }, [rowData, round, rowVisibility, overlayActive, shiftedRowIndex]);
+
+  // Phones suspend sockets when the screen locks and laptops drop them on sleep,
+  // and the close event often doesn't arrive until the tab is looked at again.
+  // Retry straight away on refocus or when the network returns, rather than
+  // sitting out the backoff.
+  useEffect(() => {
+    const retryNow = () => {
+      if (!wsSessionRef.current) return;
+      const ws = wsRef.current;
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      if (wsReconnectTimerRef.current) clearTimeout(wsReconnectTimerRef.current);
+      wsAttemptRef.current = 0;
+      connectSessionSocket();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') retryNow();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', retryNow);
+    window.addEventListener('focus', retryNow);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', retryNow);
+      window.removeEventListener('focus', retryNow);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1090,16 +1145,88 @@ export default function MainCode() {
     setIsSettingsModalOpen(false);
   };
 
-  const openSessionWebSocket = (code, role = 'joiner') => {
-    if (wsRef.current) wsRef.current.close();
+  // The socket carries no traffic between turns, so an idle connection can be
+  // reaped by the proxy mid-game. A periodic no-op frame keeps it alive; the
+  // backend ignores message types it doesn't know and does not rebroadcast them.
+  const WS_HEARTBEAT_MS = 25000;
+  const WS_MAX_RECONNECT_DELAY_MS = 15000;
+  // The server closes immediately (1006) for a code it no longer holds, which is
+  // indistinguishable from a network blip at the socket level. After a few
+  // failures, ask over HTTP whether the session still exists rather than
+  // retrying for ever behind a "reconnecting" message.
+  const WS_ATTEMPTS_BEFORE_EXISTENCE_CHECK = 4;
+
+  const clearSessionSocketTimers = () => {
+    if (wsReconnectTimerRef.current) clearTimeout(wsReconnectTimerRef.current);
+    if (wsHeartbeatTimerRef.current) clearInterval(wsHeartbeatTimerRef.current);
+    wsReconnectTimerRef.current = null;
+    wsHeartbeatTimerRef.current = null;
+  };
+
+  // Deliberate shutdown: drop the reconnect intent first, and detach onclose so
+  // closing the socket doesn't look like a drop and trigger a reconnect.
+  const closeSessionSocket = () => {
+    wsSessionRef.current = null;
+    wsAttemptRef.current = 0;
+    wsHasConnectedRef.current = false;
+    clearSessionSocketTimers();
+    const ws = wsRef.current;
+    wsRef.current = null;
+    if (ws) {
+      ws.onclose = null;
+      ws.onmessage = null;
+      ws.close();
+    }
+    setSessionConnection(null);
+  };
+
+  const connectSessionSocket = () => {
+    const session = wsSessionRef.current;
+    if (!session) return;
+    const { code, role } = session;
+    // Distinguishes re-establishing a dropped socket from opening the first one,
+    // which is what decides whether the host trusts its own copy over the
+    // server's. The backoff counter can't stand in for this: a refocus retry
+    // resets it.
+    const isReconnect = wsHasConnectedRef.current;
+
+    clearSessionSocketTimers();
+    const previous = wsRef.current;
+    if (previous) {
+      previous.onclose = null;
+      previous.onmessage = null;
+      previous.close();
+    }
+
     const ws = new WebSocket(sessionWsUrl(code, role));
     wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (wsRef.current !== ws) return;
+      wsAttemptRef.current = 0;
+      wsHasConnectedRef.current = true;
+      setSessionConnection('connected');
+      wsHeartbeatTimerRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, WS_HEARTBEAT_MS);
+      // The server replies to a new connection with its stored snapshot. For a
+      // host that kept editing while the socket was down that snapshot is stale,
+      // so push the local state back up instead of letting it be overwritten.
+      if (isReconnect && role === 'host' && liveTrackerStateRef.current) {
+        ws.send(JSON.stringify({ type: 'update', data: liveTrackerStateRef.current }));
+      }
+    };
 
     ws.onmessage = (event) => {
       if (wsRef.current !== ws) return;
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'sync' || msg.type === 'update') {
+          // A reconnecting host has just re-sent its own state; adopting the
+          // snapshot the server sends back would undo edits made while offline.
+          if (isReconnect && role === 'host' && msg.type === 'sync' && liveTrackerStateRef.current) return;
           const data = msg.data;
           isSyncingFromWs.current = true;
           setRowData(data.rowData);
@@ -1108,12 +1235,50 @@ export default function MainCode() {
           if (data.overlayActive) setOverlayActive(data.overlayActive);
           if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
         } else if (msg.type === 'session_ended') {
-          wsRef.current = null;
+          // The host ended it on purpose -- stop trying to reconnect.
+          closeSessionSocket();
           setSessionEnded(true);
         }
       } catch {}
     };
+
     ws.onerror = () => {};
+
+    // Without this the first blip -- phone screen lock, wifi handoff, laptop
+    // sleep, an idle proxy timeout -- ended the session silently and for good.
+    ws.onclose = () => {
+      if (wsRef.current !== ws) return;
+      if (!wsSessionRef.current) return;
+      clearSessionSocketTimers();
+      setSessionConnection('reconnecting');
+      const delay = Math.min(1000 * 2 ** wsAttemptRef.current, WS_MAX_RECONNECT_DELAY_MS);
+      wsAttemptRef.current += 1;
+      wsReconnectTimerRef.current = setTimeout(async () => {
+        if (!wsSessionRef.current) return;
+        if (wsAttemptRef.current >= WS_ATTEMPTS_BEFORE_EXISTENCE_CHECK) {
+          try {
+            const stillOpen = await getSession(code);
+            if (!wsSessionRef.current) return;
+            if (!stillOpen) {
+              if (role === 'host') localStorage.removeItem('session_hosting_code');
+              closeSessionSocket();
+              setSessionEnded(true);
+              return;
+            }
+          } catch {
+            // Still offline -- keep retrying rather than declaring it dead.
+          }
+        }
+        connectSessionSocket();
+      }, delay);
+    };
+  };
+
+  const openSessionWebSocket = (code, role = 'joiner') => {
+    wsSessionRef.current = { code, role };
+    wsAttemptRef.current = 0;
+    wsHasConnectedRef.current = false;
+    connectSessionSocket();
   };
 
   const handleHostSession = async () => {
@@ -1180,16 +1345,14 @@ export default function MainCode() {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'end_session' }));
     }
-    wsRef.current?.close();
-    wsRef.current = null;
+    closeSessionSocket();
     setSessionMode(null);
     setActiveSessionCode('');
   };
 
   const handleLeaveSession = () => {
     hasStartedJoinRef.current = false;
-    wsRef.current?.close();
-    wsRef.current = null;
+    closeSessionSocket();
     setSessionMode(null);
     setActiveSessionCode('');
     window.history.replaceState({}, '', window.location.pathname);
@@ -2903,6 +3066,11 @@ export default function MainCode() {
         {trackerLoadError || trackerSaveError}
       </div>
     )}
+    {sessionConnection === 'reconnecting' && !sessionEnded && (
+      <div className="session-reconnecting-banner" role="status">
+        Connection lost - reconnecting...
+      </div>
+    )}
     {sessionEnded && (
       <div className="session-ended-overlay">
         <div className="session-ended-modal">
@@ -2986,6 +3154,9 @@ export default function MainCode() {
                     {shareCopied ? 'Copied!' : 'Share'}
                   </button>
                 </div>
+                {sessionConnection === 'reconnecting' && (
+                  <span className="settings-session-reconnecting">Connection lost - reconnecting...</span>
+                )}
                 <button className="settings-end-session-button" onClick={handleEndSession}>
                   End Sharing Session
                 </button>
@@ -3024,6 +3195,9 @@ export default function MainCode() {
                 <span className="settings-session-code-label">
                   Connected to: <strong className="settings-session-code">{activeSessionCode}</strong>
                 </span>
+                {sessionConnection === 'reconnecting' && (
+                  <span className="settings-session-reconnecting">Connection lost - reconnecting...</span>
+                )}
                 <button className="settings-leave-session-button" onClick={handleLeaveSession}>
                   Leave Shared Session
                 </button>
