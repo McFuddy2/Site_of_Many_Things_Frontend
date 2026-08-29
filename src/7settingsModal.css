@@ -612,4 +612,28 @@
 
 }
 
+.settings-session-reconnecting {
+  font-size: 0.9rem;
+  color: red;
+  font-weight: 500;
+  font-style: italic;
+}
 
+/* Fixed to the viewport because the settings panel is normally closed during
+   play -- a dropped connection has to be visible without opening anything. */
+.session-reconnecting-banner {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #8a1f1f;
+  color: #fff;
+  padding: 9px 20px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 9998;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+}
