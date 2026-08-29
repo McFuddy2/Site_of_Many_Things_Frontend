@@ -366,54 +366,71 @@ export default function MainCode() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTrackerHydrated]);
 
-  // Auto-reconnect as host (from localStorage) or auto-join as joiner (from URL) on mount
+  // Auto-join as joiner (from a shared ?session= link) or reconnect as host
+  // (from localStorage). Keyed on isTrackerHydrated rather than mount: it starts
+  // false, so a mount-only effect takes the early return below and never runs
+  // again, which left every shared link doing nothing.
   useEffect(() => {
     if (!isTrackerHydrated) return;
     if (hasStartedJoinRef.current) return;
     hasStartedJoinRef.current = true;
 
-    const savedHostCode = localStorage.getItem('session_hosting_code');
-    if (savedHostCode) {
-      getSession(savedHostCode).then(result => {
-        if (!result) {
-          localStorage.removeItem('session_hosting_code');
-          return;
-        }
-        const { data } = result;
-        isSyncingFromWs.current = true;
-        setRowData(data.rowData);
-        setRound(data.round);
-        if (data.rowVisibility) setRowVisibility(data.rowVisibility);
-        if (data.overlayActive) setOverlayActive(data.overlayActive);
-        if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
-        setActiveSessionCode(savedHostCode);
-        setSessionMode('hosting');
-        openSessionWebSocket(savedHostCode, 'host');
-      }).catch(() => {
-        localStorage.removeItem('session_hosting_code');
-      });
-      return;
-    }
-
-    const sessionCode = new URLSearchParams(window.location.search).get('session');
-    if (!sessionCode || sessionCode.length !== 6) return;
-    const code = sessionCode.toUpperCase();
-    getSession(code).then(result => {
-      if (!result) return;
-      const { data } = result;
-      localStorage.setItem('initiative_own_data', JSON.stringify({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex }));
+    const applySessionData = (data) => {
       isSyncingFromWs.current = true;
       setRowData(data.rowData);
       setRound(data.round);
       if (data.rowVisibility) setRowVisibility(data.rowVisibility);
       if (data.overlayActive) setOverlayActive(data.overlayActive);
       if (data.shiftedRowIndex !== undefined) setShiftedRowIndex(data.shiftedRowIndex);
-      setActiveSessionCode(code);
-      setSessionMode('joining');
-      openSessionWebSocket(code);
-    }).catch(() => {});
+    };
+
+    // A link that couldn't be joined used to fail silently, leaving the joiner
+    // looking at their own list with no clue why. Drop them into the join form
+    // with the code filled in so the error is visible and retryable.
+    const reportAutoJoinFailure = (code) => {
+      setJoinCodeInput(code);
+      setJoinError('Session Not Found. Try Again.');
+      setSessionMode('join-input');
+    };
+
+    // Clicking a share link is an explicit request to join, so it wins over a
+    // hosting code left in localStorage by closing the tab without ending the
+    // session -- otherwise that stale code swallows every link the user opens.
+    const sessionCode = new URLSearchParams(window.location.search).get('session');
+    if (sessionCode && sessionCode.length === 6) {
+      const code = sessionCode.toUpperCase();
+      getSession(code).then(result => {
+        if (!result) {
+          reportAutoJoinFailure(code);
+          return;
+        }
+        localStorage.setItem('initiative_own_data', JSON.stringify({ rowData, round, rowVisibility, overlayActive, shiftedRowIndex }));
+        applySessionData(result.data);
+        setActiveSessionCode(code);
+        setSessionMode('joining');
+        openSessionWebSocket(code);
+      }).catch(() => {
+        reportAutoJoinFailure(code);
+      });
+      return;
+    }
+
+    const savedHostCode = localStorage.getItem('session_hosting_code');
+    if (!savedHostCode) return;
+    getSession(savedHostCode).then(result => {
+      if (!result) {
+        localStorage.removeItem('session_hosting_code');
+        return;
+      }
+      applySessionData(result.data);
+      setActiveSessionCode(savedHostCode);
+      setSessionMode('hosting');
+      openSessionWebSocket(savedHostCode, 'host');
+    }).catch(() => {
+      localStorage.removeItem('session_hosting_code');
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isTrackerHydrated]);
 
   // Sync initiative state changes to the active session via WebSocket
   useEffect(() => {
