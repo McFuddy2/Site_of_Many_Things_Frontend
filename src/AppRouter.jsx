@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 
+import IncidentBanner from "./components/IncidentBanner"; // Temporary Railway incident notice -- remove once resolved
 import Header from "./components/Header";
 import FooterBar from "./components/FooterBar";
 import SideBar from "./components/SideBar";
@@ -63,6 +64,7 @@ function AppContent() {
 
   return (
     <>
+      <IncidentBanner />
       <Header toggleSidebar={toggleSidebar} />
       <SideBar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <AccountDataSync />
