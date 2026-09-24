@@ -81,13 +81,14 @@ function refreshAccessToken() {
  * @param {boolean}[options.skipAuth]  Public endpoint: don't attach a token, and
  *                                     treat a 401 as a real answer rather than an
  *                                     expired session to refresh.
+ * @param {number} [options.timeoutMs] Abort the request (as a network error) after this long.
  */
 export async function apiFetch(path, options = {}) {
 	return requestWithRetry(path, options, true);
 }
 
 async function requestWithRetry(path, options, mayRetry) {
-	const { method = "GET", body, query, skipAuth = false, headers = {} } = options;
+	const { method = "GET", body, query, skipAuth = false, headers = {}, timeoutMs } = options;
 
 	const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 	const requestHeaders = { ...headers };
@@ -108,6 +109,7 @@ async function requestWithRetry(path, options, mayRetry) {
 			credentials: "include",
 			headers: requestHeaders,
 			body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
+			signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
 		});
 	} catch {
 		throw new ApiError({ code: ERROR_CODES.NETWORK_ERROR });

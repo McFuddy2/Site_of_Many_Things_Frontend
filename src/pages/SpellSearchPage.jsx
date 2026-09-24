@@ -1940,10 +1940,12 @@ export default function SpellSearchPage() {
 	};
 
 	const goToPreviousPage = () => {
+		scrollSpellListToTop();
 		setCurrentPage((previousPage) => Math.max(1, previousPage - 1));
 	};
 
 	const goToNextPage = () => {
+		scrollSpellListToTop();
 		setCurrentPage((previousPage) => Math.min(totalPages, previousPage + 1));
 	};
 
