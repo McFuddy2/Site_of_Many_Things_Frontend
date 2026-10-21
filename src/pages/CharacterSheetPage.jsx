@@ -5,7 +5,7 @@ import SheetViewer from "../components/character_sheet/SheetViewer";
 import useViewMode from "../components/character_sheet/useViewMode";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
 import NewCardPicker from "../components/character_sheet/NewCardPicker";
-import { KebabIcon, UndoIcon, RedoIcon } from "../components/character_sheet/icons";
+import { KebabIcon, UndoIcon, RedoIcon, InfoIcon } from "../components/character_sheet/icons";
 import { GRID_UNIT, tokenCssVars } from "../utils/character_sheet/layoutConstants";
 import { getContrastTextColor } from "../utils/character_sheet/colors";
 import "../CharacterSheetStyles.css";
@@ -198,6 +198,22 @@ function Canvas({ buildingCustom, onCloseBuilder, showGrid, getPageColumns, focu
 	);
 }
 
+// Shown on tablets and phones, where the sheet is view-and-play only (see
+// useViewMode): says what can still be done here and where the rest lives.
+function ViewOnlyNote() {
+	return (
+		<p className="cs-view-note" role="note">
+			<span className="cs-view-note-icon">
+				<InfoIcon />
+			</span>
+			<span>
+				You can fill in and use your sheet here. To change the layout, position, size or color of cards, open the
+				sheet on a desktop or laptop computer.
+			</span>
+		</p>
+	);
+}
+
 // How many grid columns are visible on the page right now — new cards are
 // placed within this width so they land on-screen.
 function usePageColumns(bodyRef) {
@@ -229,6 +245,7 @@ function CharacterSheetContent() {
 				onCardAdded={onCardAdded}
 				editable={editable}
 			/>
+			{editable ? null : <ViewOnlyNote />}
 			<div className="cs-body" ref={bodyRef}>
 				<Canvas
 					buildingCustom={buildingCustom}

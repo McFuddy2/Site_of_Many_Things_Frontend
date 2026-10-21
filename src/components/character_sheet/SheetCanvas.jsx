@@ -48,7 +48,7 @@ const INTERACTIVE_SELECTOR = "input, textarea, select, button, a, label, [conten
 const HANDLE_HIT = 16; // px thickness of an edge's grab strip
 const CORNER_HIT = 20; // px square of a corner's grab area
 const TOOLBAR_HEIGHT = 40;
-const TOOLBAR_HALF_WIDTH = 104;
+const TOOLBAR_HALF_WIDTH = 76;
 const TOOLBAR_GAP = 14; // clears the selection's handles
 
 const rectOf = (layout) => ({ x: layout.x, y: layout.y, w: layout.w, h: layout.h });
@@ -1168,26 +1168,21 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		overlay.push(<div key="marquee" className="cs-marquee" style={preview.marquee.box} />);
 	}
 
-	// The floating toolbar sits centred above the selection — or below it when
-	// the top of the selection is scrolled up against the visible area.
+	// The floating toolbar sits centred above the selected card (or the card
+	// holding the selected modules) — or below it when that card's top is
+	// scrolled up against the visible area.
 	const gestureInFlight = Boolean(preview);
 	if (selectedBoxes.length && !gestureInFlight && renamingId === null) {
-		// What the colour wheels show: the selected item's own colour for that
-		// part if it has one, otherwise the bucket's current colour.
-		const firstModule =
-			selection.level === "modules" ? sheet.cards[layoutById[selection.layoutId]?.cardId]?.modules[selection.ids[0]] : null;
-		const firstCard = selection.level === "cards" ? sheet.cards[layoutById[selection.ids[0]]?.cardId] : null;
-		const colors =
-			selection.level === "modules"
-				? [
-						{ part: "label", label: "Label color", value: firstModule?.labelColor || paintColor },
-						{ part: "body", label: "Module color", value: firstModule?.bodyColor || paintColor },
-				  ]
-				: [{ part: "paint", label: "Paint color", value: paintColor }];
-		const left = Math.min(...selectedBoxes.map((box) => box.left));
-		const right = Math.max(...selectedBoxes.map((box) => box.left + box.width));
-		const top = Math.min(...selectedBoxes.map((box) => box.top));
-		const bottom = Math.max(...selectedBoxes.map((box) => box.top + box.height));
+		// Modules get the same toolbar as cards, sitting over the card they're
+		// in: one place for the paint tools, whatever in the card is selected.
+		const anchorBoxes =
+			selection.level === "modules" && layoutById[selection.layoutId]
+				? [rectToPx(displayRect(layoutById[selection.layoutId]))]
+				: selectedBoxes;
+		const left = Math.min(...anchorBoxes.map((box) => box.left));
+		const right = Math.max(...anchorBoxes.map((box) => box.left + box.width));
+		const top = Math.min(...anchorBoxes.map((box) => box.top));
+		const bottom = Math.max(...anchorBoxes.map((box) => box.top + box.height));
 		const canvas = canvasRef.current;
 		const scroller = canvas?.parentElement;
 		const visibleTop = canvas && scroller ? scroller.getBoundingClientRect().top - canvas.getBoundingClientRect().top : 0;
@@ -1201,9 +1196,8 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 				key="toolbar"
 				style={style}
 				placement={placement}
-				colors={colors}
-				onColorInput={setPaintColor}
-				onColorCommit={colorSelection}
+				paintColor={paintColor}
+				onPaintColor={setPaintColor}
 				paintMode={paintMode}
 				onTogglePaint={() => setPaintMode((on) => !on)}
 				canPositionSize={selection.ids.length === 1}

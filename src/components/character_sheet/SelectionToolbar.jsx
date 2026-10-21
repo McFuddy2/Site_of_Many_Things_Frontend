@@ -1,54 +1,20 @@
-import { useEffect, useRef } from "react";
 import { BucketIcon, PositionIcon, TrashIcon } from "./icons";
 
-// The floating toolbar over the current selection: colour wheel(s), paint
-// bucket, Position & Size, delete. Every button has a tooltip and an
-// aria-label.
+// The floating toolbar over the selected card — or, when modules are
+// selected, over the card they're in — with the same four tools either way:
+// the paint colour, the paint bucket, Position & Size, delete. Every button
+// has a tooltip and an aria-label.
 //
-// Modules get two colour wheels — the label bar and the module body are
-// coloured separately; picking one also makes it the bucket's colour, and
-// when the picker closes (its native "change" event) it's applied to that
-// part of every selected module, as a single undo step. Cards get one plain
-// wheel that just sets the bucket's colour: a card has several paintable
-// parts (header, background, its modules), so the bucket decides where it
-// goes. The bucket toggles Paint Mode, which paints exactly the part that's
-// clicked until Esc or the bucket again.
-
-// part "paint" only sets the bucket's colour; any other part is also
-// applied to the selection, and gets a caption naming it.
-function ColorWheel({ part, label, value, onInput, onCommit }) {
-	const ref = useRef(null);
-	const applies = part !== "paint";
-	useEffect(() => {
-		const input = ref.current;
-		if (!input || !applies) {
-			return undefined;
-		}
-		const commit = () => onCommit(input.value, part);
-		input.addEventListener("change", commit);
-		return () => input.removeEventListener("change", commit);
-	}, [onCommit, part, applies]);
-	return (
-		<label
-			className="cs-toolbar-color"
-			title={applies ? `${label} — also becomes the paint bucket's color` : "Paint color — then use the bucket to color headers, backgrounds, labels and modules"}
-		>
-			<input ref={ref} type="color" value={value} aria-label={label} onChange={(event) => onInput(event.target.value)} />
-			{applies ? (
-				<span className="cs-toolbar-color-caption" aria-hidden="true">
-					{label.split(" ")[0]}
-				</span>
-			) : null}
-		</label>
-	);
-}
+// The colour wheel only sets the bucket's colour. The bucket toggles Paint
+// Mode, which paints exactly the part that's clicked — a module's label, a
+// module's body, a card's header or a card's background — until Esc or the
+// bucket again, so one tool colours everything in a card.
 
 export default function SelectionToolbar({
 	style,
 	placement,
-	colors,
-	onColorInput,
-	onColorCommit,
+	paintColor,
+	onPaintColor,
 	paintMode,
 	onTogglePaint,
 	onPositionSize,
@@ -65,9 +31,17 @@ export default function SelectionToolbar({
 			data-canvas-ui
 			style={style}
 		>
-			{colors.map((color) => (
-				<ColorWheel key={color.part} {...color} onInput={onColorInput} onCommit={onColorCommit} />
-			))}
+			<label
+				className="cs-toolbar-color"
+				title="Paint color — then use the bucket to color labels, modules, headers and backgrounds"
+			>
+				<input
+					type="color"
+					value={paintColor}
+					aria-label="Paint color"
+					onChange={(event) => onPaintColor(event.target.value)}
+				/>
+			</label>
 			<button
 				type="button"
 				className={`cs-toolbar-btn${paintMode ? " cs-toolbar-btn--on" : ""}`}
