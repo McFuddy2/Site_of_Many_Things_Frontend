@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GRID_SIZE } from "../../../utils/character_sheet/grid";
+import { GRID_UNIT as GRID_SIZE } from "../../../utils/character_sheet/layoutConstants";
 import {
 	SNAP_TOLERANCE,
 	RESIZE_HANDLES,

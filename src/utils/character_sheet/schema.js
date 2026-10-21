@@ -11,9 +11,17 @@
 
 import { ref } from "./formula.js";
 
-// Matches the id style used elsewhere on the site (see spellbook ids in SpellSearchPage).
+// Every card, module, piece, layout and page gets a random id that is saved
+// with the sheet and never reused — references (formulas, ref segments,
+// button actions, future linked values) point at these, so they have to stay
+// stable for the life of the sheet. Falls back to time + random where
+// crypto.randomUUID isn't available (non-secure origins, old node).
 export function makeId(prefix) {
-	return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const random =
+		typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+			? crypto.randomUUID()
+			: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+	return `${prefix}-${random}`;
 }
 
 // ---------- Module Pieces ----------
@@ -69,8 +77,10 @@ export function createImagePiece({ label = "", src = "", alt = "" } = {}) {
 // Options beyond type/label/pieces (ability, tone, suffix, signed, columns…) are
 // carried through onto the module itself — they're presentation hints the module's
 // view reads (see CharacterSheetCard.jsx), not data the reference engine touches.
+// `color` is the user's colour override for the module (a base hex the view
+// derives its bar/body/border shades from), or null for its default palette.
 export function createModule({ type, label = "", pieces = [], ...options }) {
-	const module = { id: makeId("module"), type, label, ...options, pieces: {}, pieceOrder: [] };
+	const module = { id: makeId("module"), type, label, color: null, ...options, pieces: {}, pieceOrder: [] };
 	for (const piece of pieces) {
 		module.pieces[piece.id] = piece;
 		module.pieceOrder.push(piece.id);
@@ -108,13 +118,14 @@ export function createNumberModule(label, value = 0, { suffix = "", signed = fal
 	});
 }
 
-// A number with no inner label — the card's own title is the label (Armor Class,
-// Initiative, Proficiency Bonus), so the module is nothing but the value.
+// A single headline number (Armor Class, Initiative, Proficiency Bonus) — the
+// value at display size under its label bar.
 export function createBigNumberModule(label, value = 0, { signed = false } = {}) {
 	return createModule({ type: "bigNumber", label, signed, pieces: [createVariablePiece({ label, value })] });
 }
 
-// The Character Name card's one module: a single oversized text field.
+// A single oversized text field under its label bar (a character's or an
+// attack's name).
 export function createBigTextModule(label, text = "") {
 	return createModule({ type: "bigText", label, pieces: [createTextPiece({ label, text })] });
 }
@@ -345,8 +356,9 @@ export function createModuleForType(typeId, config = {}) {
 
 // ---------- Cards ----------
 
+// `headerColor` is the user's override for the header bar, or null for navy.
 export function createCard({ type, title, modules = [] }) {
-	const card = { id: makeId("card"), type, title, modules: {}, moduleOrder: [] };
+	const card = { id: makeId("card"), type, title, headerColor: null, modules: {}, moduleOrder: [] };
 	for (const module of modules) {
 		card.modules[module.id] = module;
 		card.moduleOrder.push(module.id);
@@ -457,7 +469,7 @@ export function createInspirationCard() {
 	return createCard({
 		type: "inspiration",
 		title: "Inspiration",
-		modules: [createCheckboxModule("")],
+		modules: [createCheckboxModule("Inspiration")],
 	});
 }
 
@@ -690,34 +702,87 @@ export function createCustomCard(title) {
 	return createCard({ type: "custom", title: title || "Unnamed", modules: [] });
 }
 
+// Builders for every standard card type in the New Card picker.
+const STANDARD_CARD_BUILDERS = {
+	abilityScores: createAbilityScoresCard,
+	allies: createAlliesCard,
+	appearance: createAppearanceCard,
+	armorClass: createArmorClassCard,
+	attack: createAttackCard,
+	backstory: createBackstoryCard,
+	basicDescriptions: createBasicDescriptionsCard,
+	basicInfo: createBasicInfoCard,
+	characterName: createCharacterNameCard,
+	deathSaves: createDeathSavesCard,
+	equipment: createEquipmentCard,
+	feature: createFeatureCard,
+	health: createHealthCard,
+	hitDice: createHitDiceCard,
+	initiative: createInitiativeCard,
+	inspiration: createInspirationCard,
+	money: createMoneyCard,
+	movementSpeed: createMovementSpeedCard,
+	passiveSkills: createPassiveSkillsCard,
+	personality: createPersonalityCard,
+	proficiencies: createProficienciesCard,
+	proficiencyBonus: createProficiencyBonusCard,
+	spellcastingStats: createSpellcastingStatsCard,
+	spellList: createSpellListCard,
+	symbol: createSymbolCard,
+	treasure: createTreasureCard,
+};
+
+export const STANDARD_CARD_TYPES = [...Object.keys(STANDARD_CARD_BUILDERS), "savingThrows", "skills"];
+
+// Builds a fresh standard card. Cards whose numbers derive from the Ability
+// Scores card get wired to it when one is already on `sheet`, so their
+// modifiers stay live; without one they're created unwired and each row is
+// just an editable number. Returns null for an unknown type.
+export function createStandardCard(typeId, sheet = null) {
+	const abilityCard = sheet ? Object.values(sheet.cards).find((card) => card.type === "abilityScores") : null;
+	const wiring = abilityCard ? { abilityBonusPieceIds: getAbilityBonusPieceIds(abilityCard) } : {};
+	if (typeId === "savingThrows") {
+		return createSavingThrowsCard(wiring);
+	}
+	if (typeId === "skills") {
+		return createSkillsCard(wiring);
+	}
+	const build = STANDARD_CARD_BUILDERS[typeId];
+	return build ? build() : null;
+}
+
 // ---------- Pages and Sheets ----------
 
-// A layout entry places an existing card on a page. rect is this layout's own
-// { x, y, width, height } (px, multiples of 5) on the page canvas. moduleOrder is
+// A layout entry places an existing card on a page. x/y/w/h are the card's
+// cells on the page grid, in whole grid units (see grid.js). moduleOrder is
 // this page's own arrangement of the card's modules (which ones are included;
-// removing one here never deletes its data), each with its own rect in moduleRects.
-// showHeader is whether this placement's header stays pinned open or tucks
-// away until hovered (see setLayoutShowHeader in sheetOps.js) — like sizing,
-// a per-placement choice, not card data.
-export function createCardLayout(card, { moduleOrder = null, rect = null, moduleRects = {}, showHeader = true } = {}) {
+// removing one here never deletes its data), each with its own unit rect in
+// moduleRects, relative to the card's module grid.
+export function createCardLayout(card, { moduleOrder = null, rect = { x: 0, y: 0, w: 1, h: 1 }, moduleRects = {} } = {}) {
 	return {
 		id: makeId("layout"),
 		cardId: card.id,
-		rect,
+		x: rect.x,
+		y: rect.y,
+		w: rect.w,
+		h: rect.h,
 		moduleOrder: [...(moduleOrder || card.moduleOrder)],
 		moduleRects: { ...moduleRects },
-		showHeader,
 	};
 }
 
 export function createPage(name) {
-	return { id: makeId("page"), name, cardLayouts: [] };
+	return { id: makeId("page"), name, color: null, cardLayouts: [] };
 }
+
+// Bump whenever the saved shape changes incompatibly — sheets saved with any
+// other version are discarded on load (see loadInitialSheet).
+export const SHEET_VERSION = 2;
 
 export function createSheet(name = "New Character") {
 	const firstPage = createPage("Page 1");
 	return {
-		version: 1,
+		version: SHEET_VERSION,
 		id: makeId("sheet"),
 		name,
 		activePageId: firstPage.id,

@@ -8,7 +8,20 @@
 // Alignment guides plus snapping are what keep a layout tidy, the same way
 // Lucidchart does it.
 
-import { GRID_SIZE, snap, rectsOverlap } from "./grid.js";
+import { GRID_UNIT } from "./layoutConstants.js";
+
+// This file still works in px (it backs the Edit Layout canvas, which edits a
+// px projection of the unit grid), so it keeps its own px helpers rather than
+// grid.js's unit-based ones.
+const GRID_SIZE = GRID_UNIT;
+
+export function snap(value, size = GRID_SIZE) {
+	return Math.round(value / size) * size;
+}
+
+function rectsOverlap(a, b) {
+	return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
 
 // How close (px) a moving edge/center has to get before it catches. Much below
 // this it feels like the guide never catches; much above it fights you when

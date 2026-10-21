@@ -13,7 +13,7 @@ import {
 	referenceablePieces,
 } from "../../utils/character_sheet/refTokens";
 import { useCharacterSheet, SheetPreviewProvider } from "./CharacterSheetContext";
-import { ModuleView } from "./CharacterSheetCard";
+import { CardPreview } from "./CharacterSheetCard";
 
 // Custom Card creation flow (mockup: name the card, then repeatedly pick a
 // module type, configure it, and "Add Another" until "Finish and Submit").
@@ -315,7 +315,7 @@ function ConfigureModuleForm({ typeId, onAdd, onBack }) {
 	);
 }
 
-export default function CustomCardBuilder({ onClose }) {
+export default function CustomCardBuilder({ onClose, getPageColumns }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const [draft, setDraft] = useState(() => createCustomCard(""));
 	const [step, setStep] = useState("name"); // name | pick | configure
@@ -345,28 +345,20 @@ export default function CustomCardBuilder({ onClose }) {
 	};
 
 	const handleFinish = () => {
-		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card: draft });
+		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card: draft, maxCols: getPageColumns() });
 		onClose();
 	};
 
 	return (
 		<div className="cs-builder">
 			<SheetPreviewProvider sheet={previewSheet}>
-				<section className="cs-card cs-builder-preview-card">
-					<header className="cs-card-header">
-						<span>{draft.title || "Unnamed"}</span>
-						<span className="cs-card-header-note">New Card</span>
-					</header>
-					<div className="cs-card-body cs-builder-preview-body">
-						{draft.moduleOrder.length === 0 ? (
-							<p className="cs-empty">No modules yet.</p>
-						) : (
-							draft.moduleOrder.map((moduleId) => (
-								<ModuleView key={moduleId} module={draft.modules[moduleId]} />
-							))
-						)}
-					</div>
-				</section>
+				<div className="cs-builder-preview-card">
+					{draft.moduleOrder.length === 0 ? (
+						<p className="cs-empty">No modules yet — “{draft.title || "Unnamed"}” will appear here as you add them.</p>
+					) : (
+						<CardPreview card={{ ...draft, title: draft.title || "Unnamed" }} />
+					)}
+				</div>
 			</SheetPreviewProvider>
 
 			<div className="cs-builder-panel">

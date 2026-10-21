@@ -4,7 +4,8 @@ import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard
 import CardLayoutEditor from "../components/character_sheet/CardLayoutEditor";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
 import NewCardModal from "../components/character_sheet/NewCardModal";
-import { boundingHeight, snap } from "../utils/character_sheet/grid";
+import { boundingSize } from "../utils/character_sheet/grid";
+import { GRID_UNIT, tokenCssVars } from "../utils/character_sheet/layoutConstants";
 import { getContrastTextColor } from "../utils/character_sheet/colors";
 import "../CharacterSheetStyles.css";
 
@@ -14,11 +15,10 @@ const CARD_DRAG_THRESHOLD = 3;
 // Cards" step (see CharacterSheetCard's header). A plain click (the pointer
 // never crosses CARD_DRAG_THRESHOLD) is treated as "open Edit Layout"
 // instead of a move, so the same header press does both jobs depending on
-// whether the pointer actually travels. Position commits straight to the
-// sheet on release — there's no draft/Confirm step for this anymore, since
-// it's just another live edit like typing into a field.
+// whether the pointer actually travels. Position snaps to whole grid units
+// and commits straight to the sheet on release.
 function useCardDrag(pageId, dispatch) {
-	const [dragging, setDragging] = useState(null); // { layoutId, rect } | null
+	const [dragging, setDragging] = useState(null); // { layoutId, rect (units) } | null
 
 	const startDrag = useCallback(
 		(layout, onClick) => (event) => {
@@ -34,8 +34,13 @@ function useCardDrag(pageId, dispatch) {
 				// Pointer already released; nothing to capture.
 			}
 			const start = { x: event.clientX, y: event.clientY };
-			const startRect = layout.rect;
+			const startRect = { x: layout.x, y: layout.y, w: layout.w, h: layout.h };
 			let moved = false;
+			const snapped = (moveEvent) => ({
+				...startRect,
+				x: Math.max(0, startRect.x + Math.round((moveEvent.clientX - start.x) / GRID_UNIT)),
+				y: Math.max(0, startRect.y + Math.round((moveEvent.clientY - start.y) / GRID_UNIT)),
+			});
 
 			const handleMove = (moveEvent) => {
 				const dx = moveEvent.clientX - start.x;
@@ -44,10 +49,7 @@ function useCardDrag(pageId, dispatch) {
 					moved = true;
 				}
 				if (moved) {
-					setDragging({
-						layoutId: layout.id,
-						rect: { ...startRect, x: Math.max(0, startRect.x + dx), y: Math.max(0, startRect.y + dy) },
-					});
+					setDragging({ layoutId: layout.id, rect: snapped(moveEvent) });
 				}
 			};
 
@@ -64,13 +66,7 @@ function useCardDrag(pageId, dispatch) {
 					onClick();
 					return;
 				}
-				const dx = upEvent.clientX - start.x;
-				const dy = upEvent.clientY - start.y;
-				const rect = {
-					...startRect,
-					x: snap(Math.max(0, startRect.x + dx)),
-					y: snap(Math.max(0, startRect.y + dy)),
-				};
+				const rect = snapped(upEvent);
 				setDragging(null);
 				dispatch({ type: "setPageArrangement", pageId, rects: { [layout.id]: rect } });
 			};
@@ -200,12 +196,12 @@ function PageTab({ page, isActive, dispatch }) {
 	);
 }
 
-function TopBar({ onStartCustomCard, showGrid, onToggleGrid }) {
+function TopBar({ onStartCustomCard, showGrid, onToggleGrid, getPageColumns }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	return (
 		<div className="cs-topbar">
 			<div className="cs-topbar-group">
-				<NewCardModal onStartCustomCard={onStartCustomCard} />
+				<NewCardModal onStartCustomCard={onStartCustomCard} getPageColumns={getPageColumns} />
 				<button type="button" className="cs-topbar-button" onClick={onToggleGrid}>
 					{showGrid ? "Hide Grid" : "Show Grid"}
 				</button>
@@ -229,7 +225,7 @@ function TopBar({ onStartCustomCard, showGrid, onToggleGrid }) {
 	);
 }
 
-function Canvas({ buildingCustom, onCloseBuilder, showGrid }) {
+function Canvas({ buildingCustom, onCloseBuilder, showGrid, getPageColumns }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	// Only one card's layout is editable at a time. Switching pages unmounts an
 	// open editor, which discards its draft (same as Exit without Saving).
@@ -255,13 +251,13 @@ function Canvas({ buildingCustom, onCloseBuilder, showGrid }) {
 
 	return (
 		<>
-			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} />}
+			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} getPageColumns={getPageColumns} />}
 			{activePage.cardLayouts.length === 0 ? (
 				<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
 			) : (
 				<div
 					className={`cs-canvas${showGrid ? " cs-canvas--grid" : ""}`}
-					style={{ minHeight: boundingHeight(activePage.cardLayouts.map((layout) => layout.rect), 40) }}
+					style={{ minHeight: (boundingSize(activePage.cardLayouts).rows + 2) * GRID_UNIT }}
 				>
 					{activePage.cardLayouts.map((layout) => {
 						if (layout.id === editingLayoutId) {
@@ -272,27 +268,20 @@ function Canvas({ buildingCustom, onCloseBuilder, showGrid }) {
 									layout={layout}
 									card={sheet.cards[layout.cardId]}
 									onClose={() => setEditingLayoutId(null)}
-									itemStyle={{ position: "absolute", left: layout.rect.x, top: layout.rect.y, width: layout.rect.width }}
 									showGrid={showGrid}
 									onNavigateToCard={handleNavigateToCard}
 								/>
 							);
 						}
-						const rect = dragging?.layoutId === layout.id ? dragging.rect : layout.rect;
 						return (
 							<CharacterSheetCard
 								key={layout.id}
 								layout={layout}
+								rect={dragging?.layoutId === layout.id ? dragging.rect : null}
 								onEditLayout={() => setEditingLayoutId(layout.id)}
 								onHeaderPointerDown={startDrag(layout, () => setEditingLayoutId(layout.id))}
 								dragging={dragging?.layoutId === layout.id}
-								itemStyle={{
-									position: "absolute",
-									left: rect.x,
-									top: rect.y,
-									width: rect.width,
-									height: rect.height,
-								}}
+								showGrid={showGrid}
 							/>
 						);
 					})}
@@ -302,21 +291,34 @@ function Canvas({ buildingCustom, onCloseBuilder, showGrid }) {
 	);
 }
 
+// How many grid columns are visible on the page right now — new cards are
+// placed within this width so they land on-screen.
+function usePageColumns(bodyRef) {
+	return useCallback(() => {
+		const width = bodyRef.current?.clientWidth || 0;
+		return Math.max(1, Math.floor(width / GRID_UNIT));
+	}, [bodyRef]);
+}
+
 function CharacterSheetContent() {
 	const [buildingCustom, setBuildingCustom] = useState(false);
 	const [showGrid, setShowGrid] = useState(false);
+	const bodyRef = useRef(null);
+	const getPageColumns = usePageColumns(bodyRef);
 	return (
-		<div className="cs-page">
+		<div className="cs-page" style={tokenCssVars()}>
 			<TopBar
 				onStartCustomCard={() => setBuildingCustom(true)}
 				showGrid={showGrid}
 				onToggleGrid={() => setShowGrid((current) => !current)}
+				getPageColumns={getPageColumns}
 			/>
-			<div className="cs-body">
+			<div className="cs-body" ref={bodyRef}>
 				<Canvas
 					buildingCustom={buildingCustom}
 					onCloseBuilder={() => setBuildingCustom(false)}
 					showGrid={showGrid}
+					getPageColumns={getPageColumns}
 				/>
 			</div>
 		</div>

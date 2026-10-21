@@ -1,46 +1,52 @@
-import { useEffect, useRef, useState } from "react";
-import { getPieceNumericValue, getPieceTextValue } from "../../utils/character_sheet/references";
-import { getModuleContentScale } from "../../utils/character_sheet/layoutConstants";
+import { useRef } from "react";
+import { getModuleRole } from "../../utils/character_sheet/moduleTypes";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
-import { getContrastTextColor } from "../../utils/character_sheet/colors";
+import { getContrastTextColor, deriveModuleShades } from "../../utils/character_sheet/colors";
+import { rectToPx } from "../../utils/character_sheet/grid";
+import { buildDefaultLayout } from "../../utils/character_sheet/cardLayouts";
+import { tokenCssVars } from "../../utils/character_sheet/layoutConstants";
 import { useCharacterSheet } from "./CharacterSheetContext";
+import usePieceValue from "./usePieceValue";
 
-// Pastel color-coding by module type (mockup convention): variable-based modules
-// read differently from checkbox-, text-, button-, and dropdown-based ones.
-const MODULE_COLOR_CLASS = {
-	abilityScore: "cs-module--variable",
-	number: "cs-module--variable",
-	bigNumber: "cs-module--variable",
-	bigText: "cs-module--variable",
-	passiveSkill: "cs-module--text",
-	savingThrow: "cs-module--checkbox",
-	skill: "cs-module--checkbox",
-	checkbox: "cs-module--checkbox",
-	checkboxRow: "cs-module--checkbox",
-	columnHeader: "cs-module--header",
-	text: "cs-module--text",
-	textArea: "cs-module--variable",
-	listText: "cs-module--list",
-	itemList: "cs-module--list",
-	image: "cs-module--variable",
-	currency: "cs-module--currency",
-	spellEntry: "cs-module--variable",
-	damageHeal: "cs-module--button",
-	dropdown: "cs-module--dropdown",
-};
+// Every module fills its grid rect exactly, and everything inside it is sized
+// by the shared tokens (see layoutConstants.js / tokenCssVars) — a label bar
+// is the same height, an input the same height and font, on every card.
+// Module sizes themselves come from moduleTypes.js, which is what guarantees
+// the content below always fits without clipping or scrollbars.
 
-// How long the cursor has to sit over a card before its tucked-away header
-// (see the showHeader layout field) drops down — see CharacterSheetCard's
-// hover-reveal timer.
-const HEADER_REVEAL_DELAY = 2000;
+const ABILITY_TINTS = new Set(["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]);
 
-// The "Edit Layout" trigger on a card's header — a kebab rather than a
-// labelled button so it costs the header as little width as possible,
-// leaving more room for the title (see .cs-card-title's shrink/wrap in
-// CharacterSheetStyles.css).
+// Default colours: the six abilities tint their own modules (ability tiles,
+// saves, and the skills they govern), death-save rows keep their
+// success/danger tone, and everything else is coloured by its role (see the
+// --cs-role-* palette in CharacterSheetStyles.css). A user's own colour
+// (module.color) overrides all of that with shades derived from one pick.
+export function moduleColorProps(module) {
+	const shades = module.color ? deriveModuleShades(module.color) : null;
+	if (shades) {
+		return {
+			className: "cs-module--custom",
+			style: {
+				"--m-bar": shades.bar,
+				"--m-bar-text": shades.barText,
+				"--m-bg": shades.bg,
+				"--m-border": shades.border,
+				"--m-text": shades.text,
+			},
+		};
+	}
+	if (module.ability && ABILITY_TINTS.has(module.ability)) {
+		return { className: `cs-tint--${module.ability}`, style: undefined };
+	}
+	if (module.tone === "success" || module.tone === "danger") {
+		return { className: `cs-tint--${module.tone}`, style: undefined };
+	}
+	return { className: `cs-role--${getModuleRole(module)}`, style: undefined };
+}
+
 function KebabIcon() {
 	return (
-		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
 			<circle cx="12" cy="5.5" r="1.7" fill="currentColor" />
 			<circle cx="12" cy="12" r="1.7" fill="currentColor" />
 			<circle cx="12" cy="18.5" r="1.7" fill="currentColor" />
@@ -48,143 +54,138 @@ function KebabIcon() {
 	);
 }
 
-// The six standard abilities each tint their own modules (ability tiles, saving
-// throws, and the skills they govern) so a Wisdom skill reads as Wisdom at a
-// glance — see the --cs-ability-* palette in CharacterSheetStyles.css. A made-up
-// ability falls back to the module type's own colour.
-const ABILITY_TINTS = new Set(["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"]);
-
-function moduleColorClass(module) {
-	if (module.ability && ABILITY_TINTS.has(module.ability)) {
-		return `cs-module--ability cs-module--${module.ability}`;
-	}
-	if (module.tone === "success") {
-		return "cs-module--success";
-	}
-	if (module.tone === "danger") {
-		return "cs-module--danger";
-	}
-	return MODULE_COLOR_CLASS[module.type] || "cs-module--text";
-}
-
 function formatSigned(value) {
 	return value >= 0 ? `+${value}` : `${value}`;
 }
 
-// Computed (formula) variables display their live value; error states (missing or
-// circular reference) render as a marked em dash instead of crashing.
-function ComputedValue({ pieceId, signed = false, className = "" }) {
-	const { pieceIndex } = useCharacterSheet();
-	const resolved = getPieceNumericValue(pieceId, pieceIndex);
-	if (resolved.error) {
+const lockedClass = (read) => (read.locked ? " cs-locked" : "");
+
+// ---------- Piece views (all values go through usePieceValue) ----------
+
+// A computed value (formula / references) is read-only; an error (missing or
+// circular reference) renders as a marked em dash instead of crashing.
+function ComputedDisplay({ read, signed = false, className = "" }) {
+	if (read.error) {
 		return (
-			<span className={`cs-ref-error ${className}`} title={resolved.error}>
+			<span className={`cs-ref-error ${className}`} title={read.error}>
 				—
 			</span>
 		);
 	}
-	return <span className={className}>{signed ? formatSigned(resolved.value) : resolved.value}</span>;
+	const shown = typeof read.value === "number" && signed ? formatSigned(read.value) : read.value;
+	return <span className={`cs-computed ${className}${lockedClass(read)}`}>{shown}</span>;
 }
 
-// A writable variable. `signed` is how a bonus reads ("+3"): a number input can't
-// display a leading plus, so it's drawn as a prefix beside the field and hidden
-// once the value goes negative, where the input shows the minus itself.
-function NumberInput({ piece, signed = false, className = "cs-input-number" }) {
-	const { dispatch } = useCharacterSheet();
-	const input = (
-		<input
-			type="number"
-			className={className}
-			value={piece.value}
-			onChange={(event) =>
-				dispatch({
-					type: "setVariableValue",
-					pieceId: piece.id,
-					value: event.target.value === "" ? 0 : Number(event.target.value),
-				})
-			}
-		/>
+// A number value. `signed` reads as a bonus ("+3"): a number input can't show
+// a leading plus, so it's drawn beside the field and hidden once the value is
+// negative. `suffix` is a unit after the value ("30 ft").
+function NumberField({ pieceId, signed = false, suffix = "", big = false, className = "" }) {
+	const read = usePieceValue(pieceId);
+	const inputClass = `cs-input cs-input--number${big ? " cs-input--big" : ""}`;
+	const field = read.computed ? (
+		<ComputedDisplay read={read} signed={signed} className={big ? "cs-value--big" : "cs-value"} />
+	) : (
+		<>
+			{signed && Number(read.value) >= 0 ? <span className="cs-value-sign">+</span> : null}
+			<input
+				type="number"
+				className={`${inputClass}${lockedClass(read)}`}
+				value={read.value ?? 0}
+				disabled={read.locked}
+				onChange={(event) => read.set(event.target.value === "" ? 0 : Number(event.target.value))}
+			/>
+		</>
 	);
-	if (!signed || Number(piece.value) < 0) {
-		return input;
-	}
 	return (
-		<span className="cs-signed-input">
-			<span className="cs-value-sign">+</span>
-			{input}
+		<span className={`cs-number-field ${className}`}>
+			{field}
+			{suffix ? <span className="cs-value-suffix">{suffix}</span> : null}
 		</span>
 	);
 }
 
-// A text piece is editable while it's a single plain segment (all of this build's
-// standard-card text pieces are). Once it contains reference segments it renders
-// as live resolved text instead.
-function TextPieceView({ piece, placeholder = "", className = "cs-input-text" }) {
-	const { dispatch, pieceIndex } = useCharacterSheet();
-	const isPlain = piece.segments.length === 1 && piece.segments[0].type === "text";
-	if (!isPlain) {
-		const resolved = getPieceTextValue(piece.id, pieceIndex);
-		return resolved.error ? (
-			<span className="cs-ref-error" title={resolved.error}>—</span>
-		) : (
-			<span className="cs-text-display">{resolved.text}</span>
-		);
+// A single-line text value. Number-locked text strips anything non-numeric.
+// `tooltip` shows the whole value on hover, for fields that act as labels and
+// may ellipsize.
+function TextField({ pieceId, className = "cs-input", placeholder = "", title, tooltip = false }) {
+	const read = usePieceValue(pieceId);
+	if (read.computed) {
+		return <ComputedDisplay read={read} className="cs-text-display" />;
 	}
 	return (
 		<input
 			type="text"
-			className={className}
-			inputMode={piece.numberLocked ? "numeric" : undefined}
+			className={`${className}${lockedClass(read)}`}
+			inputMode={read.piece?.numberLocked ? "numeric" : undefined}
 			placeholder={placeholder}
-			value={piece.segments[0].value}
+			title={title ?? (tooltip ? read.value || undefined : undefined)}
+			value={read.value ?? ""}
+			disabled={read.locked}
 			onChange={(event) => {
 				const raw = event.target.value;
-				dispatch({
-					type: "setTextPlain",
-					pieceId: piece.id,
-					text: piece.numberLocked ? raw.replace(/[^0-9.-]/g, "") : raw,
-				});
+				read.set(read.piece?.numberLocked ? raw.replace(/[^0-9.-]/g, "") : raw);
 			}}
 		/>
 	);
 }
 
-function CheckboxPieceView({ piece }) {
-	const { dispatch } = useCharacterSheet();
+// Multi-line counterpart to TextField: the one kind of field allowed to scroll
+// (vertically) when its text outgrows the module.
+function TextAreaField({ pieceId, placeholder = "" }) {
+	const read = usePieceValue(pieceId);
+	if (read.computed) {
+		return <ComputedDisplay read={read} className="cs-text-display" />;
+	}
 	return (
-		<input
-			type="checkbox"
-			className="cs-checkbox"
-			checked={piece.value}
-			onChange={(event) => dispatch({ type: "setCheckboxValue", pieceId: piece.id, value: event.target.checked })}
+		<textarea
+			className={`cs-textarea${lockedClass(read)}`}
+			placeholder={placeholder}
+			value={read.value ?? ""}
+			disabled={read.locked}
+			onChange={(event) => read.set(event.target.value)}
 		/>
 	);
 }
 
-function ButtonPieceView({ piece, className = "" }) {
+function CheckboxField({ pieceId, label }) {
+	const read = usePieceValue(pieceId);
+	return (
+		<input
+			type="checkbox"
+			className={`cs-checkbox${lockedClass(read)}`}
+			aria-label={label || read.piece?.label}
+			checked={Boolean(read.value)}
+			disabled={read.locked}
+			onChange={(event) => read.set(event.target.checked)}
+		/>
+	);
+}
+
+function ButtonField({ pieceId, className = "" }) {
 	const { dispatch } = useCharacterSheet();
+	const read = usePieceValue(pieceId);
 	return (
 		<button
 			type="button"
-			className={`cs-btn ${className}`}
-			onClick={() => dispatch({ type: "pressButton", pieceId: piece.id })}
+			className={`cs-btn ${className}${lockedClass(read)}`}
+			disabled={read.locked}
+			onClick={() => dispatch({ type: "pressButton", pieceId })}
 		>
-			{piece.label}
+			{read.piece?.label}
 		</button>
 	);
 }
 
-function DropdownPieceView({ piece }) {
-	const { dispatch } = useCharacterSheet();
+function DropdownField({ pieceId }) {
+	const read = usePieceValue(pieceId);
 	return (
 		<select
-			className="cs-select"
-			value={piece.selectedIndex ?? ""}
-			onChange={(event) =>
-				dispatch({ type: "setDropdownSelection", pieceId: piece.id, selectedIndex: Number(event.target.value) })
-			}
+			className={`cs-input cs-select${lockedClass(read)}`}
+			value={read.value ?? ""}
+			disabled={read.locked}
+			onChange={(event) => read.set(Number(event.target.value))}
 		>
-			{piece.options.map((option, optionIndex) => (
+			{(read.piece?.options || []).map((option, optionIndex) => (
 				<option key={optionIndex} value={optionIndex}>
 					{option}
 				</option>
@@ -193,37 +194,15 @@ function DropdownPieceView({ piece }) {
 	);
 }
 
-// Multi-line counterpart to TextPieceView, for modules that hold a paragraph
-// (Backstory, Personality Traits, Notes…) rather than a single field.
-function TextAreaPieceView({ piece, placeholder = "" }) {
-	const { dispatch, pieceIndex } = useCharacterSheet();
-	const isPlain = piece.segments.length === 1 && piece.segments[0].type === "text";
-	if (!isPlain) {
-		const resolved = getPieceTextValue(piece.id, pieceIndex);
-		return resolved.error ? (
-			<span className="cs-ref-error" title={resolved.error}>—</span>
-		) : (
-			<span className="cs-text-display">{resolved.text}</span>
-		);
-	}
-	return (
-		<textarea
-			className="cs-input-textarea"
-			placeholder={placeholder}
-			value={piece.segments[0].value}
-			onChange={(event) => dispatch({ type: "setTextPlain", pieceId: piece.id, text: event.target.value })}
-		/>
-	);
-}
-
 // Images are stored inline on the sheet (a pasted URL, or a data: URI from a
 // local file), and the whole sheet is autosaved to localStorage — so a picked
 // file is capped well under that quota rather than silently breaking saves.
 const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
 
-function ImagePieceView({ piece }) {
-	const { dispatch } = useCharacterSheet();
+function ImageField({ pieceId }) {
+	const read = usePieceValue(pieceId);
 	const fileInputRef = useRef(null);
+	const src = read.value || "";
 
 	const handleFile = (file) => {
 		if (!file) {
@@ -234,26 +213,26 @@ function ImagePieceView({ piece }) {
 			return;
 		}
 		const reader = new FileReader();
-		reader.onload = () => dispatch({ type: "setImageSrc", pieceId: piece.id, src: String(reader.result) });
+		reader.onload = () => read.set(String(reader.result));
 		reader.readAsDataURL(file);
 	};
 
 	return (
-		<div className="cs-image-piece">
-			{piece.src ? (
-				<img className="cs-image-preview" src={piece.src} alt={piece.alt || piece.label} />
+		<>
+			{src ? (
+				<img className="cs-image-preview" src={src} alt={read.piece?.alt || read.piece?.label || ""} />
 			) : (
 				<div className="cs-image-empty">No image yet</div>
 			)}
 			<div className="cs-image-controls">
 				<input
 					type="text"
-					className="cs-input-text cs-image-url"
+					className="cs-input cs-input--left"
 					placeholder="Paste an image link…"
-					value={piece.src.startsWith("data:") ? "" : piece.src}
-					onChange={(event) => dispatch({ type: "setImageSrc", pieceId: piece.id, src: event.target.value })}
+					value={src.startsWith("data:") ? "" : src}
+					onChange={(event) => read.set(event.target.value)}
 				/>
-				<button type="button" className="cs-btn cs-btn--small" onClick={() => fileInputRef.current?.click()}>
+				<button type="button" className="cs-btn cs-btn--quiet" onClick={() => fileInputRef.current?.click()}>
 					Upload
 				</button>
 				<input
@@ -267,38 +246,29 @@ function ImagePieceView({ piece }) {
 					}}
 				/>
 			</div>
-		</div>
+		</>
 	);
 }
 
-// --- Shared module chrome ---
+// ---------- Module chrome ----------
 
-// Most modules in the spec read the same way: a bold header bar naming the
-// field, with the value sitting directly beneath it. This is that shell.
-function FieldModule({ module, className = "", showLabel = true, children }) {
-	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-field-module ${className}`}>
-			{showLabel && module.label ? <div className="cs-field-bar">{module.label}</div> : null}
-			<div className="cs-field-body">{children}</div>
-		</div>
-	);
-}
-
-// The +/− controls on a variable-length module (list rows, checkbox counts).
-// They only appear on a live card — the layout editor and the card previews
-// pass no cardId, and they're display-only surfaces anyway.
+// The +/− controls on a variable-length module (list rows, checkbox counts),
+// tucked into its label bar. Only live cards pass a cardId, so previews and
+// the layout editor never show them.
 function RowControls({ cardId, module }) {
 	const { dispatch } = useCharacterSheet();
 	if (!cardId || !getModuleRowShape(module.type)) {
 		return null;
 	}
 	const rowCount = getModuleRowCount(module);
+	const noun = module.type === "checkboxRow" ? "checkbox" : "row";
 	return (
-		<div className="cs-row-controls">
+		<span className="cs-row-controls">
 			<button
 				type="button"
 				className="cs-row-btn"
-				title={`Remove the last ${module.label || "row"}`}
+				title={`Remove a ${noun}`}
+				aria-label={`Remove a ${noun} from ${module.label}`}
 				disabled={rowCount === 0}
 				onClick={() => dispatch({ type: "removeModuleRow", cardId, moduleId: module.id, rowIndex: rowCount - 1 })}
 			>
@@ -307,322 +277,327 @@ function RowControls({ cardId, module }) {
 			<button
 				type="button"
 				className="cs-row-btn"
-				title={`Add another ${module.label || "row"}`}
+				title={`Add a ${noun}`}
+				aria-label={`Add a ${noun} to ${module.label}`}
 				onClick={() => dispatch({ type: "addModuleRow", cardId, moduleId: module.id })}
 			>
 				+
 			</button>
+		</span>
+	);
+}
+
+// The shape nearly every module is drawn as: a label bar naming it, with the
+// content filling the rest of the box beneath. Labels are single-line; one
+// that's too long for its module ellipsizes and shows in full on hover.
+function ModuleShell({ module, cardId, className = "", bodyClassName = "", children }) {
+	const color = moduleColorProps(module);
+	const label = module.label || "Untitled";
+	return (
+		<div className={`cs-module ${color.className} ${className}`} style={color.style}>
+			<div className="cs-mod-label">
+				<span className="cs-mod-label-text" title={label}>
+					{label}
+				</span>
+				<RowControls cardId={cardId} module={module} />
+			</div>
+			<div className={`cs-mod-body ${bodyClassName}`}>{children}</div>
 		</div>
 	);
 }
 
-// --- Module views ---
+// The other shape: one line with no label bar, whose own text is its label
+// (a skill row, a lone checkbox).
+function RowShell({ module, className = "", children }) {
+	const color = moduleColorProps(module);
+	return (
+		<div className={`cs-module cs-module--row ${color.className} ${className}`} style={color.style}>
+			{children}
+		</div>
+	);
+}
 
-// Ability Scores stat tile: name, auto-calculated Bonus, editable Score.
-function AbilityScoreModule({ module }) {
+// ---------- Module views ----------
+
+// Ability tile: the live Bonus, with the editable Score beneath it.
+function AbilityScoreModule({ module, cardId }) {
 	const [scoreId, bonusId] = module.pieceOrder;
+	const bonus = usePieceValue(bonusId);
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-ability-tile`}>
-			<div className="cs-field-bar">{module.label}</div>
-			<div className="cs-field-label">Bonus</div>
-			<ComputedValue pieceId={bonusId} signed className="cs-ability-bonus" />
-			<div className="cs-ability-score-row">
-				<span className="cs-field-label">Score</span>
-				<NumberInput piece={module.pieces[scoreId]} />
-			</div>
-		</div>
-	);
-}
-
-// A labelled number field — Level, Experience, a movement speed, a to-hit bonus.
-// `suffix` renders inside the field after the value ("30ft"), `signed` forces the
-// leading + that a bonus reads with.
-function NumberModule({ module }) {
-	const pieceId = module.pieceOrder[0];
-	const piece = module.pieces[pieceId];
-	return (
-		<FieldModule module={module} className="cs-number-tile">
-			<div className="cs-value-row">
-				{piece.formula ? (
-					<ComputedValue pieceId={pieceId} signed={module.signed} className="cs-number-value" />
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack cs-ability-body">
+			<div className="cs-ability-line">
+				<span className="cs-caption">Bonus</span>
+				{bonus.computed ? (
+					<ComputedDisplay read={bonus} signed className="cs-value--big" />
 				) : (
-					<NumberInput piece={piece} signed={module.signed} />
+					<NumberField pieceId={bonusId} signed />
 				)}
-				{module.suffix ? <span className="cs-value-suffix">{module.suffix}</span> : null}
 			</div>
-		</FieldModule>
+			<div className="cs-ability-line">
+				<span className="cs-caption">Score</span>
+				<NumberField pieceId={scoreId} />
+			</div>
+		</ModuleShell>
 	);
 }
 
-// A number with no label of its own: the card's title says what it is, so the
-// module is just the value at display size (Armor Class, Initiative, Proficiency).
-function BigNumberModule({ module }) {
-	const pieceId = module.pieceOrder[0];
-	const piece = module.pieces[pieceId];
+function NumberModule({ module, cardId }) {
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-big-number-tile`}>
-			{piece.formula ? (
-				<ComputedValue pieceId={pieceId} signed={module.signed} className="cs-big-value" />
-			) : (
-				<NumberInput piece={piece} signed={module.signed} className="cs-input-number cs-input-big" />
-			)}
-		</div>
+		<ModuleShell module={module} cardId={cardId}>
+			<NumberField pieceId={module.pieceOrder[0]} signed={module.signed} suffix={module.suffix} />
+		</ModuleShell>
 	);
 }
 
-// The Character Name card (and an attack's name): one oversized text field.
-function BigTextModule({ module }) {
+// A headline number at display size (Armor Class, Initiative, Proficiency).
+function BigNumberModule({ module, cardId }) {
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-big-text-tile`}>
-			<TextPieceView piece={module.pieces[module.pieceOrder[0]]} className="cs-input-text cs-input-big" />
-		</div>
+		<ModuleShell module={module} cardId={cardId}>
+			<NumberField pieceId={module.pieceOrder[0]} signed={module.signed} big />
+		</ModuleShell>
 	);
 }
 
-// Saving throw / skill row: proficiency checkbox, live modifier, name. The two
-// are the same shape by design (see createSkillModule) so they share one view.
+function BigTextModule({ module, cardId }) {
+	return (
+		<ModuleShell module={module} cardId={cardId}>
+			<TextField pieceId={module.pieceOrder[0]} className="cs-input cs-input--big" />
+		</ModuleShell>
+	);
+}
+
+function TextModule({ module, cardId }) {
+	return (
+		<ModuleShell module={module} cardId={cardId}>
+			<TextField pieceId={module.pieceOrder[0]} />
+		</ModuleShell>
+	);
+}
+
+function TextAreaModule({ module, cardId }) {
+	return (
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack">
+			<TextAreaField pieceId={module.pieceOrder[0]} />
+		</ModuleShell>
+	);
+}
+
+function DropdownModule({ module, cardId }) {
+	return (
+		<ModuleShell module={module} cardId={cardId}>
+			<DropdownField pieceId={module.pieceOrder[0]} />
+		</ModuleShell>
+	);
+}
+
+// Saving throw / skill row: proficiency checkbox, live modifier, name. Its
+// columns line up with the Skills card's column heading (see --cs-stat-*).
 function StatRowModule({ module }) {
 	const [profId, bonusId, labelId] = module.pieceOrder;
-	const { pieceIndex } = useCharacterSheet();
-	const label = getPieceTextValue(labelId, pieceIndex);
-	const bonusPiece = module.pieces[bonusId];
+	const name = usePieceValue(labelId);
+	const bonus = usePieceValue(bonusId);
+	const label = name.error ? module.label : name.value || module.label;
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-save-row`}>
-			<CheckboxPieceView piece={module.pieces[profId]} />
-			{bonusPiece.formula ? (
-				<ComputedValue pieceId={bonusId} signed className="cs-save-bonus" />
-			) : (
-				<NumberInput piece={bonusPiece} signed className="cs-input-number cs-input-narrow" />
-			)}
-			<span className="cs-save-label">{label.error ? module.label : label.text}</span>
-		</div>
+		<RowShell module={module} className={`cs-stat-row${module.type === "savingThrow" ? " cs-stat-row--save" : ""}`}>
+			<span className="cs-stat-cell">
+				<CheckboxField pieceId={profId} label={`${label} proficiency`} />
+			</span>
+			<span className="cs-stat-cell">
+				{bonus.computed ? <ComputedDisplay read={bonus} signed className="cs-value" /> : <NumberField pieceId={bonusId} signed />}
+			</span>
+			<span className="cs-row-label" title={label}>
+				{label}
+			</span>
+		</RowShell>
 	);
 }
 
-// The grey column strip that sits above a stack of skill/save rows. Its columns
-// are sized to match .cs-save-row's so the headings line up with what's beneath.
+// The heading strip above a stack of skill rows. Its labels are editable text
+// pieces, so they ellipsize (with a tooltip) if renamed to something long.
 function ColumnHeaderModule({ module }) {
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-column-header`}>
+		<RowShell module={module} className="cs-stat-row cs-column-header">
 			{module.pieceOrder.map((pieceId) => (
-				<TextPieceView key={pieceId} piece={module.pieces[pieceId]} className="cs-input-text cs-input-flush" />
+				<TextField key={pieceId} pieceId={pieceId} className="cs-input-flush cs-column-label" tooltip />
 			))}
-		</div>
+		</RowShell>
 	);
 }
 
 // Passive score row: the score, then what it's the passive score of.
 function PassiveSkillModule({ module }) {
 	const [valueId, nameId] = module.pieceOrder;
-	const piece = module.pieces[valueId];
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-passive-row`}>
-			{piece.formula ? (
-				<ComputedValue pieceId={valueId} className="cs-passive-value" />
-			) : (
-				<NumberInput piece={piece} className="cs-input-number cs-input-narrow" />
-			)}
-			<TextPieceView piece={module.pieces[nameId]} className="cs-input-text cs-passive-name" />
-		</div>
-	);
-}
-
-function TextModule({ module }) {
-	return (
-		<FieldModule module={module} className="cs-text-tile">
-			<TextPieceView piece={module.pieces[module.pieceOrder[0]]} />
-		</FieldModule>
-	);
-}
-
-function TextAreaModule({ module }) {
-	return (
-		<FieldModule module={module} className="cs-textarea-tile">
-			<TextAreaPieceView piece={module.pieces[module.pieceOrder[0]]} />
-		</FieldModule>
+		<RowShell module={module} className="cs-passive-row">
+			<NumberField pieceId={valueId} className="cs-passive-value" />
+			<TextField pieceId={nameId} className="cs-input cs-input--left cs-row-label-input" tooltip />
+		</RowShell>
 	);
 }
 
 function CheckboxModule({ module }) {
+	const label = module.label || "Checkbox";
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-checkbox-tile`}>
-			<CheckboxPieceView piece={module.pieces[module.pieceOrder[0]]} />
-			{module.label ? <span className="cs-save-label">{module.label}</span> : null}
-		</div>
+		<RowShell module={module} className="cs-checkbox-module">
+			<CheckboxField pieceId={module.pieceOrder[0]} label={label} />
+			<span className="cs-row-label" title={label}>
+				{label}
+			</span>
+		</RowShell>
 	);
 }
 
-// A labelled run of checkboxes — death saves, hit dice spent, an item's charges.
+// A labelled run of checkboxes — death saves, hit dice spent, charges, uses.
+// The boxes wrap; the module's minimum height grows with the count (see
+// moduleTypes.js), so every box always stays visible.
 function CheckboxRowModule({ module, cardId }) {
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-checkbox-row`}>
-			{module.label ? <span className="cs-checkbox-row-label">{module.label}</span> : null}
-			<div className="cs-checkbox-row-boxes">
-				{module.pieceOrder.map((pieceId) => (
-					<CheckboxPieceView key={pieceId} piece={module.pieces[pieceId]} />
-				))}
-			</div>
-			<RowControls cardId={cardId} module={module} />
-		</div>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-checkbox-wrap">
+			{module.pieceOrder.map((pieceId, index) => (
+				<CheckboxField key={pieceId} pieceId={pieceId} label={`${module.label} ${index + 1}`} />
+			))}
+		</ModuleShell>
 	);
 }
 
-function DropdownModule({ module }) {
-	return (
-		<FieldModule module={module} className="cs-dropdown-tile">
-			<DropdownPieceView piece={module.pieces[module.pieceOrder[0]]} />
-		</FieldModule>
-	);
-}
-
-// A growable stack of plain text lines (Proficiencies and Languages). Rows
-// alternate shade so a long list stays scannable.
+// A growable stack of plain text lines (Proficiencies and Languages).
 function ListTextModule({ module, cardId }) {
 	return (
-		<FieldModule module={module} className="cs-list-tile">
-			<div className="cs-list-rows">
-				{module.pieceOrder.map((pieceId, index) => (
-					<div key={pieceId} className={`cs-list-row${index % 2 ? " cs-list-row--alt" : ""}`}>
-						<TextPieceView piece={module.pieces[pieceId]} className="cs-input-text cs-input-flush" />
-					</div>
-				))}
-			</div>
-			<RowControls cardId={cardId} module={module} />
-		</FieldModule>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack cs-list-body">
+			{module.pieceOrder.map((pieceId, index) => (
+				<div key={pieceId} className={`cs-list-row${index % 2 ? " cs-list-row--alt" : ""}`}>
+					<TextField pieceId={pieceId} className="cs-input-flush" />
+				</div>
+			))}
+		</ModuleShell>
 	);
 }
 
-// Equipment / Treasure: a name and quantity per row, under an Item Name | Qty
-// heading. Pieces come in pairs (see the itemList row shape in sheetOps).
+// Equipment / Treasure: a name and quantity per row (pieces come in pairs —
+// see the itemList row shape in sheetOps).
 function ItemListModule({ module, cardId }) {
 	const rows = [];
 	for (let index = 0; index < module.pieceOrder.length; index += 2) {
 		rows.push([module.pieceOrder[index], module.pieceOrder[index + 1]]);
 	}
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-item-list`}>
-			<div className="cs-item-head">
-				<span className="cs-item-head-name">Item Name</span>
-				<span className="cs-item-head-qty">Qty</span>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack cs-list-body">
+			<div className="cs-list-row cs-list-head">
+				<span className="cs-list-head-name">Item Name</span>
+				<span className="cs-list-qty">Qty</span>
 			</div>
-			<div className="cs-list-rows">
-				{rows.map(([nameId, qtyId], index) => (
-					<div key={nameId} className={`cs-item-row${index % 2 ? " cs-list-row--alt" : ""}`}>
-						<TextPieceView piece={module.pieces[nameId]} className="cs-input-text cs-input-flush" />
-						{qtyId ? (
-							<TextPieceView piece={module.pieces[qtyId]} className="cs-input-text cs-input-flush cs-item-qty" />
-						) : null}
-					</div>
-				))}
-			</div>
-			<RowControls cardId={cardId} module={module} />
-		</div>
-	);
-}
-
-function ImageModule({ module }) {
-	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-image-tile`}>
-			<ImagePieceView piece={module.pieces[module.pieceOrder[0]]} />
-		</div>
-	);
-}
-
-// Currency: the four coin quantities plus their live total in gold. Each row
-// carries its own metal colour (see the --cs-coin-* palette).
-const COIN_ROW_CLASSES = ["cs-coin--pp", "cs-coin--gp", "cs-coin--sp", "cs-coin--cp"];
-
-function CurrencyModule({ module }) {
-	const [totalId, ...coinIds] = module.pieceOrder;
-	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-currency-tile`}>
-			<div className="cs-currency-row cs-currency-row--total">
-				<span className="cs-currency-label">Total Converted to GP</span>
-				<ComputedValue pieceId={totalId} className="cs-currency-value" />
-			</div>
-			{coinIds.map((pieceId, index) => (
-				<div key={pieceId} className={`cs-currency-row ${COIN_ROW_CLASSES[index] || ""}`}>
-					<span className="cs-currency-label">{module.pieces[pieceId].label}</span>
-					<TextPieceView piece={module.pieces[pieceId]} className="cs-input-text cs-currency-input" />
+			{rows.map(([nameId, qtyId], index) => (
+				<div key={nameId} className={`cs-list-row${index % 2 ? " cs-list-row--alt" : ""}`}>
+					<TextField pieceId={nameId} className="cs-input-flush" />
+					{qtyId ? <TextField pieceId={qtyId} className="cs-input-flush cs-list-qty" /> : null}
 				</div>
 			))}
+		</ModuleShell>
+	);
+}
+
+function ImageModule({ module, cardId }) {
+	return (
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack">
+			<ImageField pieceId={module.pieceOrder[0]} />
+		</ModuleShell>
+	);
+}
+
+// Currency: the four coin quantities plus their live total in gold, each row
+// in its own metal's colour (see the --cs-coin-* palette).
+const COIN_ROW_CLASSES = ["cs-coin--pp", "cs-coin--gp", "cs-coin--sp", "cs-coin--cp"];
+
+function CoinRow({ pieceId, className }) {
+	const read = usePieceValue(pieceId);
+	const label = read.piece?.label || "";
+	return (
+		<div className={`cs-coin-row ${className}`}>
+			<span className="cs-coin-label" title={label}>
+				{label}
+			</span>
+			{read.computed ? (
+				<ComputedDisplay read={read} className="cs-coin-value" />
+			) : (
+				<TextField pieceId={pieceId} className="cs-input cs-coin-value" />
+			)}
 		</div>
 	);
 }
 
-// One spell: its name, the five stat columns, then the description underneath.
-const SPELL_COLUMN_LABELS = ["Level:", "Casting Time:", "School:", "Source:", "Classes:"];
+function CurrencyModule({ module, cardId }) {
+	const [totalId, ...coinIds] = module.pieceOrder;
+	return (
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack cs-coin-body">
+			<CoinRow pieceId={totalId} className="cs-coin--total" />
+			{coinIds.map((pieceId, index) => (
+				<CoinRow key={pieceId} pieceId={pieceId} className={COIN_ROW_CLASSES[index] || ""} />
+			))}
+		</ModuleShell>
+	);
+}
 
-function SpellEntryModule({ module }) {
+// One spell: its name, the five stat columns, then the description.
+const SPELL_COLUMN_LABELS = ["Level", "Casting Time", "School", "Source", "Classes"];
+
+function SpellEntryModule({ module, cardId }) {
 	const [nameId, ...rest] = module.pieceOrder;
 	const columnIds = rest.slice(0, SPELL_COLUMN_LABELS.length);
 	const descriptionId = rest[SPELL_COLUMN_LABELS.length];
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-spell-tile`}>
-			<TextPieceView
-				piece={module.pieces[nameId]}
-				placeholder="Spell name"
-				className="cs-input-text cs-spell-name"
-			/>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack">
+			<TextField pieceId={nameId} placeholder="Spell name" className="cs-input cs-input--strong" />
 			<div className="cs-spell-columns">
 				{columnIds.map((pieceId, index) => (
-					<div key={pieceId} className="cs-spell-column">
-						<span className="cs-spell-column-label">{SPELL_COLUMN_LABELS[index]}</span>
-						<TextPieceView piece={module.pieces[pieceId]} className="cs-input-text cs-input-flush" />
-					</div>
+					<label key={pieceId} className="cs-spell-column">
+						<span className="cs-caption" title={SPELL_COLUMN_LABELS[index]}>
+							{SPELL_COLUMN_LABELS[index]}
+						</span>
+						<TextField pieceId={pieceId} className="cs-input-flush cs-input-flush--boxed" />
+					</label>
 				))}
 			</div>
-			{descriptionId ? (
-				<TextAreaPieceView piece={module.pieces[descriptionId]} placeholder="What the spell does…" />
-			) : null}
-		</div>
+			{descriptionId ? <TextAreaField pieceId={descriptionId} placeholder="What the spell does…" /> : null}
+		</ModuleShell>
 	);
 }
 
 // Health's Damage/Heal control: number-locked amount + the two wired buttons.
-function DamageHealModule({ module }) {
+function DamageHealModule({ module, cardId }) {
 	const [amountId, damageId, healId] = module.pieceOrder;
 	return (
-		<div className="cs-module cs-module--button cs-damage-heal-tile">
-			<div className="cs-module-title">{module.label}</div>
-			<TextPieceView piece={module.pieces[amountId]} placeholder="Amount" />
-			<div className="cs-damage-heal-buttons">
-				<ButtonPieceView piece={module.pieces[damageId]} className="cs-btn--damage" />
-				<ButtonPieceView piece={module.pieces[healId]} className="cs-btn--heal" />
-			</div>
-		</div>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-damage-heal">
+			<TextField pieceId={amountId} placeholder="Amount" />
+			<ButtonField pieceId={damageId} className="cs-btn--damage" />
+			<ButtonField pieceId={healId} className="cs-btn--heal" />
+		</ModuleShell>
 	);
 }
 
 // Fallback for module types without a dedicated view: renders each piece by kind.
-function GenericModule({ module }) {
+function GenericModule({ module, cardId }) {
+	const { pieceIndex } = useCharacterSheet();
 	return (
-		<div className={`cs-module ${moduleColorClass(module)} cs-generic-tile`}>
-			<div className="cs-module-title">{module.label}</div>
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack">
 			{module.pieceOrder.map((pieceId) => {
-				const piece = module.pieces[pieceId];
-				switch (piece.kind) {
+				switch (pieceIndex[pieceId]?.piece.kind) {
 					case "variable":
-						return piece.formula ? (
-							<ComputedValue key={pieceId} pieceId={pieceId} />
-						) : (
-							<NumberInput key={pieceId} piece={piece} />
-						);
+						return <NumberField key={pieceId} pieceId={pieceId} />;
 					case "checkbox":
-						return <CheckboxPieceView key={pieceId} piece={piece} />;
+						return <CheckboxField key={pieceId} pieceId={pieceId} />;
 					case "text":
-						return <TextPieceView key={pieceId} piece={piece} />;
+						return <TextField key={pieceId} pieceId={pieceId} />;
 					case "button":
-						return <ButtonPieceView key={pieceId} piece={piece} />;
+						return <ButtonField key={pieceId} pieceId={pieceId} />;
 					case "dropdown":
-						return <DropdownPieceView key={pieceId} piece={piece} />;
+						return <DropdownField key={pieceId} pieceId={pieceId} />;
 					case "image":
-						return <ImagePieceView key={pieceId} piece={piece} />;
+						return <ImageField key={pieceId} pieceId={pieceId} />;
 					default:
 						return null;
 				}
 			})}
-		</div>
+		</ModuleShell>
 	);
 }
 
@@ -648,32 +623,11 @@ const MODULE_VIEWS = {
 	damageHeal: DamageHealModule,
 };
 
-// Renders one module with the view matching its type. Also used by the layout
-// editor and the card previews, which show the same tiles in a display-only
-// context — they pass no cardId, which is what hides the row +/− controls.
+// Renders one module with the view matching its type. The layout editor and
+// card previews pass no cardId, which is what hides the row +/− controls.
 export function ModuleView({ module, cardId = null }) {
 	const View = MODULE_VIEWS[module.type] || GenericModule;
 	return <View module={module} cardId={cardId} />;
-}
-
-// Class + inline style for a module slot: an absolutely-positioned box at
-// its stored rect ({ x, y, width, height } in px, all multiples of 5 — see
-// grid.js). Every module is always explicitly sized, and its content scales to
-// fill the box instead of scrolling: --cs-scale (derived from the box vs the
-// type's design size) drives every font/padding inside the module, so resizing
-// the box grows or shrinks the content with it (see CharacterSheetStyles.css).
-export function moduleSlotProps(rect, type) {
-	return {
-		className: "cs-module-slot",
-		style: {
-			position: "absolute",
-			left: rect.x,
-			top: rect.y,
-			width: rect.width,
-			height: rect.height,
-			"--cs-scale": getModuleContentScale(rect, type),
-		},
-	};
 }
 
 // Header inline style for a card's own chosen color (falls back to the
@@ -685,102 +639,102 @@ export function cardHeaderStyle(card) {
 	return { backgroundColor: card.headerColor, color: getContrastTextColor(card.headerColor) };
 }
 
-// Class + inline var for a card's own chosen module background — see the
-// .cs-card-body--custom-module-bg rule in CharacterSheetStyles.css, which
-// wins over every per-type/-ability .cs-module background because it's a
-// two-class selector against their one.
-export function cardBodyProps(card, baseClassName) {
-	if (!card.moduleBgColor) {
-		return { className: baseClassName, style: undefined };
-	}
-	return {
-		className: `${baseClassName} cs-card-body--custom-module-bg`,
-		style: { "--cs-module-bg-override": card.moduleBgColor },
-	};
+// px box of a module slot inside its card's module grid.
+export function moduleSlotStyle(rect) {
+	const box = rectToPx(rect);
+	return { position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height };
 }
 
-// One card on the canvas: navy header + this page's arrangement of its modules,
-// each an absolutely-positioned box at its stored rect. itemRef/itemStyle place
-// this card on the page canvas at its own stored rect, when provided by the caller.
-//
-// The header is always the card's move handle (onHeaderPointerDown, supplied
-// by the page canvas) and always opens Edit Layout on a plain click — the
-// kebab button is just a second, more obvious way in. Both live on the same
-// header specifically so there's no separate "Arrange Cards" mode: a card can
-// be repositioned or resized at any time, right from the live sheet. The
-// button stops the pointerdown from bubbling so pressing it never also
-// starts a drag.
-//
-// When the layout's header is tucked away (showHeader false — see the
-// layout field), none of that changes except when it's visible: instead of
-// always sitting above the body in normal flow, it floats over the body
-// (see .cs-card-header--floating) and only drops into view after the cursor
-// rests on the card for HEADER_REVEAL_DELAY, hiding again the instant the
-// cursor leaves. That's purely a hover state, never persisted — the toggle
-// itself lives in the layout editor's controls (see CardLayoutEditor).
-export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPointerDown, itemStyle, dragging = false }) {
-	const { sheet } = useCharacterSheet();
-	const card = sheet.cards[layout.cardId];
-	const showHeader = layout.showHeader !== false;
-	const [headerRevealed, setHeaderRevealed] = useState(false);
-	const revealTimerRef = useRef(null);
-
-	useEffect(() => () => clearTimeout(revealTimerRef.current), []);
-
-	const handlePointerEnter = () => {
-		if (showHeader) {
-			return;
-		}
-		revealTimerRef.current = setTimeout(() => setHeaderRevealed(true), HEADER_REVEAL_DELAY);
-	};
-	const handlePointerLeave = () => {
-		clearTimeout(revealTimerRef.current);
-		setHeaderRevealed(false);
-	};
-
-	const moduleIds = card
-		? layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId])
-		: [];
-	if (!card) {
-		return null;
-	}
-	const bodyProps = cardBodyProps(card, "cs-card-body");
-	const floating = !showHeader;
+// A card's face — header plus its modules at their grid rects — at whatever
+// position `style` gives it. Shared by the live canvas and every preview, so
+// a card looks identical everywhere it's drawn.
+export function CardFace({
+	card,
+	layout,
+	style,
+	className = "",
+	cardId = null,
+	onHeaderPointerDown,
+	onMenu,
+	showGrid = false,
+}) {
+	const moduleIds = layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId]);
 	return (
-		<section
-			className={`cs-card${dragging ? " cs-card--dragging" : ""}`}
-			style={itemStyle}
-			onPointerEnter={handlePointerEnter}
-			onPointerLeave={handlePointerLeave}
-		>
-			<header
-				className={`cs-card-header${floating ? ` cs-card-header--floating${headerRevealed ? " cs-card-header--visible" : ""}` : ""}`}
-				style={cardHeaderStyle(card)}
-				onPointerDown={onHeaderPointerDown}
-			>
-				<span className="cs-card-title">{card.title}</span>
+		<section className={`cs-card ${className}`} style={style} data-card-type={card.type}>
+			<header className="cs-card-header" style={cardHeaderStyle(card)} onPointerDown={onHeaderPointerDown}>
+				<span className="cs-card-title" title={card.title}>
+					{card.title}
+				</span>
 				<button
 					type="button"
 					className="cs-card-header-menu-btn"
-					aria-label="Edit Layout"
-					title="Edit Layout"
+					aria-label={`${card.title} options`}
+					title="Card options"
 					onPointerDown={(event) => event.stopPropagation()}
-					onClick={onEditLayout}
+					onClick={onMenu}
+					tabIndex={onMenu ? 0 : -1}
 				>
 					<KebabIcon />
 				</button>
 			</header>
-			<div className={bodyProps.className} style={bodyProps.style}>
-				{moduleIds.map((moduleId) => {
-					const module = card.modules[moduleId];
-					const slot = moduleSlotProps(layout.moduleRects[moduleId], module.type);
-					return (
-						<div key={moduleId} className={slot.className} style={slot.style}>
-							<ModuleView module={module} cardId={card.id} />
+			<div className={`cs-card-body${showGrid ? " cs-card-body--grid" : ""}`}>
+				<div className="cs-module-grid">
+					{moduleIds.map((moduleId) => (
+						<div
+							key={moduleId}
+							className="cs-module-slot"
+							data-module-type={card.modules[moduleId].type}
+							style={moduleSlotStyle(layout.moduleRects[moduleId])}
+						>
+							<ModuleView module={card.modules[moduleId]} cardId={cardId} />
 						</div>
-					);
-				})}
+					))}
+				</div>
 			</div>
 		</section>
+	);
+}
+
+// Size-only style for a card drawn in normal flow (previews, the gallery).
+export function staticCardStyle(layout) {
+	const box = rectToPx({ x: 0, y: 0, w: layout.w, h: layout.h });
+	return { position: "relative", width: box.width, height: box.height };
+}
+
+// A card drawn in normal flow at its default size and arrangement — for
+// previews of cards that aren't placed yet. Callers wrap it in a
+// SheetPreviewProvider so nothing in it can edit the real sheet. It carries
+// its own theme because previews can render outside .cs-page (dialogs portal
+// to <body>).
+export function CardPreview({ card }) {
+	const layout = buildDefaultLayout(card);
+	return (
+		<div className="cs-theme" style={tokenCssVars()}>
+			<CardFace card={card} layout={layout} style={staticCardStyle(layout)} />
+		</div>
+	);
+}
+
+// One card on the page canvas at its stored grid rect. The header is the
+// card's move handle (onHeaderPointerDown, supplied by the canvas); the kebab
+// opens the card's layout editor.
+export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPointerDown, rect, dragging = false, showGrid }) {
+	const { sheet } = useCharacterSheet();
+	const card = sheet.cards[layout.cardId];
+	if (!card) {
+		return null;
+	}
+	const box = rectToPx(rect || layout);
+	return (
+		<CardFace
+			card={card}
+			layout={layout}
+			cardId={card.id}
+			className={dragging ? "cs-card--dragging" : ""}
+			style={{ position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height }}
+			onHeaderPointerDown={onHeaderPointerDown}
+			onMenu={onEditLayout}
+			showGrid={showGrid}
+		/>
 	);
 }

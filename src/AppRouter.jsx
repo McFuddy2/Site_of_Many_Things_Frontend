@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import Header from "./components/Header";
 import FooterBar from "./components/FooterBar";
@@ -19,6 +19,10 @@ import InitiativePage from "./pages/InitiativePage";
 import SpellSearchPage from "./pages/SpellSearchPage";
 import TheLibrary from "./pages/TheLibrary";
 import CharacterSheetPage from "./pages/CharacterSheetPage";
+
+// Dev-only audit page for the Character Sheet's card sizing. The DEV check is
+// static, so production builds drop this import (and its chunk) entirely.
+const CharacterSheetGalleryPage = import.meta.env.DEV ? lazy(() => import("./pages/CharacterSheetGalleryPage")) : null;
 
 import ArticlesIndexPage from "./pages/ArticlesIndexPage";
 import ArticlePage from "./pages/ArticlePage";
@@ -76,6 +80,16 @@ function AppContent() {
           <Route path="/spell-search" element={<SpellSearchPage />} />
           <Route path="/library" element={<TheLibrary />} />
           <Route path="/character-sheet" element={<CharacterSheetPage />} />
+          {CharacterSheetGalleryPage && (
+            <Route
+              path="/character-sheet/gallery"
+              element={
+                <Suspense fallback={null}>
+                  <CharacterSheetGalleryPage />
+                </Suspense>
+              }
+            />
+          )}
 
 
           <Route path="/profile" element={<ProfilePage />} />

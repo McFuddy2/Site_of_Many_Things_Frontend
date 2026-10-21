@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { createSheet } from "../../utils/character_sheet/schema";
+import { createSheet, SHEET_VERSION } from "../../utils/character_sheet/schema";
 import { buildPieceIndex } from "../../utils/character_sheet/references";
 import {
 	addPage,
@@ -10,23 +10,23 @@ import {
 	insertExistingCardOnPage,
 	removeCardFromPage,
 	deleteCard,
-	setLayoutShowHeader,
+	setCardTitle,
 	setCardHeaderColor,
-	setCardModuleColor,
-	setVariableValue,
-	setCheckboxValue,
-	setTextPlain,
-	setDropdownSelection,
-	setImageSrc,
+	setModuleColor,
+	setCardModulesColor,
+	setPieceValue,
 	addModuleRow,
 	removeModuleRow,
 	pressButton,
 	setLayoutModuleOrder,
 	setCardLayoutArrangement,
 	setPageArrangement,
-	migrateSheet,
 } from "../../utils/character_sheet/sheetOps";
-import { getSavedCharacterSheets, upsertCharacterSheet } from "../../utils/characterSheetStorage";
+import {
+	getSavedCharacterSheets,
+	upsertCharacterSheet,
+	discardLegacyCharacterSheets,
+} from "../../utils/characterSheetStorage";
 
 // The whole sheet lives in one reducer-managed tree. Because cross-card references
 // resolve at render time through pieceIndex, any change to a source piece
@@ -34,9 +34,13 @@ import { getSavedCharacterSheets, upsertCharacterSheet } from "../../utils/chara
 
 const CharacterSheetContext = createContext(null);
 
+// A saved sheet from any other version is dropped and a fresh one started —
+// the format change to grid units was never shipped, so there's nothing to
+// migrate (see CHARACTER_SHEETS_STORAGE_KEY).
 function loadInitialSheet() {
-	const saved = getSavedCharacterSheets();
-	return saved.length ? migrateSheet(saved[0]) : createSheet();
+	discardLegacyCharacterSheets();
+	const saved = getSavedCharacterSheets().find((sheet) => sheet?.version === SHEET_VERSION);
+	return saved || createSheet();
 }
 
 function sheetReducer(sheet, action) {
@@ -49,34 +53,28 @@ function sheetReducer(sheet, action) {
 			return setPageName(sheet, action.pageId, action.name);
 		case "setPageColor":
 			return setPageColor(sheet, action.pageId, action.color);
+		case "setCardTitle":
+			return setCardTitle(sheet, action.cardId, action.title);
 		case "setCardHeaderColor":
 			return setCardHeaderColor(sheet, action.cardId, action.color);
-		case "setCardModuleColor":
-			return setCardModuleColor(sheet, action.cardId, action.color);
+		case "setModuleColor":
+			return setModuleColor(sheet, action.cardId, action.moduleId, action.color);
+		case "setCardModulesColor":
+			return setCardModulesColor(sheet, action.cardId, action.color);
 		case "addCardToPage":
-			return addCardToPage(sheet, action.pageId, action.card);
+			return addCardToPage(sheet, action.pageId, action.card, { maxCols: action.maxCols });
 		case "insertExistingCard":
-			return insertExistingCardOnPage(sheet, action.pageId, action.cardId);
+			return insertExistingCardOnPage(sheet, action.pageId, action.cardId, { maxCols: action.maxCols });
 		case "removeCardFromPage":
 			return removeCardFromPage(sheet, action.pageId, action.layoutId);
-		case "setLayoutShowHeader":
-			return setLayoutShowHeader(sheet, action.pageId, action.layoutId, action.showHeader);
 		case "deleteCard": {
 			// The UI checks canDeleteCard before dispatching this, so ok should
 			// always be true here — this is just a safety net against stale state.
 			const result = deleteCard(sheet, action.cardId);
 			return result.ok ? result.sheet : sheet;
 		}
-		case "setVariableValue":
-			return setVariableValue(sheet, action.pieceId, action.value);
-		case "setCheckboxValue":
-			return setCheckboxValue(sheet, action.pieceId, action.value);
-		case "setTextPlain":
-			return setTextPlain(sheet, action.pieceId, action.text);
-		case "setDropdownSelection":
-			return setDropdownSelection(sheet, action.pieceId, action.selectedIndex);
-		case "setImageSrc":
-			return setImageSrc(sheet, action.pieceId, action.src);
+		case "setPieceValue":
+			return setPieceValue(sheet, action.pieceId, action.value);
 		case "addModuleRow":
 			return addModuleRow(sheet, action.cardId, action.moduleId);
 		case "removeModuleRow":
@@ -89,7 +87,7 @@ function sheetReducer(sheet, action) {
 			return setCardLayoutArrangement(sheet, action.pageId, action.layoutId, {
 				moduleOrder: action.moduleOrder,
 				moduleRects: action.moduleRects,
-				rectOffset: action.rectOffset,
+				cardRect: action.cardRect,
 			});
 		case "setPageArrangement":
 			return setPageArrangement(sheet, action.pageId, { rects: action.rects });
@@ -110,7 +108,7 @@ export function CharacterSheetProvider({ children }) {
 		return () => clearTimeout(saveTimer.current);
 	}, [sheet]);
 
-	const value = useMemo(() => ({ sheet, dispatch, pieceIndex }), [sheet, pieceIndex]);
+	const value = useMemo(() => ({ sheet, dispatch, pieceIndex, readOnly: false }), [sheet, pieceIndex]);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }
 
@@ -127,6 +125,6 @@ export function useCharacterSheet() {
 // references normally, but dispatches are no-ops so nothing can be edited.
 export function SheetPreviewProvider({ sheet, children }) {
 	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
-	const value = useMemo(() => ({ sheet, dispatch: () => {}, pieceIndex }), [sheet, pieceIndex]);
+	const value = useMemo(() => ({ sheet, dispatch: () => {}, pieceIndex, readOnly: true }), [sheet, pieceIndex]);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }

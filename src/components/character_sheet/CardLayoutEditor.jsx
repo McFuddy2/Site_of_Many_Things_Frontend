@@ -1,113 +1,98 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ModuleView, cardHeaderStyle, cardBodyProps } from "./CharacterSheetCard";
+import { ModuleView, cardHeaderStyle } from "./CharacterSheetCard";
 import { useCharacterSheet } from "./CharacterSheetContext";
 import useLayoutCanvas from "./canvas/useLayoutCanvas";
 import LayoutCanvas from "./canvas/LayoutCanvas";
 import PrecisionPanel from "./canvas/PrecisionPanel";
 import { canDeleteCard } from "../../utils/character_sheet/references";
-import { countCardPlacements, fitCardToModules, scaleModulesToContent } from "../../utils/character_sheet/sheetOps";
-import { GRID_SIZE } from "../../utils/character_sheet/grid";
+import { countCardPlacements } from "../../utils/character_sheet/sheetOps";
+import { rectToPx, fitCardSize } from "../../utils/character_sheet/grid";
+import { getModuleSizing } from "../../utils/character_sheet/moduleTypes";
+import { GRID_UNIT, CARD_CHROME_W, CARD_CHROME_H } from "../../utils/character_sheet/layoutConstants";
 import { RESIZE_HANDLES, resizeRect } from "../../utils/character_sheet/snapping";
-import {
-	getModuleContentScale,
-	getModuleMinSize,
-	CARD_MIN_WIDTH,
-	CARD_MIN_HEIGHT,
-	CARD_HEADER_HEIGHT,
-	CARD_BORDER_WIDTH,
-} from "../../utils/character_sheet/layoutConstants";
 
-// Per-card layout editing (the mockup's "Edit Layout" flow, reached either by
-// clicking the card's header or its "Edit Layout" button — see
-// CharacterSheetCard). Modules get the same direct-manipulation model as
-// before — select, move, resize from 8 handles, multi-select, align/
-// distribute, alignment guides — via the shared useLayoutCanvas hook.
+// Per-card layout editing (the "Edit Layout" flow, opened from a card's
+// header or its ⋮). Modules get direct manipulation — select, move, resize
+// from 8 handles, multi-select, align/distribute, alignment guides — via the
+// shared useLayoutCanvas hook, which works in px: the editor hands it each
+// module's grid cells scaled to px (unit * GRID_UNIT) and rounds back to
+// whole units on Confirm, so everything still lands on the grid.
 //
-// The card itself is also directly resizable now, from its own 8 handles
-// (beginCardResize below, outside useLayoutCanvas since the card isn't one of
-// its tracked items): dragging one rescales every module to fill the new
-// size, keeping their relative layout (see scaleModulesToContent). Whichever
-// direction it goes — the user resizing the card, or the user rearranging
-// modules until the group's bounding box changes — the card is always
-// refitted live to exactly GRID_SIZE of margin around its modules (see
-// fitCardToModules), growing or shrinking as needed. There's no independent
-// "manual card size" to fall out of sync with: the card's size *is* the fit.
-//
-// All changes happen on a draft; card data is never touched. Confirm commits
-// through the reducer, Exit without Saving drops it.
+// The card's own handles resize the card itself (never below its modules'
+// bounding box); modules keep their size. All changes happen on a draft;
+// Confirm commits through the reducer, Exit without Saving drops it.
 
-export default function CardLayoutEditor({ pageId, layout, card, onClose, itemStyle, showGrid, onNavigateToCard }) {
+const unitToPxRect = (rect) => ({
+	x: rect.x * GRID_UNIT,
+	y: rect.y * GRID_UNIT,
+	width: rect.w * GRID_UNIT,
+	height: rect.h * GRID_UNIT,
+});
+
+const pxToUnitRect = (rect) => {
+	const x = Math.max(0, Math.round(rect.x / GRID_UNIT));
+	const y = Math.max(0, Math.round(rect.y / GRID_UNIT));
+	return {
+		x,
+		y,
+		w: Math.max(1, Math.round((rect.x + rect.width) / GRID_UNIT) - x),
+		h: Math.max(1, Math.round((rect.y + rect.height) / GRID_UNIT) - y),
+	};
+};
+
+export default function CardLayoutEditor({ pageId, layout, card, onClose, showGrid, onNavigateToCard }) {
 	const { sheet, dispatch } = useCharacterSheet();
 
-	// Each module's resize floor depends on its type (see getModuleMinSize): a
-	// module can't be dragged below the size at which its content — which scales
-	// with the box — is still readable and interactive.
+	// A module can't be dragged below its type's minimum (see moduleTypes.js).
 	const minSizeFor = useCallback(
-		(moduleId) => getModuleMinSize(card.modules[moduleId]?.type),
+		(moduleId, candidateWidth) => {
+			const module = card.modules[moduleId];
+			const w = candidateWidth ? Math.max(1, Math.round(candidateWidth / GRID_UNIT)) : undefined;
+			const sizing = getModuleSizing(module, w);
+			return { width: sizing.minW * GRID_UNIT, height: getModuleSizing(module, Math.max(w || 0, sizing.minW)).minH * GRID_UNIT };
+		},
 		[card]
 	);
 
+	const initialRects = useMemo(
+		() => Object.fromEntries(Object.entries(layout.moduleRects || {}).map(([id, rect]) => [id, unitToPxRect(rect)])),
+		[layout.moduleRects]
+	);
+
 	// A module is part of this layout exactly when it has a rect, so removing
-	// one is just dropping its rect. That keeps membership and geometry in a
-	// single piece of state, which in turn means the canvas's undo stack
-	// covers removals too — Undo after a remove brings the module back where it
-	// was, with no second history to keep in sync.
-	const canvas = useLayoutCanvas({
-		initialRects: layout.moduleRects || {},
-		minSize: minSizeFor,
-	});
+	// one is just dropping its rect — which keeps removals on the canvas's own
+	// undo stack.
+	const canvas = useLayoutCanvas({ initialRects, minSize: minSizeFor, gridSize: GRID_UNIT });
 
 	const moduleIds = useMemo(
 		() => layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && canvas.rects[moduleId]),
 		[layout.moduleOrder, card.modules, canvas.rects]
 	);
 
-	const activeModuleRects = useMemo(
-		() => Object.fromEntries(moduleIds.map((moduleId) => [moduleId, canvas.rects[moduleId]])),
+	const unitModuleRects = useMemo(
+		() => Object.fromEntries(moduleIds.map((moduleId) => [moduleId, pxToUnitRect(canvas.rects[moduleId])])),
 		[moduleIds, canvas.rects]
 	);
 
-	// Whether this placement's header is pinned open (reserving its own space,
-	// same as always) or floats over the body instead — see the showHeader
-	// layout field and setLayoutShowHeader. The editor always shows it either
-	// way (there's no hover-to-reveal here, unlike the live card in
-	// CharacterSheetCard) so there's always a place to see the title/reach the
-	// controls while editing; only whether it eats into bodyHeight changes.
-	const showHeader = layout.showHeader !== false;
-
-	// The card's own size is never stored independently — it's always exactly
-	// this fit (see fitCardToModules), whether that's because modules were
-	// dragged bigger/smaller or the card's own handles were (see
-	// beginCardResize, which rescales the modules to match instead of the
-	// other way around).
-	const cardFit = fitCardToModules(card, activeModuleRects, showHeader);
-	const bodyWidth = cardFit.width - CARD_BORDER_WIDTH;
-	const bodyHeight = cardFit.height - (showHeader ? CARD_HEADER_HEIGHT : 0) - CARD_BORDER_WIDTH;
+	// The card's draft rect (units): its own position/size, grown live to fit
+	// whatever the modules currently need.
+	const [cardDraft, setCardDraft] = useState({ x: layout.x, y: layout.y, w: layout.w, h: layout.h });
+	const fit = fitCardSize(card.title, unitModuleRects);
+	const cardRect = { ...cardDraft, w: Math.max(cardDraft.w, fit.w), h: Math.max(cardDraft.h, fit.h) };
+	const cardBox = rectToPx(cardRect);
+	const gridWidth = (cardRect.w - CARD_CHROME_W) * GRID_UNIT;
+	const gridHeight = (cardRect.h - CARD_CHROME_H) * GRID_UNIT;
 
 	// null | "confirm" | "blocked" | "confirmRemove" — which delete dialog (if any) is open.
 	const [deleteDialog, setDeleteDialog] = useState(null);
 	const [colorPanelOpen, setColorPanelOpen] = useState(false);
 	// More than one page layout points at this card's data, so "Delete" here
-	// should only ever detach this one placement — the card's data and its
-	// other copies are never touched (see countCardPlacements).
+	// should only ever detach this one placement.
 	const hasOtherCopies = countCardPlacements(sheet, card.id) > 1;
 
-	// Dragging the card's own nw/n/w/… handles can shift its origin as well as
-	// its size (see resizeRect) — this is that shift, relative to the layout's
-	// stored rect. Purely a draft value: Confirm folds it into the stored rect
-	// via rectOffset, Exit without Saving just lets it evaporate.
-	const [cardOffset, setCardOffset] = useState({ x: 0, y: 0 });
-	const cardOffsetRef = useRef(cardOffset);
-	cardOffsetRef.current = cardOffset;
-
-	const wrapLeft = (itemStyle.left || 0) + cardOffset.x;
-	const wrapTop = (itemStyle.top || 0) + cardOffset.y;
-
 	// Which side of the card the floating toolbar docks to: whichever side has
-	// more room in the viewport, so it reads on-screen instead of running off
-	// the edge — a card sitting in the right half of the page gets its
-	// toolbar on the left, and vice versa.
+	// more room in the viewport.
 	const wrapRef = useRef(null);
 	const [toolbarSide, setToolbarSide] = useState("right");
 	useLayoutEffect(() => {
@@ -122,20 +107,15 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 		updateSide();
 		window.addEventListener("resize", updateSide);
 		return () => window.removeEventListener("resize", updateSide);
-	}, [wrapLeft, cardFit.width]);
+	}, [cardBox.left, cardBox.width]);
 
 	const handleRemove = (moduleId) => {
 		const { [moduleId]: removed, ...rest } = canvas.rects;
 		canvas.commitRects(rest);
 	};
 
-	// Dragging one of the card's own resize handles: rescales every module to
-	// fill the resulting content box (see scaleModulesToContent), so the card
-	// following your gesture is exactly what "resizing the card" needs to mean
-	// once its size can no longer be set independently of its modules.
-	// Rescales from the gesture's *starting* rects every frame (not the
-	// previous frame's result), so repeated scaling never compounds rounding
-	// drift the way accumulating deltas would.
+	// The card's own resize handles: change the card's cells (snapped to whole
+	// units, never below its modules' fit), leaving the modules alone.
 	const beginCardResize = useCallback(
 		(handle) => (event) => {
 			if (event.button !== 0) {
@@ -150,32 +130,15 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 			} catch {
 				// Pointer already released; nothing to capture.
 			}
-
-			const startModuleRects = activeModuleRects;
-			const startOffset = cardOffsetRef.current;
-			const startCardRect = { x: 0, y: 0, width: cardFit.width, height: cardFit.height };
 			const start = { x: event.clientX, y: event.clientY };
-			const minWidth = CARD_MIN_WIDTH;
-			const minHeight = CARD_MIN_HEIGHT;
-			const headerSpace = showHeader ? CARD_HEADER_HEIGHT : 0;
+			const startRect = unitToPxRect(cardRect);
+			const minPx = { minWidth: fit.w * GRID_UNIT, minHeight: fit.h * GRID_UNIT };
 
-			const resolve = (dx, dy) => {
-				const nextCardRect = resizeRect(startCardRect, handle, { dx, dy }, { minWidth, minHeight });
-				const targetWidth = nextCardRect.width - CARD_BORDER_WIDTH - GRID_SIZE * 2;
-				const targetHeight = nextCardRect.height - headerSpace - CARD_BORDER_WIDTH - GRID_SIZE * 2;
-				const scaled = scaleModulesToContent(startModuleRects, card.modules, targetWidth, targetHeight);
-				const pageX = Math.max(0, (itemStyle.left || 0) + startOffset.x + nextCardRect.x);
-				const pageY = Math.max(0, (itemStyle.top || 0) + startOffset.y + nextCardRect.y);
-				const offset = { x: pageX - (itemStyle.left || 0), y: pageY - (itemStyle.top || 0) };
-				return { scaled, offset };
+			const resolve = (moveEvent) => {
+				const next = resizeRect(startRect, handle, { dx: moveEvent.clientX - start.x, dy: moveEvent.clientY - start.y }, minPx);
+				return pxToUnitRect(next);
 			};
-
-			const handleMove = (moveEvent) => {
-				const { scaled, offset } = resolve(moveEvent.clientX - start.x, moveEvent.clientY - start.y);
-				canvas.setRects(scaled);
-				setCardOffset(offset);
-			};
-
+			const handleMove = (moveEvent) => setCardDraft(resolve(moveEvent));
 			const handleUp = (upEvent) => {
 				target.removeEventListener("pointermove", handleMove);
 				target.removeEventListener("pointerup", handleUp);
@@ -184,18 +147,12 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 				} catch {
 					// Already released.
 				}
-				const { scaled, offset } = resolve(upEvent.clientX - start.x, upEvent.clientY - start.y);
-				// commitRectsFrom (not commitRects): by now canvas.rects is the
-				// last live-preview frame, not the state from before this resize
-				// started — the snapshot Undo actually needs to land on.
-				canvas.commitRectsFrom(startModuleRects, scaled);
-				setCardOffset(offset);
+				setCardDraft(resolve(upEvent));
 			};
-
 			target.addEventListener("pointermove", handleMove);
 			target.addEventListener("pointerup", handleUp);
 		},
-		[activeModuleRects, cardFit.width, cardFit.height, card, canvas, itemStyle.left, itemStyle.top, showHeader]
+		[cardRect, fit.w, fit.h]
 	);
 
 	const handleConfirm = () => {
@@ -204,8 +161,8 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 			pageId,
 			layoutId: layout.id,
 			moduleOrder: moduleIds,
-			moduleRects: canvas.rects,
-			rectOffset: cardOffset,
+			moduleRects: unitModuleRects,
+			cardRect,
 		});
 		onClose();
 	};
@@ -214,8 +171,6 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 
 	const handleDeleteClick = () => {
 		if (hasOtherCopies) {
-			// Data isn't being touched, just this one placement, so the
-			// cross-card reference guard doesn't apply here.
 			setDeleteDialog("confirmRemove");
 			return;
 		}
@@ -234,54 +189,51 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 		onClose();
 	};
 
-	const bodyProps = cardBodyProps(card, `cs-card-body cs-canvas--flush${showGrid ? " cs-canvas--grid" : ""}`);
+	const moduleColor = card.moduleOrder.map((id) => card.modules[id]?.color).find(Boolean) || null;
 
 	return (
 		<div
 			className="cs-layout-editor-wrap"
-			style={{ position: "absolute", left: wrapLeft, top: wrapTop, width: cardFit.width }}
+			style={{ position: "absolute", left: cardBox.left, top: cardBox.top, width: cardBox.width, height: cardBox.height }}
 			ref={wrapRef}
 		>
 			<section className="cs-card cs-card--editing">
-				<header
-					className={`cs-card-header${showHeader ? "" : " cs-card-header--floating cs-card-header--visible"}`}
-					style={cardHeaderStyle(card)}
-				>
-					<span className="cs-card-title">{card.title}</span>
+				<header className="cs-card-header" style={cardHeaderStyle(card)}>
+					<span className="cs-card-title" title={card.title}>
+						{card.title}
+					</span>
 				</header>
-				<LayoutCanvas
-					canvas={canvas}
-					items={moduleIds}
-					className={bodyProps.className}
-					style={{ height: bodyHeight, width: bodyWidth, ...bodyProps.style }}
-					itemClassName="cs-layout-module-wrap cs-module-slot"
-					renderItem={(moduleId, { rect }) => (
-						<div
-							className="cs-layout-module-content"
-							style={{ "--cs-scale": getModuleContentScale(rect, card.modules[moduleId].type) }}
-						>
-							<ModuleView module={card.modules[moduleId]} />
-						</div>
-					)}
-					renderItemOverlay={(moduleId) => (
-						<button
-							type="button"
-							className="cs-layout-remove-x"
-							aria-label={`Remove ${card.modules[moduleId].label} from this layout`}
-							onClick={() => handleRemove(moduleId)}
-						>
-							x
-						</button>
-					)}
-				/>
+				<div className="cs-card-body">
+					<LayoutCanvas
+						canvas={canvas}
+						items={moduleIds}
+						className={`cs-module-grid cs-canvas--flush${showGrid ? " cs-canvas--grid" : ""}`}
+						style={{ width: gridWidth, height: gridHeight }}
+						itemClassName="cs-layout-module-wrap"
+						renderItem={(moduleId) => (
+							<div className="cs-layout-module-content">
+								<ModuleView module={card.modules[moduleId]} />
+							</div>
+						)}
+						renderItemOverlay={(moduleId) => (
+							<button
+								type="button"
+								className="cs-layout-remove-x"
+								aria-label={`Remove ${card.modules[moduleId].label} from this layout`}
+								onClick={() => handleRemove(moduleId)}
+							>
+								x
+							</button>
+						)}
+					/>
+				</div>
 				{moduleIds.length === 0 && (
 					<p className="cs-empty">Every module is removed from this layout. Undo to bring them back.</p>
 				)}
 			</section>
 
-			{/* The card's own resize handles — sit on the wrap (which is sized to
-			    match the card exactly, see the width/height above) rather than
-			    inside .cs-card, whose overflow:hidden would clip them. */}
+			{/* The card's own resize handles — on the wrap rather than inside
+			    .cs-card, whose overflow: hidden would clip them. */}
 			{RESIZE_HANDLES.map((handle) => (
 				<div
 					key={handle.id}
@@ -292,10 +244,6 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 				/>
 			))}
 
-			{/* Docked outside the card's own box (see .cs-layout-editor-wrap) so these
-			    controls never affect the card's internal layout, with a z-index high
-			    enough to sit on top of a neighboring card if there's no room beside it.
-			    Docks to whichever side of the viewport has more room — see toolbarSide. */}
 			<footer className={`cs-layout-controls cs-layout-controls--${toolbarSide}`}>
 				<PrecisionPanel canvas={canvas} label="Module" />
 				<div className="cs-layout-controls-group">
@@ -307,17 +255,6 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 					</button>
 					<button type="button" className="cs-layout-btn cs-layout-btn--delete" onClick={handleDeleteClick}>
 						{hasOtherCopies ? "Remove from Page" : "Delete Card"}
-					</button>
-				</div>
-				<div className="cs-layout-controls-group">
-					<button
-						type="button"
-						className={`cs-precision-toggle${showHeader ? " cs-precision-toggle--on" : ""}`}
-						aria-pressed={showHeader}
-						title="When off, the header hides on the live sheet until you hover the card for a second"
-						onClick={() => dispatch({ type: "setLayoutShowHeader", pageId, layoutId: layout.id, showHeader: !showHeader })}
-					>
-						Always Show Header
 					</button>
 				</div>
 				<div className="cs-layout-controls-group">
@@ -348,24 +285,24 @@ export default function CardLayoutEditor({ pageId, layout, card, onClose, itemSt
 								</button>
 							)}
 							<label className="cs-color-field">
-								<span>Module Background</span>
+								<span>Module Color</span>
 								<input
 									type="color"
 									className="cs-color-swatch-input"
-									value={card.moduleBgColor || "#d7e6f7"}
+									value={moduleColor || "#5b9bd5"}
 									onChange={(event) =>
-										dispatch({ type: "setCardModuleColor", cardId: card.id, color: event.target.value })
+										dispatch({ type: "setCardModulesColor", cardId: card.id, color: event.target.value })
 									}
-									aria-label="Module background color"
+									aria-label="Module color"
 								/>
 							</label>
-							{card.moduleBgColor && (
+							{moduleColor && (
 								<button
 									type="button"
 									className="cs-color-field-reset"
-									onClick={() => dispatch({ type: "setCardModuleColor", cardId: card.id, color: null })}
+									onClick={() => dispatch({ type: "setCardModulesColor", cardId: card.id, color: null })}
 								>
-									Reset Module Background
+									Reset Module Colors
 								</button>
 							)}
 						</div>

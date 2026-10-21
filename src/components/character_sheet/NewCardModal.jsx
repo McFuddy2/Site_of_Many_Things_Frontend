@@ -1,87 +1,8 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-	CARD_TYPE_OPTIONS,
-	createAbilityScoresCard,
-	createAlliesCard,
-	createAppearanceCard,
-	createArmorClassCard,
-	createAttackCard,
-	createBackstoryCard,
-	createBasicDescriptionsCard,
-	createBasicInfoCard,
-	createCharacterNameCard,
-	createDeathSavesCard,
-	createEquipmentCard,
-	createFeatureCard,
-	createHealthCard,
-	createHitDiceCard,
-	createInitiativeCard,
-	createInspirationCard,
-	createMoneyCard,
-	createMovementSpeedCard,
-	createPassiveSkillsCard,
-	createPersonalityCard,
-	createProficienciesCard,
-	createProficiencyBonusCard,
-	createSavingThrowsCard,
-	createSkillsCard,
-	createSpellListCard,
-	createSpellcastingStatsCard,
-	createSymbolCard,
-	createTreasureCard,
-	getAbilityBonusPieceIds,
-} from "../../utils/character_sheet/schema";
-import { useCharacterSheet } from "./CharacterSheetContext";
-import { ModuleView } from "./CharacterSheetCard";
-
-// Cards whose numbers derive from the Ability Scores card get wired to it when
-// one is already on the sheet, so their modifiers stay live; without one they're
-// created unwired and each row is just an editable number.
-function abilityWiring(sheet) {
-	const abilityCard = Object.values(sheet.cards).find((card) => card.type === "abilityScores");
-	return abilityCard ? { abilityBonusPieceIds: getAbilityBonusPieceIds(abilityCard) } : {};
-}
-
-const CARD_BUILDERS = {
-	abilityScores: createAbilityScoresCard,
-	allies: createAlliesCard,
-	appearance: createAppearanceCard,
-	armorClass: createArmorClassCard,
-	attack: createAttackCard,
-	backstory: createBackstoryCard,
-	basicDescriptions: createBasicDescriptionsCard,
-	basicInfo: createBasicInfoCard,
-	characterName: createCharacterNameCard,
-	deathSaves: createDeathSavesCard,
-	equipment: createEquipmentCard,
-	feature: createFeatureCard,
-	health: createHealthCard,
-	hitDice: createHitDiceCard,
-	initiative: createInitiativeCard,
-	inspiration: createInspirationCard,
-	money: createMoneyCard,
-	movementSpeed: createMovementSpeedCard,
-	passiveSkills: createPassiveSkillsCard,
-	personality: createPersonalityCard,
-	proficiencies: createProficienciesCard,
-	proficiencyBonus: createProficiencyBonusCard,
-	spellcastingStats: createSpellcastingStatsCard,
-	spellList: createSpellListCard,
-	symbol: createSymbolCard,
-	treasure: createTreasureCard,
-};
-
-function buildCard(typeId, sheet) {
-	if (typeId === "savingThrows") {
-		return createSavingThrowsCard(abilityWiring(sheet));
-	}
-	if (typeId === "skills") {
-		return createSkillsCard(abilityWiring(sheet));
-	}
-	const build = CARD_BUILDERS[typeId];
-	return build ? build() : null;
-}
+import { CARD_TYPE_OPTIONS, createStandardCard } from "../../utils/character_sheet/schema";
+import { useCharacterSheet, SheetPreviewProvider } from "./CharacterSheetContext";
+import { CardPreview } from "./CharacterSheetCard";
 
 // Unique cards placed on a page, excluding any already shown on the target page —
 // inserting an existing card adds a new layout entry (shared data), so offering
@@ -104,7 +25,7 @@ function eligibleCards(sheet, sourcePage, targetPageId) {
 	return cards;
 }
 
-export default function NewCardModal({ onStartCustomCard }) {
+export default function NewCardModal({ onStartCustomCard, getPageColumns }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const [open, setOpen] = useState(false);
 	const [step, setStep] = useState("type"); // type | page | card | preview
@@ -129,16 +50,16 @@ export default function NewCardModal({ onStartCustomCard }) {
 			onStartCustomCard();
 			return;
 		}
-		const card = buildCard(selectedType, sheet);
+		const card = createStandardCard(selectedType, sheet);
 		if (!card) {
 			return;
 		}
-		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card });
+		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card, maxCols: getPageColumns() });
 		setOpen(false);
 	};
 
 	const handleConfirmInsert = () => {
-		dispatch({ type: "insertExistingCard", pageId: sheet.activePageId, cardId: selectedCardId });
+		dispatch({ type: "insertExistingCard", pageId: sheet.activePageId, cardId: selectedCardId, maxCols: getPageColumns() });
 		setOpen(false);
 	};
 
@@ -286,16 +207,9 @@ export default function NewCardModal({ onStartCustomCard }) {
 								Only the arrangement of its modules can differ per page.
 							</p>
 							<div className="cs-modal-preview">
-								<section className="cs-card">
-									<header className="cs-card-header">{previewCard.title}</header>
-									<div className="cs-card-body">
-										{previewCard.moduleOrder.map((moduleId) =>
-											previewCard.modules[moduleId] ? (
-												<ModuleView key={moduleId} module={previewCard.modules[moduleId]} />
-											) : null
-										)}
-									</div>
-								</section>
+								<SheetPreviewProvider sheet={sheet}>
+									<CardPreview card={previewCard} />
+								</SheetPreviewProvider>
 							</div>
 							<div className="cs-modal-actions">
 								<Dialog.Close asChild>
