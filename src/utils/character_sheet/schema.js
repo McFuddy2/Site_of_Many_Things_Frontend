@@ -77,10 +77,19 @@ export function createImagePiece({ label = "", src = "", alt = "" } = {}) {
 // Options beyond type/label/pieces (ability, tone, suffix, signed, columns…) are
 // carried through onto the module itself — they're presentation hints the module's
 // view reads (see CharacterSheetCard.jsx), not data the reference engine touches.
-// `color` is the user's colour override for the module (a base hex the view
-// derives its bar/body/border shades from), or null for its default palette.
+// `labelColor` / `bodyColor` are the user's own colours for the module's
+// label bar and its body, chosen separately; null means the default palette.
 export function createModule({ type, label = "", pieces = [], ...options }) {
-	const module = { id: makeId("module"), type, label, color: null, ...options, pieces: {}, pieceOrder: [] };
+	const module = {
+		id: makeId("module"),
+		type,
+		label,
+		labelColor: null,
+		bodyColor: null,
+		...options,
+		pieces: {},
+		pieceOrder: [],
+	};
 	for (const piece of pieces) {
 		module.pieces[piece.id] = piece;
 		module.pieceOrder.push(piece.id);

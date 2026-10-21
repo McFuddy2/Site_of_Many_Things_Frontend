@@ -43,20 +43,8 @@ export function getContrastTextColor(hex) {
 	return luminance > 0.5 ? "#16263f" : "#ffffff";
 }
 
-// A module's whole colour scheme from one chosen base colour, so any pick
-// reads as coherently as the built-in palettes: the label bar is the colour
-// itself, the body a pale tint of it, the border a deeper shade, and both
-// text colours are picked for contrast.
-export function deriveModuleShades(base) {
-	if (!parseHex(base)) {
-		return null;
-	}
-	const bg = mixHex(base, "#ffffff", 0.78);
-	return {
-		bar: base,
-		barText: getContrastTextColor(base),
-		bg,
-		border: mixHex(base, "#000000", 0.18),
-		text: getContrastTextColor(bg),
-	};
+// The border that goes with a chosen module body colour: a deeper shade of
+// it, so the module's edge still reads against the card.
+export function borderForBody(body) {
+	return parseHex(body) ? mixHex(body, "#000000", 0.25) : null;
 }

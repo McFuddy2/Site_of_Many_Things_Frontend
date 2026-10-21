@@ -63,7 +63,7 @@ function sheetReducer(sheet, action) {
 		case "setCardHeaderColor":
 			return setCardHeaderColor(sheet, action.cardId, action.color);
 		case "setModuleColor":
-			return setModuleColor(sheet, action.cardId, action.moduleId, action.color);
+			return setModuleColor(sheet, action.cardId, action.moduleId, action.color, action.part);
 		case "setItemsColor":
 			return setItemsColor(sheet, action.items, action.color);
 		case "addModuleToCard":

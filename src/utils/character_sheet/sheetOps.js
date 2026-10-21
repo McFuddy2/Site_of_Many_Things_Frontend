@@ -226,20 +226,31 @@ export function setCardHeaderColor(sheet, cardId, color) {
 	return replaceCard(sheet, { ...card, headerColor: color });
 }
 
-export function setModuleColor(sheet, cardId, moduleId, color) {
+// A module's label bar and its body are coloured separately: `part` is
+// "label", "body", or "all" (both — what Reset Color uses).
+export function setModuleColor(sheet, cardId, moduleId, color, part = "all") {
 	const module = sheet.cards[cardId]?.modules[moduleId];
 	if (!module) {
 		return sheet;
 	}
-	return replaceModule(sheet, cardId, { ...module, color });
+	// `color` is the old single-colour field; it's dropped on any colour edit.
+	const { color: oldSingleColor, ...next } = module;
+	if (part === "label" || part === "all") {
+		next.labelColor = color;
+	}
+	if (part === "body" || part === "all") {
+		next.bodyColor = color;
+	}
+	return replaceModule(sheet, cardId, next);
 }
 
 // Colours several things in one step: `items` are { cardId } (the card's
-// header) or { cardId, moduleId } (that module). null resets to the default.
+// header) or { cardId, moduleId, part } (that module's label, body, or both).
+// null resets to the default.
 export function setItemsColor(sheet, items, color) {
 	let next = sheet;
-	for (const { cardId, moduleId } of items) {
-		next = moduleId ? setModuleColor(next, cardId, moduleId, color) : setCardHeaderColor(next, cardId, color);
+	for (const { cardId, moduleId, part = "all" } of items) {
+		next = moduleId ? setModuleColor(next, cardId, moduleId, color, part) : setCardHeaderColor(next, cardId, color);
 	}
 	return next;
 }

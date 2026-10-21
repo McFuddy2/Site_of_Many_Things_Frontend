@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getModuleRole } from "../../utils/character_sheet/moduleTypes";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
-import { getContrastTextColor, deriveModuleShades } from "../../utils/character_sheet/colors";
+import { getContrastTextColor, borderForBody } from "../../utils/character_sheet/colors";
 import { rectToPx } from "../../utils/character_sheet/grid";
 import { buildDefaultLayout } from "../../utils/character_sheet/cardLayouts";
 import { tokenCssVars } from "../../utils/character_sheet/layoutConstants";
@@ -20,29 +20,32 @@ const ABILITY_TINTS = new Set(["strength", "dexterity", "constitution", "intelli
 // Default colours: the six abilities tint their own modules (ability tiles,
 // saves, and the skills they govern), death-save rows keep their
 // success/danger tone, and everything else is coloured by its role (see the
-// --cs-role-* palette in CharacterSheetStyles.css). A user's own colour
-// (module.color) overrides all of that with shades derived from one pick.
-export function moduleColorProps(module) {
-	const shades = module.color ? deriveModuleShades(module.color) : null;
-	if (shades) {
-		return {
-			className: "cs-module--custom",
-			style: {
-				"--m-bar": shades.bar,
-				"--m-bar-text": shades.barText,
-				"--m-bg": shades.bg,
-				"--m-border": shades.border,
-				"--m-text": shades.text,
-			},
-		};
-	}
+// --cs-role-* palette in CharacterSheetStyles.css). A user's own colours
+// override that per part — the label bar (module.labelColor) and the body
+// (module.bodyColor) independently, each exactly as picked, with text
+// colours chosen for contrast and the border following the body.
+function defaultColorClass(module) {
 	if (module.ability && ABILITY_TINTS.has(module.ability)) {
-		return { className: `cs-tint--${module.ability}`, style: undefined };
+		return `cs-tint--${module.ability}`;
 	}
 	if (module.tone === "success" || module.tone === "danger") {
-		return { className: `cs-tint--${module.tone}`, style: undefined };
+		return `cs-tint--${module.tone}`;
 	}
-	return { className: `cs-role--${getModuleRole(module)}`, style: undefined };
+	return `cs-role--${getModuleRole(module)}`;
+}
+
+export function moduleColorProps(module) {
+	const style = {};
+	if (module.labelColor) {
+		style["--m-bar"] = module.labelColor;
+		style["--m-bar-text"] = getContrastTextColor(module.labelColor);
+	}
+	if (module.bodyColor) {
+		style["--m-bg"] = module.bodyColor;
+		style["--m-border"] = borderForBody(module.bodyColor);
+		style["--m-text"] = getContrastTextColor(module.bodyColor);
+	}
+	return { className: defaultColorClass(module), style: Object.keys(style).length ? style : undefined };
 }
 
 function formatSigned(value) {

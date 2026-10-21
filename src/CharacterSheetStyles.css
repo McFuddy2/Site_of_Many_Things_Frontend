@@ -1235,6 +1235,7 @@
 
 .cs-toolbar-btn,
 .cs-toolbar-color {
+	position: relative;
 	width: 32px;
 	height: 30px;
 	display: flex;
@@ -1272,13 +1273,32 @@
 }
 
 .cs-toolbar-color input {
-	width: 22px;
-	height: 22px;
+	width: 18px;
+	height: 18px;
 	padding: 0;
 	border: none;
 	border-radius: 50%;
 	background: none;
 	cursor: pointer;
+}
+
+/* A colour wheel is a swatch with a tiny word under it naming the part it
+   colours (Label / Module / Header). */
+.cs-toolbar-color {
+	width: auto;
+	min-width: 32px;
+	padding: 0 4px;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.cs-toolbar-color-caption {
+	font-size: 9px;
+	font-weight: bold;
+	line-height: 1;
+	color: #4a5670;
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 .cs-toolbar-color input::-webkit-color-swatch-wrapper {
@@ -1422,9 +1442,16 @@
 	cursor: var(--cs-paint-cursor) !important;
 }
 
-.cs-canvas--paint .cs-module-slot > *,
+/* Everything inside a module is click-through while painting, except the
+   label bar itself, so a click lands on either the label bar or the module
+   (its body) — the two parts that are coloured separately. */
+.cs-canvas--paint .cs-module *,
 .cs-canvas--paint .cs-card-header > * {
 	pointer-events: none;
+}
+
+.cs-canvas--paint .cs-module .cs-mod-label {
+	pointer-events: auto;
 }
 
 .cs-paint-banner {

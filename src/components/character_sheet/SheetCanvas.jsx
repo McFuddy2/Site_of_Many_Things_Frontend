@@ -48,7 +48,7 @@ const INTERACTIVE_SELECTOR = "input, textarea, select, button, a, label, [conten
 const HANDLE_HIT = 16; // px thickness of an edge's grab strip
 const CORNER_HIT = 20; // px square of a corner's grab area
 const TOOLBAR_HEIGHT = 40;
-const TOOLBAR_HALF_WIDTH = 86;
+const TOOLBAR_HALF_WIDTH = 104;
 const TOOLBAR_GAP = 14; // clears the selection's handles
 
 const rectOf = (layout) => ({ x: layout.x, y: layout.y, w: layout.w, h: layout.h });
@@ -604,9 +604,12 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		return { layout, moduleId: target.closest("[data-module-id]")?.dataset.moduleId || null };
 	};
 
-	// Paint Mode: every click colours what it lands on (a module, or a card's
-	// header) instead of focusing, typing or selecting — each one undo step.
-	// Runs in the capture phase so nothing inside the card ever sees the press.
+	// Paint Mode: every click colours exactly the part it lands on — a
+	// module's label bar, a module's body, or a card's header — instead of
+	// focusing, typing or selecting; each one undo step. A click on a card's
+	// empty space paints nothing (so a slightly-off click never recolours the
+	// header by accident). Runs in the capture phase so nothing inside the
+	// card ever sees the press.
 	const onPointerDownCapture = (event) => {
 		if (!paintMode || event.button !== 0 || event.target.closest("[data-canvas-ui]")) {
 			return;
@@ -617,8 +620,16 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		if (!hit) {
 			return;
 		}
-		const card = sheet.cards[hit.layout.cardId];
-		dispatch({ type: "setItemsColor", items: [{ cardId: card.id, moduleId: hit.moduleId }], color: paintColor });
+		const cardId = hit.layout.cardId;
+		let item = null;
+		if (hit.moduleId) {
+			item = { cardId, moduleId: hit.moduleId, part: event.target.closest(".cs-mod-label") ? "label" : "body" };
+		} else if (event.target.closest(".cs-card-header")) {
+			item = { cardId };
+		}
+		if (item) {
+			dispatch({ type: "setItemsColor", items: [item], color: paintColor });
+		}
 	};
 
 	// Right-click: the selection's menu. A right-click on something outside
@@ -643,12 +654,19 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		openMenu(next, event.clientX, event.clientY);
 	};
 
-	// Double-clicking a card's title renames it in place.
+	// Double-clicking a card's title renames it in place. The press captured
+	// the pointer to the canvas, which makes the browser aim the click (and
+	// double-click) at the canvas itself — so look up what's actually under
+	// the pointer rather than trusting event.target.
 	const onDoubleClick = (event) => {
-		if (paintMode || !event.target.closest(".cs-card-title")) {
+		if (paintMode) {
 			return;
 		}
-		const hit = itemAt(event.target);
+		const under = document.elementFromPoint(event.clientX, event.clientY);
+		if (!under?.closest(".cs-card-title")) {
+			return;
+		}
+		const hit = itemAt(under);
 		if (hit) {
 			setRenamingId(hit.layout.id);
 		}
@@ -789,8 +807,8 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 	// each dispatches exactly once: one action, one undo step.
 
 	// The selection as colourable items: { cardId } for a card (its header),
-	// { cardId, moduleId } for a module.
-	const selectionItems = () => {
+	// { cardId, moduleId, part } for a module.
+	const selectionItems = (part = "all") => {
 		const { sheet: currentSheet, layouts: currentLayouts, selection: current } = live.current;
 		if (current.level === "cards") {
 			return current.ids
@@ -801,14 +819,14 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		if (current.level === "modules") {
 			const layout = currentLayouts.find((each) => each.id === current.layoutId);
 			const card = layout && currentSheet.cards[layout.cardId];
-			return card ? current.ids.filter((id) => card.modules[id]).map((moduleId) => ({ cardId: card.id, moduleId })) : [];
+			return card ? current.ids.filter((id) => card.modules[id]).map((moduleId) => ({ cardId: card.id, moduleId, part })) : [];
 		}
 		return [];
 	};
 
 	const colorSelection = useCallback(
-		(color) => {
-			const items = selectionItems();
+		(color, part = "all") => {
+			const items = selectionItems(part);
 			if (items.length) {
 				dispatch({ type: "setItemsColor", items, color });
 			}
@@ -1152,6 +1170,18 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 	// the top of the selection is scrolled up against the visible area.
 	const gestureInFlight = Boolean(preview);
 	if (selectedBoxes.length && !gestureInFlight && renamingId === null) {
+		// What the colour wheels show: the selected item's own colour for that
+		// part if it has one, otherwise the bucket's current colour.
+		const firstModule =
+			selection.level === "modules" ? sheet.cards[layoutById[selection.layoutId]?.cardId]?.modules[selection.ids[0]] : null;
+		const firstCard = selection.level === "cards" ? sheet.cards[layoutById[selection.ids[0]]?.cardId] : null;
+		const colors =
+			selection.level === "modules"
+				? [
+						{ part: "label", label: "Label color", value: firstModule?.labelColor || paintColor },
+						{ part: "body", label: "Module color", value: firstModule?.bodyColor || paintColor },
+				  ]
+				: [{ part: "header", label: "Header color", value: firstCard?.headerColor || paintColor }];
 		const left = Math.min(...selectedBoxes.map((box) => box.left));
 		const right = Math.max(...selectedBoxes.map((box) => box.left + box.width));
 		const top = Math.min(...selectedBoxes.map((box) => box.top));
@@ -1169,7 +1199,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 				key="toolbar"
 				style={style}
 				placement={placement}
-				color={paintColor}
+				colors={colors}
 				onColorInput={setPaintColor}
 				onColorCommit={colorSelection}
 				paintMode={paintMode}
@@ -1233,7 +1263,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 			{paintMode ? (
 				<div className="cs-paint-banner" role="status">
 					<span className="cs-paint-swatch" style={{ backgroundColor: paintColor }} aria-hidden="true" />
-					Painting — click cards and modules to color them.
+					Painting — click a module’s label or body, or a card’s header, to color it.
 					<button type="button" className="cs-paint-stop" onClick={() => setPaintMode(false)}>
 						Done (Esc)
 					</button>

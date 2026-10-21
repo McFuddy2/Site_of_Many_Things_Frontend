@@ -290,10 +290,14 @@ const anyOverlap = (rects) => {
 	check("no module overlaps after duplicating", anyOverlap(after.moduleRects), false);
 	check("no cards overlap after the card grew", anyOverlap(Object.fromEntries(ds.pages[0].cardLayouts.map((l) => [l.id, l]))), false);
 
-	ds = ops.setItemsColor(ds, [{ cardId: attack.id }, { cardId: attack.id, moduleId: nameId }], "#a01b1b");
-	check("colours a card header and a module in one go", [ds.cards[attack.id].headerColor, ds.cards[attack.id].modules[nameId].color], ["#a01b1b", "#a01b1b"]);
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id }, { cardId: attack.id, moduleId: nameId, part: "label" }], "#a01b1b");
+	const named = () => ds.cards[attack.id].modules[nameId];
+	check("colours a card header and a module label in one go", [ds.cards[attack.id].headerColor, named().labelColor], ["#a01b1b", "#a01b1b"]);
+	check("colouring the label leaves the body alone", named().bodyColor, null);
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id, moduleId: nameId, part: "body" }], "#fbf0cd");
+	check("body colour is set exactly as picked", [named().labelColor, named().bodyColor], ["#a01b1b", "#fbf0cd"]);
 	ds = ops.setItemsColor(ds, [{ cardId: attack.id, moduleId: nameId }], null);
-	check("reset colour restores the default", ds.cards[attack.id].modules[nameId].color, null);
+	check("reset colour clears both label and body", [named().labelColor, named().bodyColor], [null, null]);
 }
 
 // --- align / distribute ---
@@ -313,10 +317,9 @@ const anyOverlap = (rects) => {
 // --- ids and colours ---
 const ids = new Set(Array.from({ length: 500 }, () => schema.makeId("piece")));
 check("ids are unique", ids.size, 500);
-const shades = colors.deriveModuleShades("#a01b1b");
-check("derived shades: bar is the base", shades.bar, "#a01b1b");
-check("derived shades: dark base gets light bar text", shades.barText, "#ffffff");
-check("derived shades: pale body gets dark text", shades.text, "#16263f");
+check("dark colours get light text", colors.getContrastTextColor("#a01b1b"), "#ffffff");
+check("pale colours get dark text", colors.getContrastTextColor("#fbf0cd"), "#16263f");
+check("a body colour's border is a deeper shade of it", colors.borderForBody("#ffffff"), "#bfbfbf");
 
 console.log(failures ? `\n${failures} FAILURES` : "\nAll tests passed");
 process.exit(failures ? 1 : 0);
