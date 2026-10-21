@@ -20,7 +20,7 @@ import { CardPreview } from "./CharacterSheetCard";
 // The card is a local draft the whole time — it only reaches the sheet (and
 // localStorage) when submitted, and "Nevermind" throws it away.
 
-const CONFIGURE_INSTRUCTIONS = {
+export const CONFIGURE_INSTRUCTIONS = {
 	abilityScore: "Set up your new stat:",
 	number: "Provide the number for this module:",
 	bigNumber: "Provide the starting value for this stat:",
@@ -83,7 +83,9 @@ function parseItemLine(line) {
 	return { name: line.slice(0, splitAt).trim(), qty: line.slice(splitAt + 1).trim() || "1" };
 }
 
-function ConfigureModuleForm({ typeId, onAdd, onBack }) {
+// Also used by "Add Module…" on an existing card (see AddModuleDialog), which
+// relabels the add button.
+export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Another" }) {
 	const { sheet, pieceIndex } = useCharacterSheet();
 	const [label, setLabel] = useState(DEFAULT_LABELS[typeId] || "");
 	const [numberValue, setNumberValue] = useState(typeId === "abilityScore" ? 10 : 0);
@@ -305,7 +307,7 @@ function ConfigureModuleForm({ typeId, onAdd, onBack }) {
 
 			<div className="cs-builder-actions">
 				<button type="button" className="cs-layout-btn cs-layout-btn--confirm" onClick={handleAdd}>
-					Add Another
+					{addLabel}
 				</button>
 				<button type="button" className="cs-layout-btn" onClick={onBack}>
 					Go Back
@@ -315,7 +317,7 @@ function ConfigureModuleForm({ typeId, onAdd, onBack }) {
 	);
 }
 
-export default function CustomCardBuilder({ onClose, getPageColumns }) {
+export default function CustomCardBuilder({ onClose, getPageColumns, onCardAdded }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const [draft, setDraft] = useState(() => createCustomCard(""));
 	const [step, setStep] = useState("name"); // name | pick | configure
@@ -346,6 +348,7 @@ export default function CustomCardBuilder({ onClose, getPageColumns }) {
 
 	const handleFinish = () => {
 		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card: draft, maxCols: getPageColumns() });
+		onCardAdded?.(draft.id);
 		onClose();
 	};
 

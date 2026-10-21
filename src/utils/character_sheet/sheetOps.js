@@ -234,17 +234,86 @@ export function setModuleColor(sheet, cardId, moduleId, color) {
 	return replaceModule(sheet, cardId, { ...module, color });
 }
 
-// Colours every module on a card at once (the interim "Card Colors" panel).
-export function setCardModulesColor(sheet, cardId, color) {
+// Colours several things in one step: `items` are { cardId } (the card's
+// header) or { cardId, moduleId } (that module). null resets to the default.
+export function setItemsColor(sheet, items, color) {
+	let next = sheet;
+	for (const { cardId, moduleId } of items) {
+		next = moduleId ? setModuleColor(next, cardId, moduleId, color) : setCardHeaderColor(next, cardId, color);
+	}
+	return next;
+}
+
+// ---------- Duplicates ----------
+
+// Places copies of cards (already cloned with fresh ids — see cloneCard) on a
+// page, each with its original's arrangement and size, at the first free
+// spot from the original's row onward, so a copy lands near its source
+// without moving anything.
+export function duplicateCards(sheet, pageId, entries, { maxCols = DEFAULT_PAGE_COLUMNS } = {}) {
+	let page = sheet.pages.find((existing) => existing.id === pageId);
+	if (!page) {
+		return sheet;
+	}
+	let next = sheet;
+	for (const { sourceLayoutId, card } of entries) {
+		const source = page.cardLayouts.find((layout) => layout.id === sourceLayoutId);
+		const original = source && next.cards[source.cardId];
+		if (!original) {
+			continue;
+		}
+		const moduleIdMap = new Map(original.moduleOrder.map((moduleId, index) => [moduleId, card.moduleOrder[index]]));
+		const moduleRects = {};
+		for (const [moduleId, rect] of Object.entries(source.moduleRects)) {
+			if (moduleIdMap.get(moduleId)) {
+				moduleRects[moduleIdMap.get(moduleId)] = rect;
+			}
+		}
+		const spot = findFreeSpot(page.cardLayouts.map(layoutRect), source.w, source.h, Math.max(maxCols, source.w), source.y);
+		const layout = createCardLayout(card, {
+			rect: spot,
+			moduleOrder: source.moduleOrder.map((moduleId) => moduleIdMap.get(moduleId)).filter(Boolean),
+			moduleRects,
+		});
+		page = { ...page, cardLayouts: [...page.cardLayouts, layout] };
+		next = replaceCard(next, card);
+	}
+	return replacePage(next, page);
+}
+
+// Adds copies of modules (already cloned — see cloneModule) to a card, each
+// the size of its original and placed at the first free cells from the
+// original's row onward, on every page the card appears. The card grows if
+// there's no room, and pushes its neighbours if it does.
+export function duplicateModules(sheet, cardId, entries) {
 	const card = sheet.cards[cardId];
 	if (!card) {
 		return sheet;
 	}
-	const modules = {};
-	for (const [moduleId, module] of Object.entries(card.modules)) {
-		modules[moduleId] = { ...module, color };
-	}
-	return replaceCard(sheet, { ...card, modules });
+	const nextCard = {
+		...card,
+		modules: { ...card.modules, ...Object.fromEntries(entries.map(({ module }) => [module.id, module])) },
+		moduleOrder: [...card.moduleOrder, ...entries.map(({ module }) => module.id)],
+	};
+	return mapLayoutsAndSettle(
+		replaceCard(sheet, nextCard),
+		(layout) => layout.cardId === cardId,
+		(layout) => {
+			const { cols } = moduleGridSize(layout.w, layout.h);
+			const moduleRects = { ...layout.moduleRects };
+			const moduleOrder = [...layout.moduleOrder];
+			for (const { sourceModuleId, module } of entries) {
+				const source = layout.moduleRects[sourceModuleId];
+				if (!source) {
+					continue;
+				}
+				const others = Object.values(moduleRects);
+				moduleRects[module.id] = findFreeSpot(others, source.w, source.h, Math.max(cols, source.w), source.y);
+				moduleOrder.push(module.id);
+			}
+			return growCardToFit(nextCard, { ...layout, moduleOrder, moduleRects });
+		}
+	);
 }
 
 // ---------- Modules and layouts ----------

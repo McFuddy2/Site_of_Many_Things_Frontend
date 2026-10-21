@@ -77,12 +77,23 @@ export function pageColumnLimit(layouts, visibleCols = 0) {
 	return Math.max(visibleCols, boundingSize(layouts.map(rectOf)).cols);
 }
 
+// Which of the changed rects get to stay exactly put. Normally all of them;
+// but if they now overlap each other (aligning two stacked items to the same
+// top, say), only `anchorId` holds and the rest are pushed clear like
+// everything else — nothing may overlap, alignment included.
+function fixedFor(changed, anchorId) {
+	const ids = Object.keys(changed);
+	const list = ids.map((id) => changed[id]);
+	const clash = list.some((a, i) => list.some((b, j) => i < j && rectsOverlap(a, b)));
+	return clash && anchorId ? [anchorId] : ids;
+}
+
 // Cards on a page after some of them change: `changed` maps layout id -> its
 // new rect; returns every layout id -> rect.
-export function planCardChange(layouts, changed, { maxCols = Infinity } = {}) {
+export function planCardChange(layouts, changed, { maxCols = Infinity, anchorId = null } = {}) {
 	const rects = Object.fromEntries(layouts.map((layout) => [layout.id, rectOf(layout)]));
 	Object.assign(rects, changed);
-	return resolvePush(rects, Object.keys(changed), { maxCols });
+	return resolvePush(rects, fixedFor(changed, anchorId), { maxCols });
 }
 
 // Modules in one card after some of them change. Modules never leave the
@@ -90,7 +101,7 @@ export function planCardChange(layouts, changed, { maxCols = Infinity } = {}) {
 // past the bottom, the card grows taller rather than clipping, and if the
 // card grew, the cards around it on the page are pushed in turn.
 // Returns { moduleRects, cardRect, pageRects }.
-export function planModuleChange(card, layout, changed, pageLayouts, { maxCols = Infinity } = {}) {
+export function planModuleChange(card, layout, changed, pageLayouts, { maxCols = Infinity, anchorId = null } = {}) {
 	const cols = layout.w - CARD_CHROME_W;
 	const current = {};
 	for (const moduleId of layout.moduleOrder) {
@@ -98,11 +109,76 @@ export function planModuleChange(card, layout, changed, pageLayouts, { maxCols =
 			current[moduleId] = layout.moduleRects[moduleId];
 		}
 	}
-	const moduleRects = resolvePush({ ...current, ...changed }, Object.keys(changed), { maxCols: cols });
+	const moduleRects = resolvePush({ ...current, ...changed }, fixedFor(changed, anchorId), { maxCols: cols });
 	const fit = fitCardSize(card.title, moduleRects);
 	const cardRect = { ...rectOf(layout), w: Math.max(layout.w, fit.w), h: Math.max(layout.h, fit.h) };
 	const pageRects = sameRect(cardRect, rectOf(layout))
 		? Object.fromEntries(pageLayouts.map((other) => [other.id, rectOf(other)]))
 		: planCardChange(pageLayouts, { [layout.id]: cardRect }, { maxCols });
 	return { moduleRects, cardRect, pageRects };
+}
+
+// ---------- Align and distribute ----------
+//
+// Both return only the rects that change (id -> rect), in whole units —
+// centre alignment rounds to the nearest cell. Callers resolve pushes on the
+// result like any other change (see planCardChange / planModuleChange).
+
+export const ALIGN_MODES = ["left", "hcenter", "right", "top", "vmiddle", "bottom"];
+
+export function alignRects(rects, ids, mode) {
+	const items = ids.map((id) => [id, rects[id]]).filter(([, rect]) => rect);
+	if (items.length < 2) {
+		return {};
+	}
+	const list = items.map(([, rect]) => rect);
+	const left = Math.min(...list.map((r) => r.x));
+	const right = Math.max(...list.map((r) => r.x + r.w));
+	const top = Math.min(...list.map((r) => r.y));
+	const bottom = Math.max(...list.map((r) => r.y + r.h));
+	const place = {
+		left: () => ({ x: left }),
+		right: (r) => ({ x: right - r.w }),
+		hcenter: (r) => ({ x: Math.round((left + right) / 2 - r.w / 2) }),
+		top: () => ({ y: top }),
+		bottom: (r) => ({ y: bottom - r.h }),
+		vmiddle: (r) => ({ y: Math.round((top + bottom) / 2 - r.h / 2) }),
+	}[mode];
+	const changed = {};
+	for (const [id, rect] of items) {
+		const next = { ...rect, ...place(rect) };
+		if (next.x !== rect.x || next.y !== rect.y) {
+			changed[id] = next;
+		}
+	}
+	return changed;
+}
+
+// Even gaps between three or more items along one axis; the first and last
+// stay where they are.
+export function distributeRects(rects, ids, axis) {
+	const pos = axis === "horizontal" ? "x" : "y";
+	const size = axis === "horizontal" ? "w" : "h";
+	const items = ids
+		.map((id) => [id, rects[id]])
+		.filter(([, rect]) => rect)
+		.sort((a, b) => a[1][pos] - b[1][pos]);
+	if (items.length < 3) {
+		return {};
+	}
+	const first = items[0][1];
+	const last = items[items.length - 1][1];
+	const span = last[pos] + last[size] - first[pos];
+	const total = items.reduce((sum, [, rect]) => sum + rect[size], 0);
+	const gap = (span - total) / (items.length - 1);
+	const changed = {};
+	let cursor = first[pos];
+	items.forEach(([id, rect], index) => {
+		const target = index === items.length - 1 ? rect[pos] : Math.round(cursor);
+		if (target !== rect[pos]) {
+			changed[id] = { ...rect, [pos]: target };
+		}
+		cursor += rect[size] + gap;
+	});
+	return changed;
 }

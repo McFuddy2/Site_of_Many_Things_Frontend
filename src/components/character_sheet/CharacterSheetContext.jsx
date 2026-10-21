@@ -13,7 +13,10 @@ import {
 	setCardTitle,
 	setCardHeaderColor,
 	setModuleColor,
-	setCardModulesColor,
+	setItemsColor,
+	addModuleToCard,
+	duplicateCards,
+	duplicateModules,
 	setPieceValue,
 	addModuleRow,
 	removeModuleRow,
@@ -61,8 +64,14 @@ function sheetReducer(sheet, action) {
 			return setCardHeaderColor(sheet, action.cardId, action.color);
 		case "setModuleColor":
 			return setModuleColor(sheet, action.cardId, action.moduleId, action.color);
-		case "setCardModulesColor":
-			return setCardModulesColor(sheet, action.cardId, action.color);
+		case "setItemsColor":
+			return setItemsColor(sheet, action.items, action.color);
+		case "addModuleToCard":
+			return addModuleToCard(sheet, action.cardId, action.module);
+		case "duplicateCards":
+			return duplicateCards(sheet, action.pageId, action.entries, { maxCols: action.maxCols });
+		case "duplicateModules":
+			return duplicateModules(sheet, action.cardId, action.entries);
 		case "addCardToPage":
 			return addCardToPage(sheet, action.pageId, action.card, { maxCols: action.maxCols });
 		case "insertExistingCard":

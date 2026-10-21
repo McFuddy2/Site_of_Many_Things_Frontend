@@ -354,6 +354,91 @@ export function createModuleForType(typeId, config = {}) {
 	}
 }
 
+// ---------- Copies ----------
+//
+// A copy gets fresh ids for everything (ids are never reused). References
+// between pieces inside the copy are remapped to the copy's own pieces — a
+// copied Currency module totals its own coins — while references out to
+// anything else (a skill's link to the Ability Scores card) are kept.
+
+const BUTTON_REF_KEYS = ["targetPieceId", "operandPieceId", "minPieceId", "maxPieceId"];
+
+function remapPiece(piece, idMap) {
+	const swap = (pieceId) => idMap.get(pieceId) || pieceId;
+	const id = idMap.get(piece.id);
+	switch (piece.kind) {
+		case "variable":
+			return {
+				...piece,
+				id,
+				formula: piece.formula ? piece.formula.replace(/#\{([^}]+)\}/g, (match, refId) => `#{${swap(refId)}}`) : piece.formula,
+			};
+		case "text":
+			return {
+				...piece,
+				id,
+				segments: piece.segments.map((segment) =>
+					segment.type === "ref" ? { ...segment, pieceId: swap(segment.pieceId) } : { ...segment }
+				),
+			};
+		case "button":
+			return {
+				...piece,
+				id,
+				actions: piece.actions.map((action) => {
+					const next = { ...action };
+					for (const key of BUTTON_REF_KEYS) {
+						if (next[key]) {
+							next[key] = swap(next[key]);
+						}
+					}
+					return next;
+				}),
+			};
+		case "dropdown":
+			return { ...piece, id, options: [...piece.options] };
+		default:
+			return { ...piece, id };
+	}
+}
+
+function copyModule(module, idMap) {
+	const pieces = {};
+	for (const pieceId of module.pieceOrder) {
+		const piece = remapPiece(module.pieces[pieceId], idMap);
+		pieces[piece.id] = piece;
+	}
+	return { ...module, id: makeId("module"), pieces, pieceOrder: module.pieceOrder.map((pieceId) => idMap.get(pieceId)) };
+}
+
+function freshPieceIds(modules) {
+	const idMap = new Map();
+	for (const module of modules) {
+		for (const pieceId of module.pieceOrder) {
+			idMap.set(pieceId, makeId("piece"));
+		}
+	}
+	return idMap;
+}
+
+export function cloneModule(module) {
+	return copyModule(module, freshPieceIds([module]));
+}
+
+// The copy's moduleOrder lines up index-for-index with the original's, which
+// is how a placement's module rects are carried over to the copy.
+export function cloneCard(card) {
+	const originals = card.moduleOrder.map((moduleId) => card.modules[moduleId]);
+	const idMap = freshPieceIds(originals);
+	const copies = originals.map((module) => copyModule(module, idMap));
+	return {
+		...card,
+		id: makeId("card"),
+		modules: Object.fromEntries(copies.map((module) => [module.id, module])),
+		moduleOrder: copies.map((module) => module.id),
+	};
+}
+
 // ---------- Cards ----------
 
 // `headerColor` is the user's override for the header bar, or null for navy.

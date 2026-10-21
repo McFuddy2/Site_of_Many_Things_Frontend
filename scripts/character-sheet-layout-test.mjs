@@ -237,6 +237,79 @@ const anyOverlap = (rects) => {
 	check("referenced card isn't deleted", ops.deleteLayouts(ds, ds.pages[0].id, [abilityLayout]).pages[0].cardLayouts.length, 2);
 }
 
+// --- copies: fresh ids, internal references remapped, external kept ---
+{
+	const money = schema.createMoneyCard();
+	const copy = schema.cloneCard(money);
+	const originalModule = money.modules[money.moduleOrder[0]];
+	const copiedModule = copy.modules[copy.moduleOrder[0]];
+	check("copy has a new card id", copy.id !== money.id, true);
+	check("copy has new module ids", copy.moduleOrder.every((id) => !money.modules[id]), true);
+	const copiedTotal = copiedModule.pieces[copiedModule.pieceOrder[0]];
+	const ownPieces = new Set(copiedModule.pieceOrder);
+	const totalRefs = [...copiedTotal.formula.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]);
+	check("copied total adds up the copy's own coins", totalRefs.every((id) => ownPieces.has(id)), true);
+	check("original total untouched", originalModule.pieces[originalModule.pieceOrder[0]].formula === copiedTotal.formula, false);
+
+	let cs = schema.createSheet("Copies");
+	const abilities = schema.createAbilityScoresCard();
+	cs = ops.addCardToPage(cs, cs.pages[0].id, abilities, { maxCols: 60 });
+	const skills = schema.createStandardCard("skills", cs);
+	const skillCopy = schema.cloneCard(skills);
+	const skillModule = skillCopy.modules[skillCopy.moduleOrder[1]];
+	const modifier = skillModule.pieces[skillModule.pieceOrder[1]];
+	const abilityPieces = new Set(Object.values(abilities.modules).flatMap((module) => module.pieceOrder));
+	check("copied skill still reads the Ability Scores card", [...modifier.formula.matchAll(/#\{([^}]+)\}/g)].some((m) => abilityPieces.has(m[1])), true);
+
+	const health = schema.createHealthCard();
+	const healthCopy = schema.cloneCard(health);
+	const dh = healthCopy.modules[healthCopy.moduleOrder[3]];
+	const damage = dh.pieces[dh.pieceOrder[1]];
+	check("copied Damage button hits the copy's own HP", healthCopy.modules[healthCopy.moduleOrder[0]].pieceOrder.includes(damage.actions[0].targetPieceId), true);
+}
+{
+	let ds = schema.createSheet("Duplicate");
+	const attack = schema.createAttackCard();
+	ds = ops.addCardToPage(ds, ds.pages[0].id, attack, { maxCols: 60 });
+	const source = ds.pages[0].cardLayouts[0];
+	const copy = schema.cloneCard(attack);
+	ds = ops.duplicateCards(ds, ds.pages[0].id, [{ sourceLayoutId: source.id, card: copy }], { maxCols: 60 });
+	const placed = ds.pages[0].cardLayouts.find((layout) => layout.cardId === copy.id);
+	check("duplicate card keeps its source's size", [placed.w, placed.h], [source.w, source.h]);
+	check("duplicate card lands beside its source", [placed.x, placed.y], [source.w, 0]);
+	check("duplicate keeps the module arrangement", copy.moduleOrder.map((id) => placed.moduleRects[id]), attack.moduleOrder.map((id) => source.moduleRects[id]));
+	check("source didn't move", ds.pages[0].cardLayouts[0].x, 0);
+
+	const nameId = attack.moduleOrder[0];
+	const moduleCopy = schema.cloneModule(attack.modules[nameId]);
+	const before = ds.pages[0].cardLayouts[0];
+	ds = ops.duplicateModules(ds, attack.id, [{ sourceModuleId: nameId, module: moduleCopy }]);
+	const after = ds.pages[0].cardLayouts[0];
+	check("duplicate module added to the card", ds.cards[attack.id].moduleOrder.includes(moduleCopy.id), true);
+	check("duplicate module keeps its source's size", [after.moduleRects[moduleCopy.id].w, after.moduleRects[moduleCopy.id].h], [before.moduleRects[nameId].w, before.moduleRects[nameId].h]);
+	check("no module overlaps after duplicating", anyOverlap(after.moduleRects), false);
+	check("no cards overlap after the card grew", anyOverlap(Object.fromEntries(ds.pages[0].cardLayouts.map((l) => [l.id, l]))), false);
+
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id }, { cardId: attack.id, moduleId: nameId }], "#a01b1b");
+	check("colours a card header and a module in one go", [ds.cards[attack.id].headerColor, ds.cards[attack.id].modules[nameId].color], ["#a01b1b", "#a01b1b"]);
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id, moduleId: nameId }], null);
+	check("reset colour restores the default", ds.cards[attack.id].modules[nameId].color, null);
+}
+
+// --- align / distribute ---
+{
+	const rects = { a: { x: 0, y: 0, w: 4, h: 2 }, b: { x: 6, y: 3, w: 6, h: 2 }, c: { x: 14, y: 1, w: 2, h: 2 } };
+	check("align left", placement.alignRects(rects, ["a", "b"], "left"), { b: { x: 0, y: 3, w: 6, h: 2 } });
+	check("align tops", placement.alignRects(rects, ["a", "b", "c"], "top"), { b: { x: 6, y: 0, w: 6, h: 2 }, c: { x: 14, y: 0, w: 2, h: 2 } });
+	check("align centres rounds to whole cells", placement.alignRects(rects, ["a", "c"], "hcenter").a.x, 6);
+	check("distribute horizontally evens the gaps", placement.distributeRects({ ...rects, b: { ...rects.b, x: 8 } }, ["a", "b", "c"], "horizontal"), { b: { x: 6, y: 3, w: 6, h: 2 } });
+	const stacked = { a: { x: 0, y: 0, w: 4, h: 2 }, b: { x: 0, y: 2, w: 4, h: 2 } };
+	const aligned = placement.alignRects(stacked, ["a", "b"], "top");
+	const layoutsForPlan = Object.entries(stacked).map(([id, r]) => ({ id, ...r }));
+	const settled = placement.planCardChange(layoutsForPlan, aligned, { anchorId: "a" });
+	check("aligning onto each other still never overlaps", anyOverlap(settled), false);
+}
+
 // --- ids and colours ---
 const ids = new Set(Array.from({ length: 500 }, () => schema.makeId("piece")));
 check("ids are unique", ids.size, 500);

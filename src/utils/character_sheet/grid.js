@@ -27,12 +27,12 @@ export function boundingSize(rects) {
 }
 
 // First free w x h spot in reading order (top-to-bottom, then
-// left-to-right) within `maxCols` columns; if nothing fits, the spot just
-// below the lowest rect.
-export function findFreeSpot(rects, w, h, maxCols) {
+// left-to-right) within `maxCols` columns, starting from row `fromY`; if
+// nothing fits, the spot just below the lowest rect.
+export function findFreeSpot(rects, w, h, maxCols, fromY = 0) {
 	const { rows } = boundingSize(rects);
 	const lastX = Math.max(0, maxCols - w);
-	for (let y = 0; y <= rows; y += 1) {
+	for (let y = fromY; y <= rows; y += 1) {
 		for (let x = 0; x <= lastX; x += 1) {
 			const candidate = { x, y, w, h };
 			if (!rects.some((rect) => rectsOverlap(candidate, rect))) {

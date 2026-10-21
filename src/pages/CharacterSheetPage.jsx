@@ -2,20 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CharacterSheetProvider, useCharacterSheet } from "../components/character_sheet/CharacterSheetContext";
 import SheetCanvas from "../components/character_sheet/SheetCanvas";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
-import NewCardModal from "../components/character_sheet/NewCardModal";
+import NewCardPicker from "../components/character_sheet/NewCardPicker";
+import { KebabIcon, UndoIcon, RedoIcon } from "../components/character_sheet/icons";
 import { GRID_UNIT, tokenCssVars } from "../utils/character_sheet/layoutConstants";
 import { getContrastTextColor } from "../utils/character_sheet/colors";
 import "../CharacterSheetStyles.css";
-
-function KebabIcon() {
-	return (
-		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-			<circle cx="12" cy="5.5" r="1.7" fill="currentColor" />
-			<circle cx="12" cy="12" r="1.7" fill="currentColor" />
-			<circle cx="12" cy="18.5" r="1.7" fill="currentColor" />
-		</svg>
-	);
-}
 
 // One page tab: its name button, a kebab menu button, and the popover the
 // kebab opens (rename + tab-color picker). The wrap carries the tab's
@@ -80,7 +71,7 @@ function PageTab({ page, isActive, dispatch }) {
 					setMenuOpen((open) => !open);
 				}}
 			>
-				<KebabIcon />
+				<KebabIcon size={14} />
 			</button>
 			{menuOpen && (
 				<div className="cs-page-tab-menu" onClick={(event) => event.stopPropagation()}>
@@ -123,12 +114,34 @@ function PageTab({ page, isActive, dispatch }) {
 	);
 }
 
-function TopBar({ onStartCustomCard, showGrid, onToggleGrid, getPageColumns }) {
-	const { sheet, dispatch } = useCharacterSheet();
+function TopBar({ onStartCustomCard, showGrid, onToggleGrid, getPageColumns, onCardAdded }) {
+	const { sheet, dispatch, canUndo, canRedo } = useCharacterSheet();
 	return (
 		<div className="cs-topbar">
 			<div className="cs-topbar-group">
-				<NewCardModal onStartCustomCard={onStartCustomCard} getPageColumns={getPageColumns} />
+				<NewCardPicker onStartCustomCard={onStartCustomCard} getPageColumns={getPageColumns} onCardAdded={onCardAdded} />
+				<div className="cs-topbar-icons" role="group" aria-label="History">
+					<button
+						type="button"
+						className="cs-topbar-icon-button"
+						aria-label="Undo"
+						title="Undo (Ctrl+Z)"
+						disabled={!canUndo}
+						onClick={() => dispatch({ type: "undo" })}
+					>
+						<UndoIcon />
+					</button>
+					<button
+						type="button"
+						className="cs-topbar-icon-button"
+						aria-label="Redo"
+						title="Redo (Ctrl+Y)"
+						disabled={!canRedo}
+						onClick={() => dispatch({ type: "redo" })}
+					>
+						<RedoIcon />
+					</button>
+				</div>
 				<button type="button" className="cs-topbar-button" onClick={onToggleGrid}>
 					{showGrid ? "Hide Grid" : "Show Grid"}
 				</button>
@@ -152,11 +165,13 @@ function TopBar({ onStartCustomCard, showGrid, onToggleGrid, getPageColumns }) {
 	);
 }
 
-function Canvas({ buildingCustom, onCloseBuilder, showGrid, getPageColumns }) {
+function Canvas({ buildingCustom, onCloseBuilder, showGrid, getPageColumns, focusRequest, onCardAdded }) {
 	return (
 		<>
-			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} getPageColumns={getPageColumns} />}
-			<SheetCanvas showGrid={showGrid} getPageColumns={getPageColumns} />
+			{buildingCustom && (
+				<CustomCardBuilder onClose={onCloseBuilder} getPageColumns={getPageColumns} onCardAdded={onCardAdded} />
+			)}
+			<SheetCanvas showGrid={showGrid} getPageColumns={getPageColumns} focusRequest={focusRequest} />
 		</>
 	);
 }
@@ -175,6 +190,11 @@ function CharacterSheetContent() {
 	const [showGrid, setShowGrid] = useState(false);
 	const bodyRef = useRef(null);
 	const getPageColumns = usePageColumns(bodyRef);
+	// A card just added (New Card, Custom Card, Insert) — the canvas selects
+	// it and scrolls it into view. A fresh object each time, so adding the
+	// same card again still triggers.
+	const [focusRequest, setFocusRequest] = useState(null);
+	const onCardAdded = useCallback((cardId) => setFocusRequest({ cardId }), []);
 	return (
 		<div className="cs-page" style={tokenCssVars()}>
 			<TopBar
@@ -182,6 +202,7 @@ function CharacterSheetContent() {
 				showGrid={showGrid}
 				onToggleGrid={() => setShowGrid((current) => !current)}
 				getPageColumns={getPageColumns}
+				onCardAdded={onCardAdded}
 			/>
 			<div className="cs-body" ref={bodyRef}>
 				<Canvas
@@ -189,6 +210,8 @@ function CharacterSheetContent() {
 					onCloseBuilder={() => setBuildingCustom(false)}
 					showGrid={showGrid}
 					getPageColumns={getPageColumns}
+					focusRequest={focusRequest}
+					onCardAdded={onCardAdded}
 				/>
 			</div>
 		</div>

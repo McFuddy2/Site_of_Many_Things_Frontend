@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getModuleRole } from "../../utils/character_sheet/moduleTypes";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
 import { getContrastTextColor, deriveModuleShades } from "../../utils/character_sheet/colors";
@@ -7,6 +7,7 @@ import { buildDefaultLayout } from "../../utils/character_sheet/cardLayouts";
 import { tokenCssVars } from "../../utils/character_sheet/layoutConstants";
 import { useCharacterSheet } from "./CharacterSheetContext";
 import usePieceValue from "./usePieceValue";
+import { KebabIcon } from "./icons";
 
 // Every module fills its grid rect exactly, and everything inside it is sized
 // by the shared tokens (see layoutConstants.js / tokenCssVars) — a label bar
@@ -42,16 +43,6 @@ export function moduleColorProps(module) {
 		return { className: `cs-tint--${module.tone}`, style: undefined };
 	}
 	return { className: `cs-role--${getModuleRole(module)}`, style: undefined };
-}
-
-function KebabIcon() {
-	return (
-		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-			<circle cx="12" cy="5.5" r="1.7" fill="currentColor" />
-			<circle cx="12" cy="12" r="1.7" fill="currentColor" />
-			<circle cx="12" cy="18.5" r="1.7" fill="currentColor" />
-		</svg>
-	);
 }
 
 function formatSigned(value) {
@@ -645,6 +636,47 @@ export function moduleSlotStyle(rect) {
 	return { position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height };
 }
 
+// In-place title editing (double-click a title, or Rename… in its menu):
+// Enter or leaving the field keeps the new title, Esc keeps the old one.
+function TitleEditor({ title, onCommit, onCancel }) {
+	const [draft, setDraft] = useState(title);
+	const inputRef = useRef(null);
+	const doneRef = useRef(false);
+	useEffect(() => {
+		inputRef.current?.focus();
+		inputRef.current?.select();
+	}, []);
+	const finish = (keep) => {
+		if (doneRef.current) {
+			return;
+		}
+		doneRef.current = true;
+		if (keep) {
+			onCommit(draft);
+		} else {
+			onCancel();
+		}
+	};
+	return (
+		<input
+			ref={inputRef}
+			className="cs-card-title-input"
+			aria-label="Card title"
+			value={draft}
+			onChange={(event) => setDraft(event.target.value)}
+			onBlur={() => finish(true)}
+			onKeyDown={(event) => {
+				if (event.key === "Enter") {
+					finish(true);
+				} else if (event.key === "Escape") {
+					event.stopPropagation();
+					finish(false);
+				}
+			}}
+		/>
+	);
+}
+
 // A card's face — header plus its modules at their grid rects — at whatever
 // position `style` gives it. Shared by the live canvas and every preview, so
 // a card looks identical everywhere it's drawn.
@@ -656,15 +688,22 @@ export function CardFace({
 	cardId = null,
 	layoutId = null,
 	onMenu,
+	renaming = false,
+	onRenameCommit,
+	onRenameCancel,
 	showGrid = false,
 }) {
 	const moduleIds = layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId]);
 	return (
 		<section className={`cs-card ${className}`} style={style} data-card-type={card.type} data-layout-id={layoutId || undefined}>
 			<header className="cs-card-header" style={cardHeaderStyle(card)}>
-				<span className="cs-card-title" title={card.title}>
-					{card.title}
-				</span>
+				{renaming ? (
+					<TitleEditor title={card.title} onCommit={onRenameCommit} onCancel={onRenameCancel} />
+				) : (
+					<span className="cs-card-title" title={`${card.title} — double-click to rename`}>
+						{card.title}
+					</span>
+				)}
 				<button
 					type="button"
 					className="cs-card-header-menu-btn"
@@ -719,8 +758,17 @@ export function CardPreview({ card }) {
 // One card on the page canvas at its (possibly previewed) grid rect. All
 // pointer handling lives on the canvas (see SheetCanvas); the card just marks
 // itself with data-layout-id / data-module-id so the canvas can tell what a
-// press landed on. The kebab selects the card.
-export default function CharacterSheetCard({ layout, onMenu, dragging = false, selected = false, showGrid }) {
+// press landed on. The kebab opens the card's menu.
+export default function CharacterSheetCard({
+	layout,
+	onMenu,
+	dragging = false,
+	selected = false,
+	renaming = false,
+	onRenameCommit,
+	onRenameCancel,
+	showGrid,
+}) {
 	const { sheet } = useCharacterSheet();
 	const card = sheet.cards[layout.cardId];
 	if (!card) {
@@ -736,6 +784,9 @@ export default function CharacterSheetCard({ layout, onMenu, dragging = false, s
 			className={`cs-card--live${dragging ? " cs-card--dragging" : ""}${selected ? " cs-card--selected" : ""}`}
 			style={{ position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height }}
 			onMenu={onMenu}
+			renaming={renaming}
+			onRenameCommit={onRenameCommit}
+			onRenameCancel={onRenameCancel}
 			showGrid={showGrid}
 		/>
 	);

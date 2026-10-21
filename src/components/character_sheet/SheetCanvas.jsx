@@ -2,8 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import CharacterSheetCard from "./CharacterSheetCard";
 import { useCharacterSheet } from "./CharacterSheetContext";
+import SelectionToolbar from "./SelectionToolbar";
+import ContextMenu from "./ContextMenu";
+import PositionSizePopover from "./PositionSizePopover";
+import AddModuleDialog from "./AddModuleDialog";
+import { BUCKET_CURSOR } from "./icons";
+import { cloneCard, cloneModule } from "../../utils/character_sheet/schema";
 import { rectToPx, getCardMinSize, moduleGridSize, boundingSize } from "../../utils/character_sheet/grid";
-import { planCardChange, planModuleChange, pageColumnLimit } from "../../utils/character_sheet/placement";
+import {
+	planCardChange,
+	planModuleChange,
+	pageColumnLimit,
+	alignRects,
+	distributeRects,
+} from "../../utils/character_sheet/placement";
 import { RESIZE_HANDLES, snapMove, resizeSnap, boxesTouch, boxFromPoints } from "../../utils/character_sheet/snapping";
 import { getModuleSizing } from "../../utils/character_sheet/moduleTypes";
 import { canDeleteCard, canDeleteModule } from "../../utils/character_sheet/references";
@@ -35,6 +47,9 @@ const NO_SELECTION = { level: null, layoutId: null, ids: [] };
 const INTERACTIVE_SELECTOR = "input, textarea, select, button, a, label, [contenteditable='true']";
 const HANDLE_HIT = 16; // px thickness of an edge's grab strip
 const CORNER_HIT = 20; // px square of a corner's grab area
+const TOOLBAR_HEIGHT = 40;
+const TOOLBAR_HALF_WIDTH = 86;
+const TOOLBAR_GAP = 14; // clears the selection's handles
 
 const rectOf = (layout) => ({ x: layout.x, y: layout.y, w: layout.w, h: layout.h });
 const sameRect = (a, b) => a && b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
@@ -144,7 +159,7 @@ function DeleteBlockedDialog({ blocked, onClose, onNavigate }) {
 	);
 }
 
-export default function SheetCanvas({ showGrid, getPageColumns }) {
+export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const page = sheet.pages.find((existing) => existing.id === sheet.activePageId) || sheet.pages[0];
 	const layouts = page.cardLayouts;
@@ -161,11 +176,18 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 		setPreview(next);
 	}, []);
 	const [blocked, setBlocked] = useState(null);
-	const [pendingFocus, setPendingFocus] = useState(null); // layout id to select once its page shows
+	const [pendingFocus, setPendingFocus] = useState(null); // card ids to select (and scroll to) once they're on screen
+	const [menu, setMenu] = useState(null); // { x, y, items, label }
+	const [positionPopover, setPositionPopover] = useState(null); // { x, y }
+	const [renamingId, setRenamingId] = useState(null); // layout id whose title is being edited
+	const [addModuleTo, setAddModuleTo] = useState(null); // layout id
+	const [paintMode, setPaintMode] = useState(false);
+	const [paintColor, setPaintColor] = useState("#5b9bd5");
+	const [, setScrollTick] = useState(0);
 
 	// Latest values for the window-level listeners below.
 	const live = useRef({});
-	live.current = { sheet, page, layouts, selection, preview, blocked };
+	live.current = { sheet, page, layouts, selection, preview, blocked, paintMode, menu, positionPopover };
 
 	const layoutById = useMemo(() => Object.fromEntries(layouts.map((layout) => [layout.id, layout])), [layouts]);
 	const maxCols = useCallback(
@@ -173,21 +195,53 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 		[getPageColumns]
 	);
 
-	// Selection belongs to a page: switching pages starts fresh (or selects the
-	// card a "referenced by" link jumped to).
+	// Selection belongs to a page: switching pages starts fresh.
+	const lastPageRef = useRef(page.id);
 	useEffect(() => {
-		if (pendingFocus && layouts.some((layout) => layout.id === pendingFocus)) {
-			setSelection({ level: "cards", layoutId: null, ids: [pendingFocus] });
-			canvasRef.current
-				?.querySelector(`[data-layout-id="${pendingFocus}"]`)
-				?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-			setPendingFocus(null);
-		} else {
+		if (lastPageRef.current !== page.id) {
+			lastPageRef.current = page.id;
 			setSelection(NO_SELECTION);
+			setMenu(null);
+			setPositionPopover(null);
 		}
-		// Only on page switches (and the jump itself) — not every layout edit.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [page.id, pendingFocus]);
+	}, [page.id]);
+
+	// A card someone asked to see — a freshly added card, or one a "referenced
+	// by" link jumped to — is selected and scrolled into view once its page
+	// shows it.
+	useEffect(() => {
+		if (focusRequest?.cardId) {
+			setPendingFocus([focusRequest.cardId]);
+		}
+	}, [focusRequest]);
+
+	useEffect(() => {
+		const targets = (pendingFocus || []).map((cardId) => layouts.find((each) => each.cardId === cardId));
+		if (!targets.length || targets.some((layout) => !layout)) {
+			return;
+		}
+		setSelection({ level: "cards", layoutId: null, ids: targets.map((layout) => layout.id) });
+		setPendingFocus(null);
+		requestAnimationFrame(() =>
+			canvasRef.current?.querySelector(`[data-layout-id="${targets[0].id}"]`)?.scrollIntoView({
+				block: "nearest",
+				inline: "nearest",
+				behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+			})
+		);
+	}, [pendingFocus, layouts]);
+
+	// The toolbar flips below the selection when there's no room above it in
+	// the visible area, so it needs to re-measure as the page scrolls.
+	useEffect(() => {
+		const scroller = canvasRef.current?.parentElement;
+		if (!scroller) {
+			return undefined;
+		}
+		const onScroll = () => setScrollTick((tick) => tick + 1);
+		scroller.addEventListener("scroll", onScroll, { passive: true });
+		return () => scroller.removeEventListener("scroll", onScroll);
+	}, []);
 
 	// Anything that disappears (deleted, undone) drops out of the selection.
 	useEffect(() => {
@@ -461,6 +515,9 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 			return;
 		}
 		const target = event.target;
+		if (target.closest("[data-canvas-ui]")) {
+			return;
+		}
 		const handle = target.closest("[data-handle]");
 		if (handle) {
 			const spec = RESIZE_HANDLES.find((each) => each.id === handle.dataset.handle);
@@ -534,6 +591,67 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 			activate: () => ({ type: "marqueeCards", additive, baseIds }),
 			onClick: additive ? null : () => setSelection(NO_SELECTION),
 		});
+	};
+
+	// What a pointer event landed on: { layout, moduleId } (moduleId null for
+	// the card itself), or null for empty canvas.
+	const itemAt = (target) => {
+		const cardEl = target.closest("[data-layout-id]");
+		const layout = cardEl ? layoutById[cardEl.dataset.layoutId] : null;
+		if (!layout) {
+			return null;
+		}
+		return { layout, moduleId: target.closest("[data-module-id]")?.dataset.moduleId || null };
+	};
+
+	// Paint Mode: every click colours what it lands on (a module, or a card's
+	// header) instead of focusing, typing or selecting — each one undo step.
+	// Runs in the capture phase so nothing inside the card ever sees the press.
+	const onPointerDownCapture = (event) => {
+		if (!paintMode || event.button !== 0 || event.target.closest("[data-canvas-ui]")) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		const hit = itemAt(event.target);
+		if (!hit) {
+			return;
+		}
+		const card = sheet.cards[hit.layout.cardId];
+		dispatch({ type: "setItemsColor", items: [{ cardId: card.id, moduleId: hit.moduleId }], color: paintColor });
+	};
+
+	// Right-click: the selection's menu. A right-click on something outside
+	// the selection selects it first; inside a field the browser's own menu
+	// (copy, paste…) is left alone.
+	const onContextMenu = (event) => {
+		if (paintMode || event.target.closest(`${INTERACTIVE_SELECTOR}, [data-canvas-ui]`)) {
+			return;
+		}
+		const hit = itemAt(event.target);
+		if (!hit) {
+			return;
+		}
+		event.preventDefault();
+		const level = hit.moduleId ? "modules" : "cards";
+		const id = hit.moduleId || hit.layout.id;
+		const already = isSelected(level, id, hit.layout.id);
+		const next = already ? selection : { level, layoutId: hit.moduleId ? hit.layout.id : null, ids: [id] };
+		if (!already) {
+			setSelection(next);
+		}
+		openMenu(next, event.clientX, event.clientY);
+	};
+
+	// Double-clicking a card's title renames it in place.
+	const onDoubleClick = (event) => {
+		if (paintMode || !event.target.closest(".cs-card-title")) {
+			return;
+		}
+		const hit = itemAt(event.target);
+		if (hit) {
+			setRenamingId(hit.layout.id);
+		}
 	};
 
 	const onPointerMove = (event) => {
@@ -666,6 +784,237 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 		}
 	}, [dispatch]);
 
+	// ---------- Selection actions (toolbar, menus, shortcuts) ----------
+	// All of these read live.current so they act on what's on screen now, and
+	// each dispatches exactly once: one action, one undo step.
+
+	// The selection as colourable items: { cardId } for a card (its header),
+	// { cardId, moduleId } for a module.
+	const selectionItems = () => {
+		const { sheet: currentSheet, layouts: currentLayouts, selection: current } = live.current;
+		if (current.level === "cards") {
+			return current.ids
+				.map((id) => currentLayouts.find((layout) => layout.id === id))
+				.filter(Boolean)
+				.map((layout) => ({ cardId: layout.cardId }));
+		}
+		if (current.level === "modules") {
+			const layout = currentLayouts.find((each) => each.id === current.layoutId);
+			const card = layout && currentSheet.cards[layout.cardId];
+			return card ? current.ids.filter((id) => card.modules[id]).map((moduleId) => ({ cardId: card.id, moduleId })) : [];
+		}
+		return [];
+	};
+
+	const colorSelection = useCallback(
+		(color) => {
+			const items = selectionItems();
+			if (items.length) {
+				dispatch({ type: "setItemsColor", items, color });
+			}
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[dispatch]
+	);
+
+	const duplicateSelection = useCallback(() => {
+		const { sheet: currentSheet, page: currentPage, layouts: currentLayouts, selection: current } = live.current;
+		if (current.level === "cards") {
+			const entries = current.ids
+				.map((id) => currentLayouts.find((layout) => layout.id === id))
+				.filter(Boolean)
+				.map((layout) => ({ sourceLayoutId: layout.id, card: cloneCard(currentSheet.cards[layout.cardId]) }));
+			if (entries.length) {
+				dispatch({ type: "duplicateCards", pageId: currentPage.id, entries, maxCols: maxCols() });
+				setPendingFocus(entries.map((entry) => entry.card.id));
+			}
+		} else if (current.level === "modules") {
+			const layout = currentLayouts.find((each) => each.id === current.layoutId);
+			const card = layout && currentSheet.cards[layout.cardId];
+			if (!card) {
+				return;
+			}
+			const entries = current.ids
+				.filter((id) => card.modules[id])
+				.map((id) => ({ sourceModuleId: id, module: cloneModule(card.modules[id]) }));
+			if (entries.length) {
+				dispatch({ type: "duplicateModules", cardId: card.id, entries });
+				setSelection({ level: "modules", layoutId: layout.id, ids: entries.map((entry) => entry.module.id) });
+			}
+		}
+	}, [dispatch, maxCols]);
+
+	// Fit to Contents: shrinks each selected card to exactly its modules plus
+	// header — how a player reclaims space they made bigger than needed.
+	const fitSelection = () => {
+		const { sheet: currentSheet, page: currentPage, layouts: currentLayouts, selection: current } = live.current;
+		const cardRects = {};
+		for (const id of current.ids) {
+			const layout = currentLayouts.find((each) => each.id === id);
+			if (layout) {
+				const min = getCardMinSize(currentSheet.cards[layout.cardId], layout);
+				cardRects[id] = { ...rectOf(layout), w: min.w, h: min.h };
+			}
+		}
+		dispatch({ type: "applyPageLayout", pageId: currentPage.id, cardRects });
+	};
+
+	// Align / distribute: `compute(rects, ids)` returns the rects that change;
+	// anything they'd now overlap is pushed clear (the first selected item
+	// holds its place if the aligned items collide with each other).
+	const arrangeSelection = (compute) => {
+		const { sheet: currentSheet, page: currentPage, layouts: currentLayouts, selection: current } = live.current;
+		if (current.level === "cards") {
+			const rects = Object.fromEntries(currentLayouts.map((layout) => [layout.id, rectOf(layout)]));
+			const changed = compute(rects, current.ids);
+			if (Object.keys(changed).length) {
+				const cardRects = planCardChange(currentLayouts, changed, { maxCols: maxCols(), anchorId: current.ids[0] });
+				dispatch({ type: "applyPageLayout", pageId: currentPage.id, cardRects });
+			}
+		} else if (current.level === "modules") {
+			const layout = currentLayouts.find((each) => each.id === current.layoutId);
+			if (!layout) {
+				return;
+			}
+			const changed = compute(layout.moduleRects, current.ids);
+			if (Object.keys(changed).length) {
+				const plan = planModuleChange(currentSheet.cards[layout.cardId], layout, changed, currentLayouts, {
+					maxCols: maxCols(),
+					anchorId: current.ids[0],
+				});
+				dispatch({
+					type: "applyPageLayout",
+					pageId: currentPage.id,
+					cardRects: plan.pageRects,
+					moduleLayoutId: layout.id,
+					moduleRects: plan.moduleRects,
+				});
+			}
+		}
+	};
+
+	// The single selected item's rect, in units (for Position & Size).
+	const selectedRect = () => {
+		if (selection.ids.length !== 1) {
+			return null;
+		}
+		if (selection.level === "cards") {
+			const layout = layoutById[selection.ids[0]];
+			return layout ? rectOf(layout) : null;
+		}
+		return layoutById[selection.layoutId]?.moduleRects[selection.ids[0]] || null;
+	};
+
+	// Position & Size: applies an exact rect, clamped to what's allowed
+	// (minimum sizes, a module inside its card's width), pushing neighbours.
+	const applyPositionSize = (next) => {
+		const { sheet: currentSheet, page: currentPage, layouts: currentLayouts, selection: current } = live.current;
+		if (current.ids.length !== 1) {
+			return;
+		}
+		if (current.level === "cards") {
+			const layout = currentLayouts.find((each) => each.id === current.ids[0]);
+			const min = getCardMinSize(currentSheet.cards[layout.cardId], layout);
+			const rect = {
+				x: Math.max(0, next.x),
+				y: Math.max(0, next.y),
+				w: Math.max(min.w, next.w),
+				h: Math.max(min.h, next.h),
+			};
+			const cardRects = planCardChange(currentLayouts, { [layout.id]: rect }, { maxCols: maxCols() });
+			dispatch({ type: "applyPageLayout", pageId: currentPage.id, cardRects });
+			return;
+		}
+		const layout = currentLayouts.find((each) => each.id === current.layoutId);
+		const card = currentSheet.cards[layout.cardId];
+		const module = card.modules[current.ids[0]];
+		const { cols } = moduleGridSize(layout.w, layout.h);
+		const sizing = getModuleSizing(module);
+		const w = Math.min(cols, Math.max(Math.min(sizing.minW, cols), next.w));
+		const rect = {
+			x: Math.min(Math.max(0, next.x), cols - w),
+			y: Math.max(0, next.y),
+			w,
+			h: Math.max(getModuleSizing(module, w).minH, next.h),
+		};
+		const plan = planModuleChange(card, layout, { [module.id]: rect }, currentLayouts, { maxCols: maxCols() });
+		dispatch({
+			type: "applyPageLayout",
+			pageId: currentPage.id,
+			cardRects: plan.pageRects,
+			moduleLayoutId: layout.id,
+			moduleRects: plan.moduleRects,
+		});
+	};
+
+	const ALIGN_ITEMS = [
+		["left", "Align Left"],
+		["hcenter", "Align Centers"],
+		["right", "Align Right"],
+		["top", "Align Tops"],
+		["vmiddle", "Align Middles"],
+		["bottom", "Align Bottoms"],
+	];
+
+	// The selection's menu (right-click, or a card's ⋮).
+	const openMenu = (target, x, y) => {
+		const single = target.ids.length === 1;
+		const isCards = target.level === "cards";
+		const items = [{ id: "duplicate", label: "Duplicate", hint: "Ctrl+D", onSelect: duplicateSelection }];
+		if (isCards && single) {
+			items.push({ id: "rename", label: "Rename…", onSelect: () => setRenamingId(target.ids[0]) });
+			items.push({ id: "addModule", label: "Add Module…", onSelect: () => setAddModuleTo(target.ids[0]) });
+		}
+		items.push({
+			id: "position",
+			label: "Position & Size…",
+			disabled: !single,
+			onSelect: () => setPositionPopover({ x, y }),
+		});
+		if (isCards) {
+			items.push({ id: "fit", label: "Fit to Contents", onSelect: fitSelection });
+		}
+		items.push({ id: "resetColor", label: "Reset Color", onSelect: () => colorSelection(null) });
+		if (target.ids.length >= 2) {
+			items.push({ separator: true }, { heading: "Align" });
+			for (const [mode, label] of ALIGN_ITEMS) {
+				items.push({ id: `align-${mode}`, label, onSelect: () => arrangeSelection((rects, ids) => alignRects(rects, ids, mode)) });
+			}
+		}
+		if (target.ids.length >= 3) {
+			items.push({
+				id: "distribute-h",
+				label: "Distribute Horizontally",
+				onSelect: () => arrangeSelection((rects, ids) => distributeRects(rects, ids, "horizontal")),
+			});
+			items.push({
+				id: "distribute-v",
+				label: "Distribute Vertically",
+				onSelect: () => arrangeSelection((rects, ids) => distributeRects(rects, ids, "vertical")),
+			});
+		}
+		items.push({ separator: true }, { id: "delete", label: "Delete", hint: "Del", danger: true, onSelect: deleteSelection });
+		const what = isCards ? (single ? "Card" : `${target.ids.length} cards`) : single ? "Module" : `${target.ids.length} modules`;
+		setMenu({ x, y, items, label: `${what} options` });
+	};
+
+	// A card's ⋮: selects the card and opens its menu just under the button.
+	const openCardMenu = (layoutId, event) => {
+		const target = { level: "cards", layoutId: null, ids: [layoutId] };
+		setSelection(target);
+		const box = event.currentTarget.getBoundingClientRect();
+		openMenu(target, box.left, box.bottom + 4);
+	};
+
+	const commitRename = (layoutId, title) => {
+		setRenamingId(null);
+		const layout = layoutById[layoutId];
+		const trimmed = title.trim();
+		if (layout && trimmed && trimmed !== sheet.cards[layout.cardId].title) {
+			dispatch({ type: "setCardTitle", cardId: layout.cardId, title: trimmed });
+		}
+	};
+
 	useEffect(() => {
 		const handleKey = (event) => {
 			const gesture = gestureRef.current;
@@ -682,12 +1031,15 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 			}
 			// Typing is never hijacked: inside a field, every key (Ctrl+Z
 			// included) does what the field does.
-			if (event.type !== "keydown" || isFieldFocused() || live.current.blocked) {
+			const { blocked: blockedNow, paintMode: painting, menu: menuOpen, positionPopover: popoverOpen } = live.current;
+			if (event.type !== "keydown" || isFieldFocused() || blockedNow || menuOpen || popoverOpen) {
 				return;
 			}
 			const mod = event.ctrlKey || event.metaKey;
 			const key = event.key.toLowerCase();
-			if (mod && key === "z") {
+			if (event.key === "Escape" && painting) {
+				setPaintMode(false);
+			} else if (mod && key === "z") {
 				event.preventDefault();
 				dispatch({ type: event.shiftKey ? "redo" : "undo" });
 			} else if (mod && key === "y") {
@@ -695,7 +1047,12 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 				dispatch({ type: "redo" });
 			} else if (event.key === "Escape") {
 				setSelection(NO_SELECTION);
-			} else if (!live.current.selection.level || mod) {
+			} else if (!live.current.selection.level) {
+				return;
+			} else if (mod && key === "d") {
+				event.preventDefault();
+				duplicateSelection();
+			} else if (mod) {
 				return;
 			} else if (event.key === "Delete" || event.key === "Backspace") {
 				event.preventDefault();
@@ -714,23 +1071,23 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 			window.removeEventListener("keydown", handleKey);
 			window.removeEventListener("keyup", handleKey);
 		};
-	}, [dispatch, deleteSelection, endGesture, nudge, scheduleFrame]);
+	}, [dispatch, deleteSelection, duplicateSelection, endGesture, nudge, scheduleFrame]);
 
 	useEffect(() => () => frameRef.current !== null && cancelAnimationFrame(frameRef.current), []);
 
 	// Jumps to a card (from the "referenced by" dialog): its page, selected,
 	// scrolled into view.
 	const navigateToCard = (cardId) => {
-		const onThisPage = layouts.find((layout) => layout.cardId === cardId);
-		const targetPage = onThisPage ? page : sheet.pages.find((each) => each.cardLayouts.some((layout) => layout.cardId === cardId));
-		const target = onThisPage || targetPage?.cardLayouts.find((layout) => layout.cardId === cardId);
-		if (!target) {
+		const targetPage = layouts.some((layout) => layout.cardId === cardId)
+			? page
+			: sheet.pages.find((each) => each.cardLayouts.some((layout) => layout.cardId === cardId));
+		if (!targetPage) {
 			return;
 		}
 		if (targetPage.id !== page.id) {
 			dispatch({ type: "setActivePage", pageId: targetPage.id });
 		}
-		setPendingFocus(target.id);
+		setPendingFocus([cardId]);
 	};
 
 	// ---------- Rendering ----------
@@ -740,6 +1097,7 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 	const extent = boundingSize(layouts.map(displayRect));
 
 	const overlay = [];
+	const selectedBoxes = [];
 	if (selection.level === "cards") {
 		for (const id of selection.ids) {
 			const layout = layoutById[id];
@@ -747,6 +1105,7 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 				continue;
 			}
 			const box = rectToPx(displayRect(layout));
+			selectedBoxes.push(box);
 			overlay.push(<div key={`outline-${id}`} className="cs-selection-outline" style={box} />);
 			if (selection.ids.length === 1) {
 				overlay.push(<Handles key={`handles-${id}`} box={box} level="cards" id={id} />);
@@ -761,6 +1120,7 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 				continue;
 			}
 			const box = moduleBox(cardRect, moduleRects[id]);
+			selectedBoxes.push(box);
 			overlay.push(<div key={`outline-${id}`} className="cs-selection-outline cs-selection-outline--module" style={box} />);
 			if (selection.ids.length === 1) {
 				overlay.push(<Handles key={`handles-${id}`} box={box} level="modules" id={id} layoutId={layout.id} />);
@@ -788,22 +1148,72 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 		overlay.push(<div key="marquee" className="cs-marquee" style={preview.marquee.box} />);
 	}
 
+	// The floating toolbar sits centred above the selection — or below it when
+	// the top of the selection is scrolled up against the visible area.
+	const gestureInFlight = Boolean(preview);
+	if (selectedBoxes.length && !gestureInFlight && renamingId === null) {
+		const left = Math.min(...selectedBoxes.map((box) => box.left));
+		const right = Math.max(...selectedBoxes.map((box) => box.left + box.width));
+		const top = Math.min(...selectedBoxes.map((box) => box.top));
+		const bottom = Math.max(...selectedBoxes.map((box) => box.top + box.height));
+		const canvas = canvasRef.current;
+		const scroller = canvas?.parentElement;
+		const visibleTop = canvas && scroller ? scroller.getBoundingClientRect().top - canvas.getBoundingClientRect().top : 0;
+		const placement = top - TOOLBAR_HEIGHT - TOOLBAR_GAP < visibleTop ? "below" : "above";
+		const style = {
+			left: Math.max(TOOLBAR_HALF_WIDTH, (left + right) / 2),
+			top: placement === "above" ? top - TOOLBAR_HEIGHT - TOOLBAR_GAP : bottom + TOOLBAR_GAP,
+		};
+		overlay.push(
+			<SelectionToolbar
+				key="toolbar"
+				style={style}
+				placement={placement}
+				color={paintColor}
+				onColorInput={setPaintColor}
+				onColorCommit={colorSelection}
+				paintMode={paintMode}
+				onTogglePaint={() => setPaintMode((on) => !on)}
+				canPositionSize={selection.ids.length === 1}
+				onPositionSize={(event) => {
+					const box = event.currentTarget.getBoundingClientRect();
+					setPositionPopover({ x: box.left, y: box.bottom + 6 });
+				}}
+				onDelete={deleteSelection}
+				count={selection.ids.length}
+			/>
+		);
+	}
+
 	const activeIds = new Set(preview?.active || []);
+	const popoverRect = positionPopover ? selectedRect() : null;
+	const popoverTitle =
+		selection.level === "cards"
+			? sheet.cards[layoutById[selection.ids[0]]?.cardId]?.title
+			: sheet.cards[layoutById[selection.layoutId]?.cardId]?.modules[selection.ids[0]]?.label;
+	const addModuleLayout = addModuleTo ? layoutById[addModuleTo] : null;
 
 	return (
 		<>
 			<div
 				ref={canvasRef}
-				className={`cs-canvas cs-canvas--editable${showGrid ? " cs-canvas--grid" : ""}`}
-				style={{ minHeight: (extent.rows + 8) * GRID_UNIT, minWidth: extent.cols * GRID_UNIT }}
+				className={`cs-canvas cs-canvas--editable${showGrid ? " cs-canvas--grid" : ""}${paintMode ? " cs-canvas--paint" : ""}`}
+				style={{
+					minHeight: (extent.rows + 8) * GRID_UNIT,
+					minWidth: extent.cols * GRID_UNIT,
+					...(paintMode ? { "--cs-paint-cursor": BUCKET_CURSOR } : null),
+				}}
+				onPointerDownCapture={onPointerDownCapture}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerUp}
 				onPointerCancel={() => endGesture(false)}
 				onLostPointerCapture={() => gestureRef.current && endGesture(true)}
+				onContextMenu={onContextMenu}
+				onDoubleClick={onDoubleClick}
 			>
 				{layouts.length === 0 ? (
-					<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
+					<p className="cs-empty">This page is empty — press N or use “New Card” to add your first card.</p>
 				) : null}
 				{layouts.map((layout) => (
 					<CharacterSheetCard
@@ -811,12 +1221,44 @@ export default function SheetCanvas({ showGrid, getPageColumns }) {
 						layout={{ ...layout, ...displayRect(layout), moduleRects: displayModules(layout) }}
 						dragging={activeIds.has(layout.id)}
 						selected={isSelected("cards", layout.id)}
-						onMenu={() => setSelection({ level: "cards", layoutId: null, ids: [layout.id] })}
+						onMenu={(event) => openCardMenu(layout.id, event)}
+						renaming={renamingId === layout.id}
+						onRenameCommit={(title) => commitRename(layout.id, title)}
+						onRenameCancel={() => setRenamingId(null)}
 						showGrid={showGrid}
 					/>
 				))}
 				<div className="cs-selection-layer">{overlay}</div>
 			</div>
+			{paintMode ? (
+				<div className="cs-paint-banner" role="status">
+					<span className="cs-paint-swatch" style={{ backgroundColor: paintColor }} aria-hidden="true" />
+					Painting — click cards and modules to color them.
+					<button type="button" className="cs-paint-stop" onClick={() => setPaintMode(false)}>
+						Done (Esc)
+					</button>
+				</div>
+			) : null}
+			{menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} label={menu.label} onClose={() => setMenu(null)} /> : null}
+			{positionPopover && popoverRect ? (
+				<PositionSizePopover
+					title={popoverTitle || "selection"}
+					rect={popoverRect}
+					anchor={positionPopover}
+					onApply={applyPositionSize}
+					onClose={() => setPositionPopover(null)}
+				/>
+			) : null}
+			{addModuleLayout ? (
+				<AddModuleDialog
+					card={sheet.cards[addModuleLayout.cardId]}
+					onAdd={(module) => {
+						dispatch({ type: "addModuleToCard", cardId: addModuleLayout.cardId, module });
+						setSelection({ level: "modules", layoutId: addModuleLayout.id, ids: [module.id] });
+					}}
+					onClose={() => setAddModuleTo(null)}
+				/>
+			) : null}
 			<DeleteBlockedDialog blocked={blocked} onClose={() => setBlocked(null)} onNavigate={navigateToCard} />
 		</>
 	);
