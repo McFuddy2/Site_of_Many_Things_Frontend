@@ -13,14 +13,14 @@ import {
 	referenceablePieces,
 } from "../../utils/character_sheet/refTokens";
 import { useCharacterSheet, SheetPreviewProvider } from "./CharacterSheetContext";
-import { ModuleView } from "./CharacterSheetCard";
+import { CardPreview } from "./CharacterSheetCard";
 
 // Custom Card creation flow (mockup: name the card, then repeatedly pick a
 // module type, configure it, and "Add Another" until "Finish and Submit").
 // The card is a local draft the whole time — it only reaches the sheet (and
 // localStorage) when submitted, and "Nevermind" throws it away.
 
-const CONFIGURE_INSTRUCTIONS = {
+export const CONFIGURE_INSTRUCTIONS = {
 	abilityScore: "Set up your new stat:",
 	number: "Provide the number for this module:",
 	bigNumber: "Provide the starting value for this stat:",
@@ -83,7 +83,9 @@ function parseItemLine(line) {
 	return { name: line.slice(0, splitAt).trim(), qty: line.slice(splitAt + 1).trim() || "1" };
 }
 
-function ConfigureModuleForm({ typeId, onAdd, onBack }) {
+// Also used by "Add Module…" on an existing card (see AddModuleDialog), which
+// relabels the add button.
+export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Another" }) {
 	const { sheet, pieceIndex } = useCharacterSheet();
 	const [label, setLabel] = useState(DEFAULT_LABELS[typeId] || "");
 	const [numberValue, setNumberValue] = useState(typeId === "abilityScore" ? 10 : 0);
@@ -305,7 +307,7 @@ function ConfigureModuleForm({ typeId, onAdd, onBack }) {
 
 			<div className="cs-builder-actions">
 				<button type="button" className="cs-layout-btn cs-layout-btn--confirm" onClick={handleAdd}>
-					Add Another
+					{addLabel}
 				</button>
 				<button type="button" className="cs-layout-btn" onClick={onBack}>
 					Go Back
@@ -315,7 +317,7 @@ function ConfigureModuleForm({ typeId, onAdd, onBack }) {
 	);
 }
 
-export default function CustomCardBuilder({ onClose }) {
+export default function CustomCardBuilder({ onClose, getPageColumns, onCardAdded }) {
 	const { sheet, dispatch } = useCharacterSheet();
 	const [draft, setDraft] = useState(() => createCustomCard(""));
 	const [step, setStep] = useState("name"); // name | pick | configure
@@ -345,28 +347,21 @@ export default function CustomCardBuilder({ onClose }) {
 	};
 
 	const handleFinish = () => {
-		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card: draft });
+		dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card: draft, maxCols: getPageColumns() });
+		onCardAdded?.(draft.id);
 		onClose();
 	};
 
 	return (
 		<div className="cs-builder">
 			<SheetPreviewProvider sheet={previewSheet}>
-				<section className="cs-card cs-builder-preview-card">
-					<header className="cs-card-header">
-						<span>{draft.title || "Unnamed"}</span>
-						<span className="cs-card-header-note">New Card</span>
-					</header>
-					<div className="cs-card-body cs-builder-preview-body">
-						{draft.moduleOrder.length === 0 ? (
-							<p className="cs-empty">No modules yet.</p>
-						) : (
-							draft.moduleOrder.map((moduleId) => (
-								<ModuleView key={moduleId} module={draft.modules[moduleId]} />
-							))
-						)}
-					</div>
-				</section>
+				<div className="cs-builder-preview-card">
+					{draft.moduleOrder.length === 0 ? (
+						<p className="cs-empty">No modules yet — “{draft.title || "Unnamed"}” will appear here as you add them.</p>
+					) : (
+						<CardPreview card={{ ...draft, title: draft.title || "Unnamed" }} />
+					)}
+				</div>
 			</SheetPreviewProvider>
 
 			<div className="cs-builder-panel">

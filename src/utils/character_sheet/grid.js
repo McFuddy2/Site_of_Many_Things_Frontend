@@ -1,74 +1,95 @@
-// Free-form grid geometry for the Character Sheet canvas (cards on a page)
-// and a card's body (modules within a card). Every rect is in px.
-//
-// The overlap helpers below are only used to pick a free spot for a
-// brand-new card/module (see findInitialRect). Once something exists, the
-// user may drag it wherever they like, including on top of a sibling —
-// alignment guides and snapping are what keep layouts tidy (see snapping.js),
-// and grid snapping itself is a toggle rather than a rule.
+// Whole-unit grid geometry for the Character Sheet. Every stored rect is
+// { x, y, w, h } in grid units (see GRID_UNIT): cards on a page's grid, and
+// modules on their card's module grid. Pure functions only — no React, no DOM.
 
-export const GRID_SIZE = 5;
+import {
+	GRID_UNIT,
+	INSET,
+	CARD_CHROME_W,
+	CARD_CHROME_H,
+	getTitleMinUnits,
+} from "./layoutConstants.js";
 
-// `size` lets callers snap to a coarser step than the base grid (or, with
-// snap-to-grid switched off, be bypassed entirely — see snapping.js).
-export function snap(value, size = GRID_SIZE) {
-	return Math.round(value / size) * size;
-}
-
-// Strict intersection: touching edges (equal x2/x1 or y2/y1) do not count as
-// overlap.
+// Strict intersection: rects that only share an edge don't overlap.
 export function rectsOverlap(a, b) {
-	return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+	return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-// Inflates `a` by `gap` on every side before testing against `b` — used to
-// enforce a minimum-clearance rule (e.g. the default 1-grid-cell move gap)
-// rather than a strict no-overlap rule.
-export function rectsOverlapWithGap(a, b, gap) {
-	const inflated = { x: a.x - gap, y: a.y - gap, width: a.width + gap * 2, height: a.height + gap * 2 };
-	return rectsOverlap(inflated, b);
-}
-
-export function isValidPlacement(rect, others, gap = 0) {
-	if (rect.x < 0 || rect.y < 0) {
-		return false;
+// The columns/rows a set of rects reaches from the origin (0 for none).
+export function boundingSize(rects) {
+	let cols = 0;
+	let rows = 0;
+	for (const rect of rects) {
+		cols = Math.max(cols, rect.x + rect.w);
+		rows = Math.max(rows, rect.y + rect.h);
 	}
-	return others.every((other) => !rectsOverlapWithGap(rect, other, gap));
+	return { cols, rows };
 }
 
-// A canvas whose children are all absolutely positioned contributes no
-// intrinsic height of its own — this gives it one that fits its content.
-export function boundingHeight(rects, padding = 0) {
-	return rects.reduce((max, rect) => Math.max(max, rect.y + rect.height), 0) + padding;
-}
-
-// The width counterpart to boundingHeight — used to size a container (e.g. a
-// brand-new card) to fit the rects just packed into it.
-export function boundingWidth(rects, padding = 0) {
-	return rects.reduce((max, rect) => Math.max(max, rect.x + rect.width), 0) + padding;
-}
-
-// Row-major scan from (0,0) in GRID_SIZE steps for the first placement of a
-// default-sized rect that satisfies isValidPlacement — used once, when a
-// card/module is first created, to pick an initial spot with the default
-// move gap already respected. maxWidth (e.g. a card body's usable width)
-// caps how far a row extends before wrapping to the next one, so a card's
-// modules stack into rows instead of spilling off its right edge; omit it
-// (page-level card placement, which can grow/scroll sideways) to place
-// everything in a single row.
-export function findInitialRect(defaultWidth, defaultHeight, others, gap, maxWidth = Infinity) {
-	const width = snap(defaultWidth);
-	const height = snap(defaultHeight);
-	const unboundedRowWidth = others.reduce((max, rect) => Math.max(max, rect.x + rect.width), 0) + width + gap * 2;
-	const rowWidth = Math.max(Number.isFinite(maxWidth) ? snap(maxWidth) : unboundedRowWidth, width);
-	const maxY = others.reduce((max, rect) => Math.max(max, rect.y + rect.height), 0) + height + gap * 2;
-	for (let y = 0; y <= maxY; y += GRID_SIZE) {
-		for (let x = 0; x + width <= rowWidth; x += GRID_SIZE) {
-			const candidate = { x, y, width, height };
-			if (isValidPlacement(candidate, others, gap)) {
+// First free w x h spot in reading order (top-to-bottom, then
+// left-to-right) within `maxCols` columns, starting from row `fromY`; if
+// nothing fits, the spot just below the lowest rect.
+export function findFreeSpot(rects, w, h, maxCols, fromY = 0) {
+	const { rows } = boundingSize(rects);
+	const lastX = Math.max(0, maxCols - w);
+	for (let y = fromY; y <= rows; y += 1) {
+		for (let x = 0; x <= lastX; x += 1) {
+			const candidate = { x, y, w, h };
+			if (!rects.some((rect) => rectsOverlap(candidate, rect))) {
 				return candidate;
 			}
 		}
 	}
-	return { x: 0, y: maxY, width, height };
+	return { x: 0, y: rows, w, h };
+}
+
+// Rendered px box for a rect: its cells, inset by INSET on every side.
+// Module rects are relative to their card's module grid, card rects to the
+// page — the same formula serves both.
+export function rectToPx(rect) {
+	return {
+		left: rect.x * GRID_UNIT + INSET,
+		top: rect.y * GRID_UNIT + INSET,
+		width: rect.w * GRID_UNIT - 2 * INSET,
+		height: rect.h * GRID_UNIT - 2 * INSET,
+	};
+}
+
+// A card's module grid size for a card of w x h units.
+export function moduleGridSize(cardW, cardH) {
+	return { cols: cardW - CARD_CHROME_W, rows: cardH - CARD_CHROME_H };
+}
+
+// Card size that exactly wraps a module arrangement (plus the header), floored
+// at what the title needs.
+export function fitCardSize(title, moduleRects) {
+	const { cols, rows } = boundingSize(Object.values(moduleRects));
+	return {
+		w: Math.max(getTitleMinUnits(title), cols + CARD_CHROME_W),
+		h: Math.max(CARD_CHROME_H + 1, rows + CARD_CHROME_H),
+	};
+}
+
+// The smallest a placed card can be: its modules' bounding box plus header,
+// and wide enough for its title.
+export function getCardMinSize(card, layout) {
+	const rects = layout.moduleOrder.map((id) => layout.moduleRects[id]).filter(Boolean);
+	return fitCardSize(card?.title || "", Object.fromEntries(rects.map((rect, i) => [i, rect])));
+}
+
+// Cells covered by at least one rect / cells in the grid they span — 1 means
+// no dead space. Used by the layout tests and the dev gallery.
+export function coverage(rects, cols, rows) {
+	if (!cols || !rows) {
+		return 1;
+	}
+	let covered = 0;
+	for (let y = 0; y < rows; y += 1) {
+		for (let x = 0; x < cols; x += 1) {
+			if (rects.some((rect) => x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h)) {
+				covered += 1;
+			}
+		}
+	}
+	return covered / (cols * rows);
 }

@@ -2,7 +2,21 @@
 // Follows the same pattern as spellbookStorage.js: versioned key, try/catch around
 // every read/write, and success/failure return values instead of thrown errors.
 
-export const CHARACTER_SHEETS_STORAGE_KEY = "character_sheets_v1";
+// v2 switched every card/module rect to whole grid units. Nothing saved under
+// an older key was ever shipped, so older data is simply discarded rather
+// than migrated (see discardLegacyCharacterSheets).
+export const CHARACTER_SHEETS_STORAGE_KEY = "character_sheets_v2";
+const LEGACY_STORAGE_KEYS = ["character_sheets_v1"];
+
+export function discardLegacyCharacterSheets() {
+	try {
+		for (const key of LEGACY_STORAGE_KEYS) {
+			localStorage.removeItem(key);
+		}
+	} catch (error) {
+		console.error("Error clearing old character sheets:", error);
+	}
+}
 
 export function getSavedCharacterSheets() {
 	try {
