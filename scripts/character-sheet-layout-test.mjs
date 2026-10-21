@@ -12,6 +12,9 @@ const cardLayouts = await import(`${BASE}/cardLayouts.js`);
 const refs = await import(`${BASE}/references.js`);
 const values = await import(`${BASE}/values.js`);
 const colors = await import(`${BASE}/colors.js`);
+const placement = await import(`${BASE}/placement.js`);
+const snapping = await import(`${BASE}/snapping.js`);
+const history = await import(`${BASE}/history.js`);
 
 let failures = 0;
 function check(name, actual, expected) {
@@ -108,6 +111,131 @@ const abilIndex = refs.buildPieceIndex({ cards: { [abil.id]: abil } });
 const bonusRead = values.readPieceValue(abilIndex, abil.modules[abil.moduleOrder[0]].pieceOrder[1]);
 check("formula values read as computed", [bonusRead.computed, bonusRead.value], [true, 0]);
 check("locked defaults to false", bonusRead.locked, false);
+
+// --- push-away placement ---
+const anyOverlap = (rects) => {
+	const list = Object.values(rects);
+	return list.some((a, i) => list.some((b, j) => i < j && grid.rectsOverlap(a, b)));
+};
+{
+	const rects = {
+		dropped: { x: 0, y: 0, w: 6, h: 4 },
+		below: { x: 0, y: 2, w: 6, h: 4 },
+		under: { x: 0, y: 6, w: 6, h: 2 },
+		aside: { x: 20, y: 0, w: 4, h: 4 },
+	};
+	const pushed = placement.resolvePush(rects, ["dropped"], { maxCols: 12 });
+	check("dropped item stays where it was dropped", pushed.dropped, rects.dropped);
+	check("overlapped item pushed down by the minimum", pushed.below, { x: 0, y: 4, w: 6, h: 4 });
+	check("push cascades into the next item", pushed.under, { x: 0, y: 8, w: 6, h: 2 });
+	check("untouched item stays put", pushed.aside, rects.aside);
+	check("nothing overlaps after a push", anyOverlap(pushed), false);
+	check("nothing is lost", Object.keys(pushed).sort(), Object.keys(rects).sort());
+	check("deterministic", placement.resolvePush(rects, ["dropped"], { maxCols: 12 }), pushed);
+}
+{
+	// A sliver of overlap on the side, with free room there, moves sideways
+	// rather than all the way down.
+	const rects = { dropped: { x: 0, y: 0, w: 6, h: 6 }, neighbour: { x: 5, y: 0, w: 4, h: 6 } };
+	const pushed = placement.resolvePush(rects, ["dropped"], { maxCols: 20 });
+	check("small side overlap pushes sideways into free room", pushed.neighbour, { x: 6, y: 0, w: 4, h: 6 });
+	const blocked = placement.resolvePush({ ...rects, wall: { x: 9, y: 0, w: 4, h: 6 } }, ["dropped"], { maxCols: 20 });
+	check("no free room sideways falls back to down", blocked.neighbour, { x: 5, y: 6, w: 4, h: 6 });
+	const narrow = placement.resolvePush(rects, ["dropped"], { maxCols: 9 });
+	check("sideways push respects the width limit", narrow.neighbour, { x: 5, y: 6, w: 4, h: 6 });
+}
+{
+	// Module push inside a card: stays within the card's width, card grows.
+	let s2 = schema.createSheet("Push");
+	const healthCard = schema.createHealthCard();
+	const mana = schema.createCheckboxRowModule("Mana", 3);
+	healthCard.modules[mana.id] = mana;
+	healthCard.moduleOrder.push(mana.id);
+	s2 = ops.addCardToPage(s2, s2.pages[0].id, healthCard, { maxCols: 60 });
+	s2 = ops.addCardToPage(s2, s2.pages[0].id, schema.createStandardCard("initiative"), { maxCols: 60 });
+	const page2 = s2.pages[0];
+	const [hLayout, iLayout] = page2.cardLayouts;
+	const firstId = healthCard.moduleOrder[0];
+	const plan = placement.planModuleChange(healthCard, hLayout, { [firstId]: { ...hLayout.moduleRects[firstId], y: hLayout.moduleRects[firstId].y + 1 } }, page2.cardLayouts, { maxCols: 60 });
+	const cols = hLayout.w - tokens.CARD_CHROME_W;
+	check("modules stay within the card's width", Object.values(plan.moduleRects).every((r) => r.x >= 0 && r.x + r.w <= cols), true);
+	check("modules don't overlap after a push", anyOverlap(plan.moduleRects), false);
+	check("card grows taller instead of clipping", plan.cardRect.h > hLayout.h, true);
+	check("cards on the page don't overlap after the card grows", anyOverlap(plan.pageRects), false);
+	check("page plan keeps every card", Object.keys(plan.pageRects).sort(), [hLayout.id, iLayout.id].sort());
+}
+
+// --- snapping and guides ---
+{
+	const targets = [{ x: 10, y: 0, w: 6, h: 4 }];
+	const near = snapping.snapMove({ x: 9.6, y: 5.2, w: 6, h: 3 }, targets);
+	check("move snaps to whole units", [Number.isInteger(near.rect.x), Number.isInteger(near.rect.y)], [true, true]);
+	check("edge alignment catches within tolerance", near.rect.x, 10);
+	check("an aligned edge shows a guide", near.guides.some((g) => g.orientation === "vertical" && g.position === 10), true);
+	const pulled = snapping.snapMove({ x: 4.55, y: 9, w: 6, h: 3 }, targets);
+	check("guide magnetism beats plain rounding", pulled.rect.x, 4); // right edge 10 lines up with the target's left edge
+	const alt = snapping.snapMove({ x: 9.6, y: 5.2, w: 6, h: 3 }, targets, { guides: false });
+	check("Alt: no guides, still on the grid", [alt.rect.x, alt.guides.length], [10, 0]);
+	const e = snapping.RESIZE_HANDLES.find((h) => h.id === "e");
+	const tooSmall = snapping.resizeSnap({ x: 0, y: 0, w: 6, h: 4 }, e, { dx: -10, dy: 0 }, { minW: 3 });
+	check("resize stops at the minimum width", tooSmall.rect.w, 3);
+	const capped = snapping.resizeSnap({ x: 0, y: 0, w: 6, h: 4 }, e, { dx: 10, dy: 0 }, { maxRight: 8 });
+	check("resize stops at the card's edge", capped.rect.w, 8);
+	const s = snapping.RESIZE_HANDLES.find((h) => h.id === "s");
+	const taller = snapping.resizeSnap({ x: 0, y: 0, w: 6, h: 4 }, s, { dx: 0, dy: -3 }, { minHFor: (w) => (w < 8 ? 3 : 2) });
+	check("width-dependent minimum height", taller.rect.h, 3);
+	const nw = snapping.RESIZE_HANDLES.find((h) => h.id === "nw");
+	const moved = snapping.resizeSnap({ x: 4, y: 4, w: 6, h: 4 }, nw, { dx: -2, dy: -1 }, {});
+	check("nw handle moves the origin, keeps the far corner", [moved.rect.x, moved.rect.y, moved.rect.x + moved.rect.w, moved.rect.y + moved.rect.h], [2, 3, 10, 8]);
+	const se = snapping.RESIZE_HANDLES.find((h) => h.id === "se");
+	const locked = snapping.resizeSnap({ x: 0, y: 0, w: 6, h: 3 }, se, { dx: 6, dy: 0 }, { lockAspect: true });
+	check("Shift-drag keeps the ratio", [locked.rect.w, locked.rect.h], [12, 6]);
+}
+
+// --- undo/redo history ---
+{
+	const reducer = history.withHistory((sheet, action) => {
+		if (action.type === "setPageArrangement") return ops.setPageArrangement(sheet, action.pageId, { rects: action.rects });
+		if (action.type === "setPieceValue") return ops.setPieceValue(sheet, action.pieceId, action.value);
+		return sheet;
+	});
+	let hs = schema.createSheet("History");
+	const hp = schema.createHealthCard();
+	hs = ops.addCardToPage(hs, hs.pages[0].id, hp, { maxCols: 60 });
+	const hLayoutId = hs.pages[0].cardLayouts[0].id;
+	const hpPiece = hp.modules[hp.moduleOrder[0]].pieceOrder[0];
+	let state = history.createHistoryState(hs);
+	state = reducer(state, { type: "setPageArrangement", pageId: hs.pages[0].id, rects: { [hLayoutId]: { x: 5, y: 5 } } });
+	check("a layout change is one undo step", state.past.length, 1);
+	state = reducer(state, { type: "setPieceValue", pieceId: hpPiece, value: 3 });
+	check("value edits are not undo steps", state.past.length, 1);
+	state = reducer(state, { type: "undo" });
+	check("undo restores the layout", state.sheet.pages[0].cardLayouts[0].x, 0);
+	check("undo keeps values typed since", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	state = reducer(state, { type: "redo" });
+	check("redo reapplies the layout", state.sheet.pages[0].cardLayouts[0].x, 5);
+	check("redo keeps live values too", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	state = reducer(state, { type: "redo" });
+	check("redo with nothing to redo is a no-op", state.future.length, 0);
+}
+
+// --- deleting ---
+{
+	let ds = schema.createSheet("Delete");
+	const abilities = schema.createAbilityScoresCard();
+	ds = ops.addCardToPage(ds, ds.pages[0].id, abilities, { maxCols: 60 });
+	ds = ops.addCardToPage(ds, ds.pages[0].id, schema.createStandardCard("skills", ds), { maxCols: 60 });
+	const strength = abilities.moduleOrder[0];
+	check("a module other cards use can't be deleted", refs.canDeleteModule(ds, abilities.id, strength).ok, false);
+	check("blocked delete is a no-op", ops.deleteModules(ds, abilities.id, [strength]), ds);
+	const skills = Object.values(ds.cards).find((card) => card.type === "skills");
+	const header = skills.moduleOrder[0];
+	const without = ops.deleteModules(ds, skills.id, [header]);
+	check("module deleted from the card", Boolean(without.cards[skills.id].modules[header]), false);
+	check("and from its layout", Boolean(without.pages[0].cardLayouts[1].moduleRects[header]), false);
+	const abilityLayout = ds.pages[0].cardLayouts[0].id;
+	check("referenced card isn't deleted", ops.deleteLayouts(ds, ds.pages[0].id, [abilityLayout]).pages[0].cardLayouts.length, 2);
+}
 
 // --- ids and colours ---
 const ids = new Set(Array.from({ length: 500 }, () => schema.makeId("piece")));

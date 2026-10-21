@@ -81,7 +81,7 @@
 	--cs-coin-sp: #d8dce0;
 	--cs-coin-cp: #e8b07a;
 
-	/* Direct-manipulation chrome (see snapping.js / useLayoutCanvas): blue for
+	/* Direct-manipulation chrome (see snapping.js / SheetCanvas): blue for
 	   selection, magenta for alignment guides — deliberately outside the card
 	   palette above so neither can be mistaken for card content. */
 	--cs-select-blue: #1a73e8;
@@ -228,8 +228,7 @@
 	border-radius: 4px;
 }
 
-/* Reused by both the page-tab menu and the card-colors panel (see
-   CardLayoutEditor.jsx): a label paired with a round color-wheel swatch. */
+/* A label paired with a round color-wheel swatch (the page-tab menu). */
 .cs-color-field {
 	display: flex;
 	align-items: center;
@@ -340,15 +339,6 @@
 	cursor: grab;
 	touch-action: none;
 	user-select: none;
-}
-
-.cs-card--dragging {
-	z-index: 20;
-	box-shadow: 0 4px 14px rgba(22, 38, 63, 0.4);
-}
-
-.cs-card--dragging .cs-card-header {
-	cursor: grabbing;
 }
 
 .cs-card-title {
@@ -1114,131 +1104,82 @@
 	cursor: help;
 }
 
-/* ---------- Layout editor ---------- */
+/* ---------- Direct manipulation (see SheetCanvas) ----------
+   There's no edit mode: chrome is always grabbable, content always live.
+   Headers and module chrome hint they can be dragged; anything a player
+   types into or clicks keeps its normal cursor. */
 
-/* Positioning root for a card being edited: the card itself (rounded corners,
-   overflow: hidden) is one child, and the Undo/Redo/Confirm toolbar (see
-   .cs-layout-controls) is a sibling docked just outside its bottom edge —
-   kept out of the card so the chrome never affects the card's own layout box. */
-.cs-layout-editor-wrap {
-	position: absolute;
-}
-
-.cs-card.cs-card--editing {
-	width: 100%;
-	height: 100%;
-	border-style: dashed;
-	border-color: #4a679c;
-}
-
-/* Cursor, touch-action and the drag/selected states all come from
-   .cs-canvas-item, which every module tile also carries. */
-.cs-layout-module-wrap {
-	border-radius: 8px;
-}
-
-/* Values are display-only while arranging the layout. The canvas item is the
-   module's whole grid cell rect; this inset box inside it is the module as
-   it renders on the live card. */
-.cs-layout-module-content {
-	position: absolute;
-	inset: var(--cs-inset);
-	pointer-events: none;
-	user-select: none;
-}
-
-.cs-layout-remove-x {
-	position: absolute;
-	top: -0.45rem;
-	right: -0.45rem;
-	z-index: 6;
-	width: 1.3rem;
-	height: 1.3rem;
-	border-radius: 50%;
-	border: 2px solid #9c2b2b;
-	background-color: #ffffff;
-	color: #9c2b2b;
-	font-size: 0.75rem;
-	font-weight: bold;
-	line-height: 1;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-}
-
-.cs-layout-remove-x:hover {
-	background-color: #f6dcdc;
-}
-
-/* ---------- Direct manipulation: selection, handles, guides, marquee ----------
-   Shared by the modules canvas in Edit Layout (see useLayoutCanvas for the
-   behaviour these express) and reused by the card's own resize handles
-   there too (see .cs-card-resize-handle). */
-
-/* Every draggable item on a canvas. touch-action: none hands the gesture to
-   our pointer handlers instead of letting the browser scroll/pan with it,
-   which is what makes this work identically on trackpad and touch. There are
-   deliberately no transitions on position or size: any easing here reads as
-   lag against the pointer, which is exactly what direct manipulation must not
-   do. */
-.cs-canvas-item {
+.cs-canvas--editable .cs-card-header,
+.cs-canvas--editable .cs-module {
 	cursor: grab;
 	touch-action: none;
-	user-select: none;
+}
+
+.cs-canvas--editable .cs-module :is(input, textarea, select, button, label) {
+	cursor: auto;
+}
+
+.cs-canvas--editable .cs-module :is(button, input[type="checkbox"]) {
+	cursor: pointer;
+}
+
+/* No easing on position or size anywhere here: easing reads as lag against
+   the pointer. */
+.cs-card--live {
 	z-index: 1;
 }
 
-/* Hover: a quiet hint that the item is live. Selected: unmistakably active. */
-.cs-canvas-item:hover {
-	outline: 1px solid rgba(26, 115, 232, 0.45);
-	outline-offset: 1px;
+.cs-card--selected {
+	z-index: 2;
 }
 
-.cs-canvas-item--selected {
-	outline: 2px solid var(--cs-select-blue);
-	outline-offset: 1px;
-	z-index: 5;
-}
-
-/* Raised above every sibling for the duration of the gesture. */
-.cs-canvas-item--active {
-	cursor: grabbing;
+.cs-card--dragging {
 	z-index: 20;
-	box-shadow: 0 4px 14px rgba(22, 38, 63, 0.4);
+	box-shadow: 0 6px 18px rgba(22, 38, 63, 0.4);
+	cursor: grabbing;
 }
 
-/* 8 handles: 4 corners + 4 edge midpoints. Each is bigger than it looks
-   (a 12px hit area around an 8px square) so it stays grabbable on a trackpad
-   without visually crowding a small module. */
+/* Everything below sits on one layer above the cards, in canvas px, so a
+   module's handles are never clipped by its card. The layer itself ignores
+   the pointer; only the handles take it. */
+.cs-selection-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 30;
+}
+
+.cs-selection-outline {
+	position: absolute;
+	border-radius: 10px;
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 2px;
+}
+
+.cs-selection-outline--module {
+	border-radius: var(--cs-radius);
+}
+
+/* A handle's hit area is generous (a full-length strip along each edge, a
+   square at each corner) and invisible; the 10px square drawn in its middle
+   is what you see. */
 .cs-handle {
 	position: absolute;
-	width: 12px;
-	height: 12px;
-	z-index: 21;
+	pointer-events: auto;
 	touch-action: none;
-}
-
-/* The card's own resize handles (see beginCardResize in CardLayoutEditor) sit
-   on the wrap around the whole card rather than a module tile, and use the
-   navy accent instead of the module handles' select-blue so the two are easy
-   to tell apart when a card is small enough for its edges to sit close to a
-   module's. */
-.cs-card-resize-handle::after {
-	border-color: var(--cs-navy);
-}
-
-.cs-card-resize-handle:hover::after {
-	background-color: var(--cs-navy);
 }
 
 .cs-handle::after {
 	content: "";
 	position: absolute;
-	inset: 2px;
+	left: 50%;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	margin: -5px 0 0 -5px;
+	box-sizing: border-box;
 	background-color: #ffffff;
-	border: 1.5px solid var(--cs-select-blue);
+	border: 2px solid var(--cs-select-blue);
 	border-radius: 2px;
 	box-shadow: 0 1px 2px rgba(22, 38, 63, 0.35);
 }
@@ -1247,51 +1188,12 @@
 	background-color: var(--cs-select-blue);
 }
 
-.cs-handle--nw,
-.cs-handle--w,
-.cs-handle--sw {
-	left: -6px;
-}
-
-.cs-handle--ne,
-.cs-handle--e,
-.cs-handle--se {
-	right: -6px;
-}
-
-.cs-handle--nw,
-.cs-handle--n,
-.cs-handle--ne {
-	top: -6px;
-}
-
-.cs-handle--sw,
-.cs-handle--s,
-.cs-handle--se {
-	bottom: -6px;
-}
-
-/* Edge midpoints centre themselves on the side they sit on. */
-.cs-handle--n,
-.cs-handle--s {
-	left: 50%;
-	margin-left: -6px;
-}
-
-.cs-handle--w,
-.cs-handle--e {
-	top: 50%;
-	margin-top: -6px;
-}
-
-/* Alignment guides: thin, high-contrast, and drawn only while an alignment is
-   actually being held (they're rebuilt from each frame's snap result, so they
-   can't get stuck on screen). */
+/* Alignment guides: thin, high-contrast, and only while an alignment is
+   actually held. */
 .cs-guide {
 	position: absolute;
 	background-color: var(--cs-guide-magenta);
 	pointer-events: none;
-	z-index: 30;
 }
 
 .cs-guide--vertical {
@@ -1304,154 +1206,14 @@
 	margin-top: -0.5px;
 }
 
-/* Marquee (drag-select) box. */
 .cs-marquee {
 	position: absolute;
-	background-color: rgba(26, 115, 232, 0.12);
-	border: 1px solid var(--cs-select-blue);
-	pointer-events: none;
-	z-index: 25;
-}
-
-/* Dashed box around a multi-selection — the individual members keep their own
-   solid outlines, this just shows what the group actions will operate on. */
-.cs-group-bounds {
-	position: absolute;
 	border: 1px dashed var(--cs-select-blue);
+	background-color: rgba(26, 115, 232, 0.08);
 	pointer-events: none;
-	z-index: 4;
 }
 
-/* A canvas that *is* another element's box (the card body in Edit Layout)
-   rather than a standalone scroll area — it must not clip the guides or
-   handles that deliberately overhang its edges. */
-.cs-canvas--flush {
-	overflow: visible;
-}
-
-/* ---------- Precision panel ---------- */
-
-.cs-precision-panel {
-	display: flex;
-	flex-direction: column;
-	gap: 0.35rem;
-	background-color: #ffffff;
-	border: 1px solid #c6cfdd;
-	border-radius: 8px;
-	padding: 0.5rem 0.65rem;
-	margin-bottom: 1rem;
-}
-
-.cs-precision-row {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.4rem;
-}
-
-.cs-precision-title {
-	font-weight: bold;
-	font-size: 0.85rem;
-	color: var(--cs-navy-dark);
-}
-
-.cs-precision-field {
-	display: flex;
-	align-items: center;
-	gap: 0.25rem;
-}
-
-.cs-precision-field-label {
-	font-size: 0.7rem;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: #4a5670;
-	font-weight: bold;
-}
-
-.cs-precision-input {
-	width: 4.5rem;
-	border: 1px solid #c6cfdd;
-	border-radius: 5px;
-	padding: 0.2rem 0.35rem;
-	font-size: 0.8rem;
-}
-
-.cs-precision-btn,
-.cs-precision-toggle {
-	background-color: #f2f5fa;
-	border: 1px solid #c6cfdd;
-	border-radius: 5px;
-	color: var(--cs-navy-dark);
-	font-size: 0.75rem;
-	padding: 0.25rem 0.5rem;
-	cursor: pointer;
-}
-
-.cs-precision-btn:hover,
-.cs-precision-toggle:hover {
-	background-color: #e3eaf5;
-}
-
-.cs-precision-toggle--on {
-	background-color: var(--cs-select-blue);
-	border-color: var(--cs-select-blue);
-	color: #ffffff;
-}
-
-.cs-precision-toggle--on:hover {
-	background-color: #1663c8;
-}
-
-/* Docked outside the card's own box, to whichever side has more room in the
-   viewport (see toolbarSide in CardLayoutEditor), so it never eats into the
-   card's height/width or its internal module layout and never requires
-   scrolling to reach. z-index is set well above a plain .cs-card's stacking
-   level so the toolbar stays clickable even when a neighboring card overlaps
-   this space. */
-.cs-layout-controls {
-	position: absolute;
-	top: 0;
-	z-index: 20;
-	display: flex;
-	flex-direction: column;
-	gap: 0.6rem;
-	padding: 0.6rem;
-	width: max-content;
-	border: 2px solid var(--cs-navy);
-	border-radius: 8px;
-	background-color: #f4f6fa;
-	box-shadow: 0 2px 6px rgba(22, 38, 63, 0.25);
-}
-
-.cs-layout-controls--right {
-	left: 100%;
-	margin-left: 0.5rem;
-}
-
-.cs-layout-controls--left {
-	right: 100%;
-	margin-right: 0.5rem;
-}
-
-.cs-layout-controls-group {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-
-/* Header/module-background pickers, opened from the "Card Colors" toggle in
-   the layout editor's footer (see CardLayoutEditor.jsx). */
-.cs-card-color-panel {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	padding: 0.5rem;
-	background-color: #ffffff;
-	border: 1px solid rgba(22, 38, 63, 0.25);
-	border-radius: 6px;
-}
-
+/* Buttons in the Custom Card builder's panel. */
 .cs-layout-btn {
 	border: 2px solid var(--cs-navy);
 	border-radius: 6px;
@@ -1484,15 +1246,6 @@
 }
 
 .cs-layout-btn--exit:hover {
-	background-color: #f6dcdc;
-}
-
-.cs-layout-btn--delete {
-	border-color: #9c2b2b;
-	color: #9c2b2b;
-}
-
-.cs-layout-btn--delete:hover {
 	background-color: #f6dcdc;
 }
 

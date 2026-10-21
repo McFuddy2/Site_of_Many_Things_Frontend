@@ -1,84 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CharacterSheetProvider, useCharacterSheet } from "../components/character_sheet/CharacterSheetContext";
-import CharacterSheetCard from "../components/character_sheet/CharacterSheetCard";
-import CardLayoutEditor from "../components/character_sheet/CardLayoutEditor";
+import SheetCanvas from "../components/character_sheet/SheetCanvas";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
 import NewCardModal from "../components/character_sheet/NewCardModal";
-import { boundingSize } from "../utils/character_sheet/grid";
 import { GRID_UNIT, tokenCssVars } from "../utils/character_sheet/layoutConstants";
 import { getContrastTextColor } from "../utils/character_sheet/colors";
 import "../CharacterSheetStyles.css";
-
-const CARD_DRAG_THRESHOLD = 3;
-
-// Cards move by dragging their header — always on, no separate "Arrange
-// Cards" step (see CharacterSheetCard's header). A plain click (the pointer
-// never crosses CARD_DRAG_THRESHOLD) is treated as "open Edit Layout"
-// instead of a move, so the same header press does both jobs depending on
-// whether the pointer actually travels. Position snaps to whole grid units
-// and commits straight to the sheet on release.
-function useCardDrag(pageId, dispatch) {
-	const [dragging, setDragging] = useState(null); // { layoutId, rect (units) } | null
-
-	const startDrag = useCallback(
-		(layout, onClick) => (event) => {
-			if (event.button !== 0) {
-				return;
-			}
-			event.preventDefault();
-			const target = event.currentTarget;
-			const pointerId = event.pointerId;
-			try {
-				target.setPointerCapture(pointerId);
-			} catch {
-				// Pointer already released; nothing to capture.
-			}
-			const start = { x: event.clientX, y: event.clientY };
-			const startRect = { x: layout.x, y: layout.y, w: layout.w, h: layout.h };
-			let moved = false;
-			const snapped = (moveEvent) => ({
-				...startRect,
-				x: Math.max(0, startRect.x + Math.round((moveEvent.clientX - start.x) / GRID_UNIT)),
-				y: Math.max(0, startRect.y + Math.round((moveEvent.clientY - start.y) / GRID_UNIT)),
-			});
-
-			const handleMove = (moveEvent) => {
-				const dx = moveEvent.clientX - start.x;
-				const dy = moveEvent.clientY - start.y;
-				if (!moved && (Math.abs(dx) > CARD_DRAG_THRESHOLD || Math.abs(dy) > CARD_DRAG_THRESHOLD)) {
-					moved = true;
-				}
-				if (moved) {
-					setDragging({ layoutId: layout.id, rect: snapped(moveEvent) });
-				}
-			};
-
-			const handleUp = (upEvent) => {
-				target.removeEventListener("pointermove", handleMove);
-				target.removeEventListener("pointerup", handleUp);
-				try {
-					target.releasePointerCapture(pointerId);
-				} catch {
-					// Already released.
-				}
-				if (!moved) {
-					setDragging(null);
-					onClick();
-					return;
-				}
-				const rect = snapped(upEvent);
-				setDragging(null);
-				dispatch({ type: "setPageArrangement", pageId, rects: { [layout.id]: rect } });
-			};
-
-			target.addEventListener("pointermove", handleMove);
-			target.addEventListener("pointerup", handleUp);
-		},
-		[dispatch, pageId]
-	);
-
-	return { dragging, startDrag };
-}
 
 function KebabIcon() {
 	return (
@@ -226,67 +153,10 @@ function TopBar({ onStartCustomCard, showGrid, onToggleGrid, getPageColumns }) {
 }
 
 function Canvas({ buildingCustom, onCloseBuilder, showGrid, getPageColumns }) {
-	const { sheet, dispatch } = useCharacterSheet();
-	// Only one card's layout is editable at a time. Switching pages unmounts an
-	// open editor, which discards its draft (same as Exit without Saving).
-	const [editingLayoutId, setEditingLayoutId] = useState(null);
-	const activePage = sheet.pages.find((page) => page.id === sheet.activePageId) || sheet.pages[0];
-	const { dragging, startDrag } = useCardDrag(activePage.id, dispatch);
-
-	// Jumps to and opens the layout editor for another card — used by the
-	// delete-blocked dialog's clickable referencing-card list. Picks whichever
-	// page that card first appears on, switching pages if needed.
-	const handleNavigateToCard = (cardId) => {
-		for (const page of sheet.pages) {
-			const layout = page.cardLayouts.find((existing) => existing.cardId === cardId);
-			if (layout) {
-				if (page.id !== sheet.activePageId) {
-					dispatch({ type: "setActivePage", pageId: page.id });
-				}
-				setEditingLayoutId(layout.id);
-				return;
-			}
-		}
-	};
-
 	return (
 		<>
 			{buildingCustom && <CustomCardBuilder onClose={onCloseBuilder} getPageColumns={getPageColumns} />}
-			{activePage.cardLayouts.length === 0 ? (
-				<p className="cs-empty">This page is empty — use “New Card” to add your first card.</p>
-			) : (
-				<div
-					className={`cs-canvas${showGrid ? " cs-canvas--grid" : ""}`}
-					style={{ minHeight: (boundingSize(activePage.cardLayouts).rows + 2) * GRID_UNIT }}
-				>
-					{activePage.cardLayouts.map((layout) => {
-						if (layout.id === editingLayoutId) {
-							return (
-								<CardLayoutEditor
-									key={layout.id}
-									pageId={activePage.id}
-									layout={layout}
-									card={sheet.cards[layout.cardId]}
-									onClose={() => setEditingLayoutId(null)}
-									showGrid={showGrid}
-									onNavigateToCard={handleNavigateToCard}
-								/>
-							);
-						}
-						return (
-							<CharacterSheetCard
-								key={layout.id}
-								layout={layout}
-								rect={dragging?.layoutId === layout.id ? dragging.rect : null}
-								onEditLayout={() => setEditingLayoutId(layout.id)}
-								onHeaderPointerDown={startDrag(layout, () => setEditingLayoutId(layout.id))}
-								dragging={dragging?.layoutId === layout.id}
-								showGrid={showGrid}
-							/>
-						);
-					})}
-				</div>
-			)}
+			<SheetCanvas showGrid={showGrid} getPageColumns={getPageColumns} />
 		</>
 	);
 }

@@ -96,7 +96,7 @@ export const MODULE_TYPES = {
 		defaultH: pxToUnits(FIELD_CHROME + stackHeight(5, SIZE.inputHeight, SIZE.rowGap)),
 		minH: pxToUnits(FIELD_CHROME + stackHeight(5, SIZE.inputHeight, SIZE.rowGap)),
 	},
-	damageHeal: { role: "action", defaultW: 18, defaultH: FIELD_H, minW: 10, minH: FIELD_H },
+	damageHeal: { role: "action", defaultW: 18, defaultH: FIELD_H, minW: 12, minH: FIELD_H },
 };
 
 // Module types without an entry (anything rendered by the generic view)

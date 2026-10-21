@@ -6,8 +6,9 @@
 // x/y/w/h are page cells, and moduleRects are cells on the card's module grid.
 
 import { createCardLayout, createPage, createTextPiece, createCheckboxPiece } from "./schema.js";
-import { buildPieceIndex, getPieceNumericValue, canDeleteCard } from "./references.js";
+import { buildPieceIndex, getPieceNumericValue, canDeleteCard, canDeleteModule } from "./references.js";
 import { findFreeSpot, fitCardSize, moduleGridSize, getCardMinSize } from "./grid.js";
+import { planCardChange, planModuleChange, pageColumnLimit } from "./placement.js";
 import { buildDefaultModuleRects } from "./cardLayouts.js";
 import { getModuleSizing } from "./moduleTypes.js";
 
@@ -71,6 +72,42 @@ function mapLayouts(sheet, predicate, update) {
 function growCardToFit(card, layout) {
 	const min = getCardMinSize(card, layout);
 	return { ...layout, w: Math.max(layout.w, min.w), h: Math.max(layout.h, min.h) };
+}
+
+// After cards on a page changed size/position (`changedIds`), pushes every
+// other card on that page clear of them (see placement.js).
+function settlePage(page, changedIds) {
+	if (!changedIds.length) {
+		return page;
+	}
+	const changed = Object.fromEntries(
+		page.cardLayouts
+			.filter((layout) => changedIds.includes(layout.id))
+			.map((layout) => [layout.id, { x: layout.x, y: layout.y, w: layout.w, h: layout.h }])
+	);
+	const rects = planCardChange(page.cardLayouts, changed, { maxCols: pageColumnLimit(page.cardLayouts) });
+	return { ...page, cardLayouts: page.cardLayouts.map((layout) => ({ ...layout, ...rects[layout.id] })) };
+}
+
+// mapLayouts, then pushes neighbours away from any card whose rect changed.
+function mapLayoutsAndSettle(sheet, predicate, update) {
+	return {
+		...sheet,
+		pages: sheet.pages.map((page) => {
+			const changedIds = [];
+			const cardLayouts = page.cardLayouts.map((layout) => {
+				if (!predicate(layout, page)) {
+					return layout;
+				}
+				const next = update(layout, page);
+				if (next.x !== layout.x || next.y !== layout.y || next.w !== layout.w || next.h !== layout.h) {
+					changedIds.push(layout.id);
+				}
+				return next;
+			});
+			return settlePage({ ...page, cardLayouts }, changedIds);
+		}),
+	};
 }
 
 // ---------- Pages ----------
@@ -172,7 +209,7 @@ export function setCardTitle(sheet, cardId, title) {
 		return sheet;
 	}
 	const renamed = replaceCard(sheet, { ...card, title });
-	return mapLayouts(
+	return mapLayoutsAndSettle(
 		renamed,
 		(layout) => layout.cardId === cardId,
 		(layout) => growCardToFit(renamed.cards[cardId], layout)
@@ -228,7 +265,7 @@ export function addModuleToCard(sheet, cardId, module) {
 	};
 	const withModule = replaceCard(sheet, nextCard);
 	const sizing = getModuleSizing(module);
-	return mapLayouts(
+	return mapLayoutsAndSettle(
 		withModule,
 		(layout) => layout.cardId === cardId,
 		(layout) => {
@@ -267,7 +304,7 @@ export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder,
 			keptRects[moduleId] = moduleRects[moduleId];
 		}
 	}
-	return mapLayouts(
+	return mapLayoutsAndSettle(
 		sheet,
 		(layout, page) => page.id === pageId && layout.id === layoutId,
 		(layout) =>
@@ -282,9 +319,9 @@ export function setCardLayoutArrangement(sheet, pageId, layoutId, { moduleOrder,
 
 // Moves/resizes cards on a page: `rects` maps layout id -> { x, y, w, h } in
 // units (any subset of those keys). A card never shrinks below its modules
-// and never goes to negative coordinates.
+// and never goes to negative coordinates; other cards are pushed clear.
 export function setPageArrangement(sheet, pageId, { rects = {} }) {
-	return mapLayouts(
+	return mapLayoutsAndSettle(
 		sheet,
 		(layout, page) => page.id === pageId && Boolean(rects[layout.id]),
 		(layout) => {
@@ -304,38 +341,113 @@ export function setLayoutModuleOrder(sheet, pageId, layoutId, moduleOrder) {
 }
 
 // A module whose content grew (another list row, more checkboxes) gets
-// taller wherever it's placed if it no longer fits; everything below it in
-// that card moves down by the same amount, and the card grows to match.
+// taller wherever it's placed if it no longer fits; whatever it now lands on
+// in that card is pushed clear, and the card (and the cards around it on the
+// page) make room in turn — see planModuleChange.
 function ensureModuleFits(sheet, cardId, moduleId) {
 	const card = sheet.cards[cardId];
 	const module = card?.modules[moduleId];
 	if (!module) {
 		return sheet;
 	}
+	let next = sheet;
+	for (const page of sheet.pages) {
+		for (const { id: layoutId } of page.cardLayouts) {
+			const livePage = next.pages.find((existing) => existing.id === page.id);
+			const layout = livePage.cardLayouts.find((existing) => existing.id === layoutId);
+			const rect = layout.cardId === cardId ? layout.moduleRects[moduleId] : null;
+			if (!rect) {
+				continue;
+			}
+			const { minH } = getModuleSizing(module, rect.w);
+			if (minH <= rect.h) {
+				continue;
+			}
+			const plan = planModuleChange(card, layout, { [moduleId]: { ...rect, h: minH } }, livePage.cardLayouts, {
+				maxCols: pageColumnLimit(livePage.cardLayouts),
+			});
+			next = applyPageLayout(next, page.id, {
+				cardRects: plan.pageRects,
+				moduleLayoutId: layout.id,
+				moduleRects: plan.moduleRects,
+			});
+		}
+	}
+	return next;
+}
+
+// Commits one finished layout change on a page in a single step (so it's a
+// single undo step): new rects for any cards (`cardRects`, layout id ->
+// rect), and optionally a new module arrangement for one card layout. The
+// caller has already resolved pushes (see placement.js); this just stores
+// the result.
+export function applyPageLayout(sheet, pageId, { cardRects = {}, moduleLayoutId = null, moduleRects = null }) {
 	return mapLayouts(
 		sheet,
-		(layout) => layout.cardId === cardId && Boolean(layout.moduleRects[moduleId]),
+		(layout, page) => page.id === pageId && (Boolean(cardRects[layout.id]) || layout.id === moduleLayoutId),
 		(layout) => {
-			const rect = layout.moduleRects[moduleId];
-			const { minH } = getModuleSizing(module, rect.w);
-			const delta = minH - rect.h;
-			if (delta <= 0) {
-				return layout;
+			const next = { ...layout, ...(cardRects[layout.id] || {}) };
+			if (layout.id === moduleLayoutId && moduleRects) {
+				next.moduleRects = { ...layout.moduleRects, ...moduleRects };
 			}
-			const bottom = rect.y + rect.h;
-			const moduleRects = {};
-			for (const [id, other] of Object.entries(layout.moduleRects)) {
-				if (id === moduleId) {
-					moduleRects[id] = { ...other, h: minH };
-				} else if (other.y >= bottom) {
-					moduleRects[id] = { ...other, y: other.y + delta };
-				} else {
-					moduleRects[id] = other;
-				}
-			}
-			return growCardToFit(card, { ...layout, moduleRects });
+			return next;
 		}
 	);
+}
+
+// Deletes modules from a card's data, everywhere it's placed. Modules another
+// module still references are skipped (the UI checks canDeleteModule first
+// and explains why).
+export function deleteModules(sheet, cardId, moduleIds) {
+	const card = sheet.cards[cardId];
+	if (!card) {
+		return sheet;
+	}
+	const removable = moduleIds.filter((moduleId) => card.modules[moduleId] && canDeleteModule(sheet, cardId, moduleId).ok);
+	if (!removable.length) {
+		return sheet;
+	}
+	const modules = { ...card.modules };
+	for (const moduleId of removable) {
+		delete modules[moduleId];
+	}
+	const withoutModules = replaceCard(sheet, {
+		...card,
+		modules,
+		moduleOrder: card.moduleOrder.filter((moduleId) => !removable.includes(moduleId)),
+	});
+	return mapLayouts(
+		withoutModules,
+		(layout) => layout.cardId === cardId,
+		(layout) => {
+			const moduleRects = { ...layout.moduleRects };
+			for (const moduleId of removable) {
+				delete moduleRects[moduleId];
+			}
+			return { ...layout, moduleOrder: layout.moduleOrder.filter((id) => !removable.includes(id)), moduleRects };
+		}
+	);
+}
+
+// Deletes cards from a page. A card that's also placed on other pages only
+// loses this placement; a card placed only here is deleted outright, unless
+// another card references it, in which case it's left alone (the UI checks
+// canDeleteCard first and explains why).
+export function deleteLayouts(sheet, pageId, layoutIds) {
+	let next = sheet;
+	for (const layoutId of layoutIds) {
+		const layout = next.pages.find((page) => page.id === pageId)?.cardLayouts.find((each) => each.id === layoutId);
+		if (!layout) {
+			continue;
+		}
+		if (countCardPlacements(next, layout.cardId) > 1) {
+			next = removeCardFromPage(next, pageId, layoutId);
+		} else {
+			const result = deleteCard(next, layout.cardId);
+			next = result.ok ? result.sheet : next;
+		}
+	}
+	return next;
 }
 
 // ---------- Piece values ----------

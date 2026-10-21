@@ -1,0 +1,126 @@
+// Undo/redo for the sheet's layout, structure and colours.
+//
+// Each tracked action (see HISTORY_ACTIONS) records the sheet as it was just
+// before, so one drag, one resize, one paint click is one step. Values the
+// player types (HP, checkboxes, notes…) are deliberately *not* tracked —
+// inside a field the browser's own text undo handles them — and undoing a
+// layout step never rolls them back: the snapshot being restored takes on
+// the live value of every piece that still exists (see mergeLiveValues).
+
+export const HISTORY_LIMIT = 100;
+
+export const HISTORY_ACTIONS = new Set([
+	"addPage",
+	"setPageName",
+	"setPageColor",
+	"setCardTitle",
+	"setCardHeaderColor",
+	"setModuleColor",
+	"setCardModulesColor",
+	"addCardToPage",
+	"insertExistingCard",
+	"removeCardFromPage",
+	"deleteCard",
+	"deleteLayouts",
+	"deleteModules",
+	"addModuleRow",
+	"removeModuleRow",
+	"setPageArrangement",
+	"applyPageLayout",
+]);
+
+// The fields that hold what the player entered, per piece kind.
+const VALUE_FIELDS = {
+	variable: ["value"],
+	checkbox: ["value"],
+	text: ["segments"],
+	dropdown: ["selectedIndex"],
+	image: ["src"],
+};
+
+// `target` (a snapshot being restored) with the current value of every piece
+// that exists in both. Stays on the page the player is looking at, unless the
+// restored step changed a different page (then shows that one) or the page
+// no longer exists.
+export function mergeLiveValues(target, current) {
+	const live = new Map();
+	for (const card of Object.values(current.cards)) {
+		for (const module of Object.values(card.modules)) {
+			for (const piece of Object.values(module.pieces)) {
+				live.set(piece.id, piece);
+			}
+		}
+	}
+
+	const cards = {};
+	for (const [cardId, card] of Object.entries(target.cards)) {
+		let cardChanged = false;
+		const modules = {};
+		for (const [moduleId, module] of Object.entries(card.modules)) {
+			let moduleChanged = false;
+			const pieces = {};
+			for (const [pieceId, piece] of Object.entries(module.pieces)) {
+				const livePiece = live.get(pieceId);
+				if (livePiece && livePiece !== piece && livePiece.kind === piece.kind) {
+					const values = {};
+					for (const field of VALUE_FIELDS[piece.kind] || []) {
+						values[field] = livePiece[field];
+					}
+					pieces[pieceId] = { ...piece, ...values };
+					moduleChanged = true;
+				} else {
+					pieces[pieceId] = piece;
+				}
+			}
+			modules[moduleId] = moduleChanged ? { ...module, pieces } : module;
+			cardChanged = cardChanged || moduleChanged;
+		}
+		cards[cardId] = cardChanged ? { ...card, modules } : card;
+	}
+
+	const currentPages = new Map(current.pages.map((page) => [page.id, page]));
+	const changedPage = target.pages.find((page) => currentPages.get(page.id) !== page);
+	const keepCurrent = target.pages.some((page) => page.id === current.activePageId);
+	const activePageId = changedPage ? changedPage.id : keepCurrent ? current.activePageId : target.activePageId;
+	return { ...target, cards, activePageId };
+}
+
+export function createHistoryState(sheet) {
+	return { sheet, past: [], future: [] };
+}
+
+// Wraps a sheet reducer with undo/redo: state is { sheet, past, future }.
+export function withHistory(reducer) {
+	return (state, action) => {
+		if (action.type === "undo") {
+			if (!state.past.length) {
+				return state;
+			}
+			const target = state.past[state.past.length - 1];
+			return {
+				sheet: mergeLiveValues(target, state.sheet),
+				past: state.past.slice(0, -1),
+				future: [state.sheet, ...state.future],
+			};
+		}
+		if (action.type === "redo") {
+			if (!state.future.length) {
+				return state;
+			}
+			const [target, ...rest] = state.future;
+			return {
+				sheet: mergeLiveValues(target, state.sheet),
+				past: [...state.past, state.sheet],
+				future: rest,
+			};
+		}
+		const next = reducer(state.sheet, action);
+		if (next === state.sheet) {
+			return state;
+		}
+		if (HISTORY_ACTIONS.has(action.type)) {
+			return { sheet: next, past: [...state.past, state.sheet].slice(-HISTORY_LIMIT), future: [] };
+		}
+		return { ...state, sheet: next };
+	};
+}

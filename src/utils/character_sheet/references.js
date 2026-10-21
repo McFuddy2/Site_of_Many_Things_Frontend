@@ -200,6 +200,49 @@ export function getCardInboundRefs(sheet, cardId) {
 	return referencedBy;
 }
 
+// Every card holding a piece (outside the module itself) that references any
+// of the module's pieces — same shape as getCardInboundRefs, so the same
+// "referenced by" dialog can list them. Unlike cards, a reference from
+// another module on the same card counts too: deleting the module would
+// still break it.
+export function getModuleInboundRefs(sheet, cardId, moduleId) {
+	const target = sheet.cards[cardId]?.modules[moduleId];
+	if (!target) {
+		return [];
+	}
+	const ownPieceIds = new Set(Object.keys(target.pieces));
+	const referencedBy = [];
+	for (const card of Object.values(sheet.cards)) {
+		const references = [];
+		for (const module of Object.values(card.modules)) {
+			if (card.id === cardId && module.id === moduleId) {
+				continue;
+			}
+			for (const piece of Object.values(module.pieces)) {
+				const targetPieceIds = getPieceRefs(piece).filter((refId) => ownPieceIds.has(refId));
+				if (targetPieceIds.length) {
+					references.push({
+						moduleId: module.id,
+						moduleLabel: module.label,
+						pieceId: piece.id,
+						pieceLabel: piece.label,
+						targetPieceIds,
+					});
+				}
+			}
+		}
+		if (references.length) {
+			referencedBy.push({ cardId: card.id, cardTitle: card.title, references });
+		}
+	}
+	return referencedBy;
+}
+
+export function canDeleteModule(sheet, cardId, moduleId) {
+	const referencedBy = getModuleInboundRefs(sheet, cardId, moduleId);
+	return { ok: referencedBy.length === 0, referencedBy };
+}
+
 // A card may only be deleted once no other card references it.
 export function canDeleteCard(sheet, cardId) {
 	const referencedBy = getCardInboundRefs(sheet, cardId);

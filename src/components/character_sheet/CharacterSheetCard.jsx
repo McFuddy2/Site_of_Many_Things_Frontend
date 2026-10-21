@@ -654,14 +654,14 @@ export function CardFace({
 	style,
 	className = "",
 	cardId = null,
-	onHeaderPointerDown,
+	layoutId = null,
 	onMenu,
 	showGrid = false,
 }) {
 	const moduleIds = layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId]);
 	return (
-		<section className={`cs-card ${className}`} style={style} data-card-type={card.type}>
-			<header className="cs-card-header" style={cardHeaderStyle(card)} onPointerDown={onHeaderPointerDown}>
+		<section className={`cs-card ${className}`} style={style} data-card-type={card.type} data-layout-id={layoutId || undefined}>
+			<header className="cs-card-header" style={cardHeaderStyle(card)}>
 				<span className="cs-card-title" title={card.title}>
 					{card.title}
 				</span>
@@ -683,6 +683,7 @@ export function CardFace({
 						<div
 							key={moduleId}
 							className="cs-module-slot"
+							data-module-id={moduleId}
 							data-module-type={card.modules[moduleId].type}
 							style={moduleSlotStyle(layout.moduleRects[moduleId])}
 						>
@@ -715,25 +716,26 @@ export function CardPreview({ card }) {
 	);
 }
 
-// One card on the page canvas at its stored grid rect. The header is the
-// card's move handle (onHeaderPointerDown, supplied by the canvas); the kebab
-// opens the card's layout editor.
-export default function CharacterSheetCard({ layout, onEditLayout, onHeaderPointerDown, rect, dragging = false, showGrid }) {
+// One card on the page canvas at its (possibly previewed) grid rect. All
+// pointer handling lives on the canvas (see SheetCanvas); the card just marks
+// itself with data-layout-id / data-module-id so the canvas can tell what a
+// press landed on. The kebab selects the card.
+export default function CharacterSheetCard({ layout, onMenu, dragging = false, selected = false, showGrid }) {
 	const { sheet } = useCharacterSheet();
 	const card = sheet.cards[layout.cardId];
 	if (!card) {
 		return null;
 	}
-	const box = rectToPx(rect || layout);
+	const box = rectToPx(layout);
 	return (
 		<CardFace
 			card={card}
 			layout={layout}
 			cardId={card.id}
-			className={dragging ? "cs-card--dragging" : ""}
+			layoutId={layout.id}
+			className={`cs-card--live${dragging ? " cs-card--dragging" : ""}${selected ? " cs-card--selected" : ""}`}
 			style={{ position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height }}
-			onHeaderPointerDown={onHeaderPointerDown}
-			onMenu={onEditLayout}
+			onMenu={onMenu}
 			showGrid={showGrid}
 		/>
 	);

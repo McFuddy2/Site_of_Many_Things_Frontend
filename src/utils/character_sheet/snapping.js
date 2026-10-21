@@ -1,37 +1,19 @@
-// Lucidchart-style snapping geometry for the Character Sheet's free-form
-// canvases (cards on a page, modules within a card). Pure functions over rects
-// ({ x, y, width, height } in px) — no React, no DOM — so the drag/resize
-// controller stays a thin state machine on top of these (see useLayoutCanvas).
+// Snapping and smart guides for moving/resizing on the unit grid. Pure
+// functions over { x, y, w, h } rects in grid units — no React, no DOM.
 //
-// Unlike grid.js's clampMove/clampResize, nothing here forbids overlap: rects
-// may sit on top of each other freely and z-order decides what reads on top.
-// Alignment guides plus snapping are what keep a layout tidy, the same way
-// Lucidchart does it.
+// Everything always lands on whole grid cells. On top of that, smart guides
+// add magnetism: a moving edge or centre that comes within SNAP_TOLERANCE of
+// lining up with another item's edge or centre catches there (even if plain
+// rounding would have picked the neighbouring cell), and a guide line shows
+// what it lined up with. Holding Alt passes `guides: false`, which turns the
+// magnetism and the lines off — rounding to the grid still applies, so Alt
+// can never produce an off-grid position.
 
-import { GRID_UNIT } from "./layoutConstants.js";
+// How close (in units) an alignment has to be before it catches.
+export const SNAP_TOLERANCE = 0.6;
 
-// This file still works in px (it backs the Edit Layout canvas, which edits a
-// px projection of the unit grid), so it keeps its own px helpers rather than
-// grid.js's unit-based ones.
-const GRID_SIZE = GRID_UNIT;
-
-export function snap(value, size = GRID_SIZE) {
-	return Math.round(value / size) * size;
-}
-
-function rectsOverlap(a, b) {
-	return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-}
-
-// How close (px) a moving edge/center has to get before it catches. Much below
-// this it feels like the guide never catches; much above it fights you when
-// you're deliberately placing a rect near — but not on — an alignment.
-export const SNAP_TOLERANCE = 6;
-
-// The 8 selection handles. dirX/dirY say which edges a handle moves:
-// -1 = the low edge (left/top), 1 = the high edge (right/bottom), 0 = neither,
-// so corner handles (both non-zero) drive width and height together and edge
-// handles drive exactly one dimension.
+// The 8 resize handles. dirX/dirY say which edges a handle moves: -1 = the
+// low edge (left/top), 1 = the high edge (right/bottom), 0 = neither.
 export const RESIZE_HANDLES = [
 	{ id: "nw", dirX: -1, dirY: -1, cursor: "nwse-resize" },
 	{ id: "n", dirX: 0, dirY: -1, cursor: "ns-resize" },
@@ -45,339 +27,157 @@ export const RESIZE_HANDLES = [
 
 export const isCornerHandle = (handle) => handle.dirX !== 0 && handle.dirY !== 0;
 
-// The three snappable positions per axis: both edges and the center. Matching
-// any moving anchor against any target anchor is what makes edge-to-edge,
-// center-to-center and edge-to-center alignments all catch.
-const anchorsX = (rect) => [rect.x, rect.x + rect.width / 2, rect.x + rect.width];
-const anchorsY = (rect) => [rect.y, rect.y + rect.height / 2, rect.y + rect.height];
+const AXES = {
+	x: { start: "x", size: "w", crossStart: "y", crossSize: "h", orientation: "vertical" },
+	y: { start: "y", size: "h", crossStart: "x", crossSize: "w", orientation: "horizontal" },
+};
 
-// Nearest alignment between any of `movingRect`'s anchors and any target's, on
-// one axis. Returns the delta to apply, the absolute position the guide should
-// be drawn at, and every target that shares that position (so one guide can
-// span all of them, rather than drawing a line per target).
-function findAxisSnap(movingRect, targets, anchorsOf, tolerance) {
+const anchorsOf = (rect, axis) => {
+	const start = rect[AXES[axis].start];
+	const size = rect[AXES[axis].size];
+	return [start, start + size / 2, start + size];
+};
+
+// Best whole-unit position for a moving span on one axis. `offsets` are the
+// anchor offsets from the span's start that may align (edges and centre for
+// a move; just the moving edge for a resize). Returns { value, position }
+// where position is the aligned guide line, or null if it just rounded.
+function snapAxis(rawStart, offsets, targets, axis, tolerance) {
 	let best = null;
-	const movingAnchors = anchorsOf(movingRect);
 	for (const target of targets) {
-		for (const targetAnchor of anchorsOf(target)) {
-			for (const movingAnchor of movingAnchors) {
-				const delta = targetAnchor - movingAnchor;
-				if (Math.abs(delta) <= tolerance && (!best || Math.abs(delta) < Math.abs(best.delta))) {
-					best = { delta, position: targetAnchor };
+		for (const anchor of anchorsOf(target, axis)) {
+			for (const offset of offsets) {
+				const candidate = anchor - offset;
+				if (!Number.isInteger(candidate)) {
+					continue;
+				}
+				const distance = Math.abs(candidate - rawStart);
+				if (distance <= tolerance && (!best || distance < best.distance)) {
+					best = { value: candidate, position: anchor, distance };
 				}
 			}
 		}
 	}
-	if (!best) {
-		return null;
-	}
-	const matched = targets.filter((target) => anchorsOf(target).some((anchor) => Math.abs(anchor - best.position) < 0.5));
-	return { ...best, matched };
+	return best ? { value: best.value, position: best.position } : { value: Math.round(rawStart), position: null };
 }
 
-// Same as findAxisSnap but for a single moving value (one resizing edge)
-// rather than a whole rect's three anchors.
-function findEdgeSnap(edgeValue, targets, anchorsOf, tolerance) {
-	let best = null;
-	for (const target of targets) {
-		for (const anchor of anchorsOf(target)) {
-			const delta = anchor - edgeValue;
-			if (Math.abs(delta) <= tolerance && (!best || Math.abs(delta) < Math.abs(best.delta))) {
-				best = { delta, position: anchor };
-			}
-		}
-	}
-	if (!best) {
+// One guide line per aligned axis, spanning the moving rect and every target
+// that shares that line.
+function guideFor(rect, targets, axis, position) {
+	if (position === null) {
 		return null;
 	}
-	const matched = targets.filter((target) => anchorsOf(target).some((anchor) => Math.abs(anchor - best.position) < 0.5));
-	return { ...best, matched };
-}
-
-// A guide line spans the union of the moving rect and every target it aligned
-// with, so it visibly connects what's actually lined up.
-function buildGuide(orientation, snapResult, movingRect) {
-	const rects = [movingRect, ...snapResult.matched];
-	const along = orientation === "vertical" ? rects.map((r) => [r.y, r.y + r.height]) : rects.map((r) => [r.x, r.x + r.width]);
+	const { crossStart, crossSize, orientation } = AXES[axis];
+	const aligned = targets.filter((target) => anchorsOf(target, axis).includes(position));
+	if (!aligned.length) {
+		return null;
+	}
+	const spans = [rect, ...aligned];
 	return {
 		orientation,
-		position: snapResult.position,
-		start: Math.min(...along.map(([lo]) => lo)),
-		end: Math.max(...along.map(([, hi]) => hi)),
+		position,
+		start: Math.min(...spans.map((span) => span[crossStart])),
+		end: Math.max(...spans.map((span) => span[crossStart] + span[crossSize])),
 	};
 }
 
-function buildGuides(rect, snapX, snapY) {
-	const guides = [];
-	if (snapX) {
-		guides.push(buildGuide("vertical", snapX, rect));
-	}
-	if (snapY) {
-		guides.push(buildGuide("horizontal", snapY, rect));
-	}
-	return guides;
+// A move: `raw` is the rect at its unrounded position. Returns the whole-unit
+// rect plus any guides it lined up with.
+export function snapMove(raw, targets, { guides = true, tolerance = SNAP_TOLERANCE } = {}) {
+	const pool = guides ? targets : [];
+	const x = snapAxis(raw.x, [0, raw.w / 2, raw.w], pool, "x", tolerance);
+	const y = snapAxis(raw.y, [0, raw.h / 2, raw.h], pool, "y", tolerance);
+	const rect = { x: x.value, y: y.value, w: raw.w, h: raw.h };
+	return { rect, guides: [guideFor(rect, pool, "x", x.position), guideFor(rect, pool, "y", y.position)].filter(Boolean) };
 }
 
-// Resolves a proposed move. Object-to-object alignment wins on an axis when
-// one is in range; the optional grid only catches on axes that found no
-// object alignment, so the two snapping systems stay independent (and either
-// can be off) without fighting each other.
-export function computeMoveSnap(rect, targets, options = {}) {
-	const { tolerance = SNAP_TOLERANCE, snapToObjects = true, snapToGrid = false, gridSize = GRID_SIZE } = options;
-	const snapX = snapToObjects ? findAxisSnap(rect, targets, anchorsX, tolerance) : null;
-	const snapY = snapToObjects ? findAxisSnap(rect, targets, anchorsY, tolerance) : null;
-	let { x, y } = rect;
-	if (snapX) {
-		x += snapX.delta;
-	} else if (snapToGrid) {
-		x = snap(x, gridSize);
-	}
-	if (snapY) {
-		y += snapY.delta;
-	} else if (snapToGrid) {
-		y = snap(y, gridSize);
-	}
-	const snapped = { ...rect, x, y };
-	return { rect: snapped, guides: buildGuides(snapped, snapX, snapY) };
-}
-
-// Clamps width/height to their minimums, re-deriving the other dimension when
-// the aspect ratio is locked so a min can't quietly break the ratio.
-function applyMinSize(width, height, minWidth, minHeight, ratio) {
-	let nextWidth = width;
-	let nextHeight = height;
-	if (nextWidth < minWidth) {
-		nextWidth = minWidth;
-		if (ratio) {
-			nextHeight = nextWidth / ratio;
-		}
-	}
-	if (nextHeight < minHeight) {
-		nextHeight = minHeight;
-		if (ratio) {
-			nextWidth = nextHeight * ratio;
-		}
-	}
-	return { width: Math.max(nextWidth, minWidth), height: Math.max(nextHeight, minHeight) };
-}
-
-// Applies a raw pointer delta to a rect for one handle. Only the edges the
-// handle owns move, and dragging a low edge (dirX/dirY of -1) moves the rect's
-// origin as well as its size so the opposite edge stays put. With lockAspect
-// (Shift on a corner) the axis the pointer moved further along proportionally
-// drives the other.
-export function resizeRect(startRect, handle, delta, options = {}) {
-	const { minWidth = 1, minHeight = 1, lockAspect = false } = options;
-	const ratioLocked = lockAspect && isCornerHandle(handle) && startRect.height !== 0;
-	const ratio = ratioLocked ? startRect.width / startRect.height : null;
-
-	let width = startRect.width + handle.dirX * delta.dx;
-	let height = startRect.height + handle.dirY * delta.dy;
-
-	if (ratio) {
-		const widthChange = Math.abs(width / startRect.width - 1);
-		const heightChange = Math.abs(height / startRect.height - 1);
-		if (widthChange >= heightChange) {
-			height = width / ratio;
-		} else {
-			width = height * ratio;
-		}
-	}
-
-	({ width, height } = applyMinSize(width, height, minWidth, minHeight, ratio));
-
-	return {
-		x: handle.dirX === -1 ? startRect.x + startRect.width - width : startRect.x,
-		y: handle.dirY === -1 ? startRect.y + startRect.height - height : startRect.y,
-		width,
-		height,
-	};
-}
-
-// Snaps the edges a resize is actually moving (never the stationary ones) to
-// nearby target anchors. Skipped entirely while the aspect ratio is locked —
-// there, holding the ratio matters more than catching an alignment.
-export function computeResizeSnap(rect, handle, targets, options = {}) {
+// A resize from `handle`, by `delta` units (unrounded). minW is a number;
+// minHFor(w) gives the minimum height at a width (some modules get taller as
+// they get narrower). maxRight caps the right edge (a module can't grow past
+// its card's width). Shift-drag (lockAspect) keeps the starting proportions
+// on corner handles.
+export function resizeSnap(start, handle, delta, options = {}) {
 	const {
-		tolerance = SNAP_TOLERANCE,
-		snapToObjects = true,
-		snapToGrid = false,
-		gridSize = GRID_SIZE,
-		minWidth = 1,
-		minHeight = 1,
+		minW = 1,
+		minHFor = () => 1,
+		maxRight = Infinity,
 		lockAspect = false,
+		targets = [],
+		guides = true,
+		tolerance = SNAP_TOLERANCE,
 	} = options;
+	const pool = guides ? targets : [];
+	let left = start.x;
+	let right = start.x + start.w;
+	let top = start.y;
+	let bottom = start.y + start.h;
+	if (handle.dirX === 1) right += delta.dx;
+	if (handle.dirX === -1) left += delta.dx;
+	if (handle.dirY === 1) bottom += delta.dy;
+	if (handle.dirY === -1) top += delta.dy;
 
-	if (lockAspect && isCornerHandle(handle)) {
-		return { rect, guides: [] };
-	}
-
-	let next = { ...rect };
-	const guides = [];
-
-	if (handle.dirX !== 0) {
-		const edge = handle.dirX === 1 ? next.x + next.width : next.x;
-		const found = snapToObjects ? findEdgeSnap(edge, targets, anchorsX, tolerance) : null;
-		const delta = found ? found.delta : snapToGrid ? snap(edge, gridSize) - edge : 0;
-		if (handle.dirX === 1) {
-			next.width = Math.max(minWidth, next.width + delta);
+	if (lockAspect && isCornerHandle(handle) && start.h > 0) {
+		const ratio = start.w / start.h;
+		const w = right - left;
+		const h = bottom - top;
+		if (Math.abs(w / start.w) >= Math.abs(h / start.h)) {
+			const nextH = w / ratio;
+			if (handle.dirY === 1) bottom = top + nextH;
+			else top = bottom - nextH;
 		} else {
-			const width = Math.max(minWidth, next.width - delta);
-			next.x = next.x + next.width - width;
-			next.width = width;
-		}
-		if (found) {
-			guides.push(buildGuide("vertical", found, next));
+			const nextW = h * ratio;
+			if (handle.dirX === 1) right = left + nextW;
+			else left = right - nextW;
 		}
 	}
 
-	if (handle.dirY !== 0) {
-		const edge = handle.dirY === 1 ? next.y + next.height : next.y;
-		const found = snapToObjects ? findEdgeSnap(edge, targets, anchorsY, tolerance) : null;
-		const delta = found ? found.delta : snapToGrid ? snap(edge, gridSize) - edge : 0;
-		if (handle.dirY === 1) {
-			next.height = Math.max(minHeight, next.height + delta);
-		} else {
-			const height = Math.max(minHeight, next.height - delta);
-			next.y = next.y + next.height - height;
-			next.height = height;
-		}
-		if (found) {
-			guides.push(buildGuide("horizontal", found, next));
-		}
+	let xGuide = null;
+	let yGuide = null;
+	if (handle.dirX === 1) {
+		const snapped = snapAxis(right, [0], pool, "x", tolerance);
+		right = snapped.value;
+		xGuide = snapped.position;
+	} else if (handle.dirX === -1) {
+		const snapped = snapAxis(left, [0], pool, "x", tolerance);
+		left = snapped.value;
+		xGuide = snapped.position;
+	}
+	if (handle.dirY === 1) {
+		const snapped = snapAxis(bottom, [0], pool, "y", tolerance);
+		bottom = snapped.value;
+		yGuide = snapped.position;
+	} else if (handle.dirY === -1) {
+		const snapped = snapAxis(top, [0], pool, "y", tolerance);
+		top = snapped.value;
+		yGuide = snapped.position;
 	}
 
-	return { rect: next, guides };
+	// Limits: the moving edge stops instead of the opposite edge drifting.
+	if (handle.dirX === -1) left = Math.max(0, Math.min(left, right - minW));
+	if (handle.dirX === 1) right = Math.min(Math.max(right, left + minW), Math.max(maxRight, left + minW));
+	const minH = minHFor(right - left);
+	if (handle.dirY === -1) top = Math.max(0, Math.min(top, bottom - minH));
+	if (handle.dirY === 1) bottom = Math.max(bottom, top + minH);
+	if (handle.dirY === 0 && bottom - top < minH) bottom = top + minH;
+
+	const rect = { x: left, y: top, w: right - left, h: bottom - top };
+	const lines = [];
+	if (xGuide !== null && anchorsOf(rect, "x").includes(xGuide)) lines.push(guideFor(rect, pool, "x", xGuide));
+	if (yGuide !== null && anchorsOf(rect, "y").includes(yGuide)) lines.push(guideFor(rect, pool, "y", yGuide));
+	return { rect, guides: lines.filter(Boolean) };
 }
 
-// ---------- Bounds ----------
+// Marquee hit test against an item (both px boxes { left, top, width,
+// height }): anything the marquee touches counts.
+export function boxesTouch(a, b) {
+	return a.left <= b.left + b.width && a.left + a.width >= b.left && a.top <= b.top + b.height && a.top + a.height >= b.top;
+}
 
-// Keeps a rect inside the canvas's origin (and optional far edges). Cards and
-// modules may overlap each other, but neither may sit at a negative
-// coordinate — nothing there would be reachable.
-export function clampRectToBounds(rect, bounds) {
-	if (!bounds) {
-		return rect;
-	}
-	const { minX = 0, minY = 0, maxX = Infinity, maxY = Infinity } = bounds;
+export function boxFromPoints(start, end) {
 	return {
-		...rect,
-		x: Math.min(Math.max(rect.x, minX), Math.max(minX, maxX - rect.width)),
-		y: Math.min(Math.max(rect.y, minY), Math.max(minY, maxY - rect.height)),
-	};
-}
-
-// The offset needed to pull a whole group back inside bounds — applied to
-// every member equally so a group drag never distorts relative positions.
-export function boundsOffsetForGroup(rects, bounds) {
-	if (!bounds || rects.length === 0) {
-		return { dx: 0, dy: 0 };
-	}
-	const { minX = 0, minY = 0 } = bounds;
-	const groupMinX = Math.min(...rects.map((rect) => rect.x));
-	const groupMinY = Math.min(...rects.map((rect) => rect.y));
-	return {
-		dx: groupMinX < minX ? minX - groupMinX : 0,
-		dy: groupMinY < minY ? minY - groupMinY : 0,
-	};
-}
-
-// ---------- Bounding box ----------
-
-export function unionRect(rects) {
-	if (!rects.length) {
-		return null;
-	}
-	const minX = Math.min(...rects.map((rect) => rect.x));
-	const minY = Math.min(...rects.map((rect) => rect.y));
-	const maxX = Math.max(...rects.map((rect) => rect.x + rect.width));
-	const maxY = Math.max(...rects.map((rect) => rect.y + rect.height));
-	return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
-// ---------- Align / Distribute ----------
-
-export const ALIGN_MODES = ["left", "hcenter", "right", "top", "vmiddle", "bottom"];
-
-// Aligns every entry against the selection's own bounding box, so the outermost
-// members stay put and the rest come to them. entries: [{ id, rect }].
-// Returns { id: rect } for the entries that actually moved.
-export function alignRects(entries, mode) {
-	const bounds = unionRect(entries.map((entry) => entry.rect));
-	if (!bounds || entries.length < 2) {
-		return {};
-	}
-	const next = {};
-	for (const { id, rect } of entries) {
-		let moved = rect;
-		switch (mode) {
-			case "left":
-				moved = { ...rect, x: bounds.x };
-				break;
-			case "hcenter":
-				moved = { ...rect, x: bounds.x + (bounds.width - rect.width) / 2 };
-				break;
-			case "right":
-				moved = { ...rect, x: bounds.x + bounds.width - rect.width };
-				break;
-			case "top":
-				moved = { ...rect, y: bounds.y };
-				break;
-			case "vmiddle":
-				moved = { ...rect, y: bounds.y + (bounds.height - rect.height) / 2 };
-				break;
-			case "bottom":
-				moved = { ...rect, y: bounds.y + bounds.height - rect.height };
-				break;
-			default:
-				break;
-		}
-		next[id] = moved;
-	}
-	return next;
-}
-
-// Evens out the gaps between entries along one axis, holding the two outermost
-// in place. Needs at least 3 entries for there to be anything to distribute.
-export function distributeRects(entries, axis) {
-	if (entries.length < 3) {
-		return {};
-	}
-	const isHorizontal = axis === "horizontal";
-	const sizeOf = (rect) => (isHorizontal ? rect.width : rect.height);
-	const posOf = (rect) => (isHorizontal ? rect.x : rect.y);
-
-	const sorted = [...entries].sort((a, b) => posOf(a.rect) - posOf(b.rect));
-	const first = sorted[0].rect;
-	const last = sorted[sorted.length - 1].rect;
-	const span = posOf(last) + sizeOf(last) - posOf(first);
-	const totalSize = sorted.reduce((sum, entry) => sum + sizeOf(entry.rect), 0);
-	const gap = (span - totalSize) / (sorted.length - 1);
-
-	const next = {};
-	let cursor = posOf(first);
-	for (const { id, rect } of sorted) {
-		next[id] = isHorizontal ? { ...rect, x: cursor } : { ...rect, y: cursor };
-		cursor += sizeOf(rect) + gap;
-	}
-	return next;
-}
-
-// ---------- Marquee ----------
-
-// Builds a positive-width/height rect from the two corners of a drag, so a
-// marquee dragged up/left works the same as one dragged down/right.
-export function rectFromPoints(start, end) {
-	return {
-		x: Math.min(start.x, end.x),
-		y: Math.min(start.y, end.y),
+		left: Math.min(start.x, end.x),
+		top: Math.min(start.y, end.y),
 		width: Math.abs(end.x - start.x),
 		height: Math.abs(end.y - start.y),
 	};
-}
-
-// Touch-select (any intersection), matching Lucidchart — not the
-// fully-enclosed rule some editors use.
-export function marqueeHits(marquee, entries) {
-	return entries.filter(({ rect }) => rectsOverlap(marquee, rect)).map(({ id }) => id);
 }

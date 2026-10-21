@@ -18,10 +18,12 @@ import {
 	addModuleRow,
 	removeModuleRow,
 	pressButton,
-	setLayoutModuleOrder,
-	setCardLayoutArrangement,
 	setPageArrangement,
+	applyPageLayout,
+	deleteLayouts,
+	deleteModules,
 } from "../../utils/character_sheet/sheetOps";
+import { withHistory, createHistoryState } from "../../utils/character_sheet/history";
 import {
 	getSavedCharacterSheets,
 	upsertCharacterSheet,
@@ -81,23 +83,32 @@ function sheetReducer(sheet, action) {
 			return removeModuleRow(sheet, action.cardId, action.moduleId, action.rowIndex);
 		case "pressButton":
 			return pressButton(sheet, action.pieceId);
-		case "setLayoutModuleOrder":
-			return setLayoutModuleOrder(sheet, action.pageId, action.layoutId, action.moduleOrder);
-		case "setCardArrangement":
-			return setCardLayoutArrangement(sheet, action.pageId, action.layoutId, {
-				moduleOrder: action.moduleOrder,
-				moduleRects: action.moduleRects,
-				cardRect: action.cardRect,
-			});
 		case "setPageArrangement":
 			return setPageArrangement(sheet, action.pageId, { rects: action.rects });
+		case "applyPageLayout":
+			return applyPageLayout(sheet, action.pageId, {
+				cardRects: action.cardRects,
+				moduleLayoutId: action.moduleLayoutId,
+				moduleRects: action.moduleRects,
+			});
+		case "deleteLayouts":
+			return deleteLayouts(sheet, action.pageId, action.layoutIds);
+		case "deleteModules":
+			return deleteModules(sheet, action.cardId, action.moduleIds);
 		default:
 			return sheet;
 	}
 }
 
+// Layout/structure/colour actions are undoable (see history.js); dispatch
+// { type: "undo" } / { type: "redo" } to step through them.
+const historyReducer = withHistory(sheetReducer);
+
 export function CharacterSheetProvider({ children }) {
-	const [sheet, dispatch] = useReducer(sheetReducer, null, loadInitialSheet);
+	const [state, dispatch] = useReducer(historyReducer, null, () => createHistoryState(loadInitialSheet()));
+	const { sheet } = state;
+	const canUndo = state.past.length > 0;
+	const canRedo = state.future.length > 0;
 	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
 
 	// Debounced autosave: every change persists to localStorage shortly after it settles.
@@ -108,7 +119,10 @@ export function CharacterSheetProvider({ children }) {
 		return () => clearTimeout(saveTimer.current);
 	}, [sheet]);
 
-	const value = useMemo(() => ({ sheet, dispatch, pieceIndex, readOnly: false }), [sheet, pieceIndex]);
+	const value = useMemo(
+		() => ({ sheet, dispatch, pieceIndex, readOnly: false, canUndo, canRedo }),
+		[sheet, pieceIndex, canUndo, canRedo]
+	);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }
 
@@ -125,6 +139,9 @@ export function useCharacterSheet() {
 // references normally, but dispatches are no-ops so nothing can be edited.
 export function SheetPreviewProvider({ sheet, children }) {
 	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
-	const value = useMemo(() => ({ sheet, dispatch: () => {}, pieceIndex, readOnly: true }), [sheet, pieceIndex]);
+	const value = useMemo(
+		() => ({ sheet, dispatch: () => {}, pieceIndex, readOnly: true, canUndo: false, canRedo: false }),
+		[sheet, pieceIndex]
+	);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }

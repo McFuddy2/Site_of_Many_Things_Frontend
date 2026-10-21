@@ -27,6 +27,11 @@ export const CARD_CHROME_H = CARD_HEADER_UNITS + 1; // card.h - module grid rows
 // inset, border and body padding on both edges are taken out.
 export const CARD_HEADER_HEIGHT = CARD_CHROME_H * GRID_UNIT - 2 * (INSET + CARD_BORDER + CARD_PAD);
 
+// Where a card's module grid starts, in px from the card's cell origin — for
+// drawing module selection/guides on the page-level overlay.
+export const MODULE_GRID_OFFSET_X = INSET + CARD_BORDER + CARD_PAD;
+export const MODULE_GRID_OFFSET_Y = INSET + CARD_BORDER + CARD_HEADER_HEIGHT + CARD_PAD;
+
 // Module internals (px). Things that do the same job are the same size on
 // every card.
 export const SIZE = {
