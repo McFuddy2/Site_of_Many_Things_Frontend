@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { getModuleRole } from "../../utils/character_sheet/moduleTypes";
+import { getModuleRole, getModuleSizing } from "../../utils/character_sheet/moduleTypes";
 import { getModuleRowShape, getModuleRowCount } from "../../utils/character_sheet/sheetOps";
 import { getContrastTextColor, borderForBody } from "../../utils/character_sheet/colors";
 import { rectToPx } from "../../utils/character_sheet/grid";
 import { buildDefaultLayout } from "../../utils/character_sheet/cardLayouts";
-import { tokenCssVars } from "../../utils/character_sheet/layoutConstants";
+import { tokenCssVars, unitsToPx } from "../../utils/character_sheet/layoutConstants";
 import { useCharacterSheet } from "./CharacterSheetContext";
 import usePieceValue from "./usePieceValue";
 import { KebabIcon } from "./icons";
@@ -680,6 +680,37 @@ function TitleEditor({ title, onCommit, onCancel }) {
 	);
 }
 
+// The phone layout of a card's modules: no grid, just wrapping rows in
+// reading order (top-to-bottom, then left-to-right, by their grid
+// positions). Each module starts at its type's default size and stretches to
+// fill its row; its height follows its content (phone sizes are bigger than
+// the grid's), never less than its default.
+function FlowModules({ card, layout, moduleIds, cardId }) {
+	const ordered = [...moduleIds].sort((a, b) => {
+		const ra = layout.moduleRects[a];
+		const rb = layout.moduleRects[b];
+		return ra.y - rb.y || ra.x - rb.x;
+	});
+	return (
+		<div className="cs-flow-modules">
+			{ordered.map((moduleId) => {
+				const module = card.modules[moduleId];
+				const sizing = getModuleSizing(module);
+				return (
+					<div
+						key={moduleId}
+						className="cs-module-slot cs-module-slot--flow"
+						data-module-type={module.type}
+						style={{ flex: `1 1 ${unitsToPx(sizing.defaultW)}px`, minHeight: unitsToPx(sizing.defaultH) }}
+					>
+						<ModuleView module={module} cardId={cardId} />
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
 // A card's face — header plus its modules at their grid rects — at whatever
 // position `style` gives it. Shared by the live canvas and every preview, so
 // a card looks identical everywhere it's drawn.
@@ -695,44 +726,56 @@ export function CardFace({
 	onRenameCommit,
 	onRenameCancel,
 	showGrid = false,
+	flow = false,
 }) {
 	const moduleIds = layout.moduleOrder.filter((moduleId) => card.modules[moduleId] && layout.moduleRects?.[moduleId]);
 	return (
-		<section className={`cs-card ${className}`} style={style} data-card-type={card.type} data-layout-id={layoutId || undefined}>
+		<section
+			className={`cs-card ${className}`}
+			style={card.bodyColor ? { ...style, backgroundColor: card.bodyColor } : style}
+			data-card-type={card.type}
+			data-layout-id={layoutId || undefined}
+		>
 			<header className="cs-card-header" style={cardHeaderStyle(card)}>
 				{renaming ? (
 					<TitleEditor title={card.title} onCommit={onRenameCommit} onCancel={onRenameCancel} />
 				) : (
-					<span className="cs-card-title" title={`${card.title} — double-click to rename`}>
+					<span className="cs-card-title" title={onMenu ? `${card.title} — double-click to rename` : card.title}>
 						{card.title}
 					</span>
 				)}
-				<button
-					type="button"
-					className="cs-card-header-menu-btn"
-					aria-label={`${card.title} options`}
-					title="Card options"
-					onPointerDown={(event) => event.stopPropagation()}
-					onClick={onMenu}
-					tabIndex={onMenu ? 0 : -1}
-				>
-					<KebabIcon />
-				</button>
+				{/* Only where the sheet can be edited — elsewhere there's no menu to open. */}
+				{onMenu ? (
+					<button
+						type="button"
+						className="cs-card-header-menu-btn"
+						aria-label={`${card.title} options`}
+						title="Card options"
+						onPointerDown={(event) => event.stopPropagation()}
+						onClick={onMenu}
+					>
+						<KebabIcon />
+					</button>
+				) : null}
 			</header>
 			<div className={`cs-card-body${showGrid ? " cs-card-body--grid" : ""}`}>
-				<div className="cs-module-grid">
-					{moduleIds.map((moduleId) => (
-						<div
-							key={moduleId}
-							className="cs-module-slot"
-							data-module-id={moduleId}
-							data-module-type={card.modules[moduleId].type}
-							style={moduleSlotStyle(layout.moduleRects[moduleId])}
-						>
-							<ModuleView module={card.modules[moduleId]} cardId={cardId} />
-						</div>
-					))}
-				</div>
+				{flow ? (
+					<FlowModules card={card} layout={layout} moduleIds={moduleIds} cardId={cardId} />
+				) : (
+					<div className="cs-module-grid">
+						{moduleIds.map((moduleId) => (
+							<div
+								key={moduleId}
+								className="cs-module-slot"
+								data-module-id={moduleId}
+								data-module-type={card.modules[moduleId].type}
+								style={moduleSlotStyle(layout.moduleRects[moduleId])}
+							>
+								<ModuleView module={card.modules[moduleId]} cardId={cardId} />
+							</div>
+						))}
+					</div>
+				)}
 			</div>
 		</section>
 	);

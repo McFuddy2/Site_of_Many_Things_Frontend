@@ -6,29 +6,39 @@ import { BucketIcon, PositionIcon, TrashIcon } from "./icons";
 // aria-label.
 //
 // Modules get two colour wheels — the label bar and the module body are
-// coloured separately — and cards get one, for the header. Picking a colour
-// makes it the bucket's active colour too; when the picker closes (its
-// native "change" event) the colour is applied to that part of everything
-// selected, as a single undo step. The bucket toggles Paint Mode, which
-// paints exactly the part that's clicked until Esc or the bucket again.
+// coloured separately; picking one also makes it the bucket's colour, and
+// when the picker closes (its native "change" event) it's applied to that
+// part of every selected module, as a single undo step. Cards get one plain
+// wheel that just sets the bucket's colour: a card has several paintable
+// parts (header, background, its modules), so the bucket decides where it
+// goes. The bucket toggles Paint Mode, which paints exactly the part that's
+// clicked until Esc or the bucket again.
 
+// part "paint" only sets the bucket's colour; any other part is also
+// applied to the selection, and gets a caption naming it.
 function ColorWheel({ part, label, value, onInput, onCommit }) {
 	const ref = useRef(null);
+	const applies = part !== "paint";
 	useEffect(() => {
 		const input = ref.current;
-		if (!input) {
+		if (!input || !applies) {
 			return undefined;
 		}
 		const commit = () => onCommit(input.value, part);
 		input.addEventListener("change", commit);
 		return () => input.removeEventListener("change", commit);
-	}, [onCommit, part]);
+	}, [onCommit, part, applies]);
 	return (
-		<label className="cs-toolbar-color" title={`${label} — also becomes the paint bucket's color`}>
+		<label
+			className="cs-toolbar-color"
+			title={applies ? `${label} — also becomes the paint bucket's color` : "Paint color — then use the bucket to color headers, backgrounds, labels and modules"}
+		>
 			<input ref={ref} type="color" value={value} aria-label={label} onChange={(event) => onInput(event.target.value)} />
-			<span className="cs-toolbar-color-caption" aria-hidden="true">
-				{label.split(" ")[0]}
-			</span>
+			{applies ? (
+				<span className="cs-toolbar-color-caption" aria-hidden="true">
+					{label.split(" ")[0]}
+				</span>
+			) : null}
 		</label>
 	);
 }
@@ -63,7 +73,7 @@ export default function SelectionToolbar({
 				className={`cs-toolbar-btn${paintMode ? " cs-toolbar-btn--on" : ""}`}
 				aria-label="Paint bucket"
 				aria-pressed={paintMode}
-				title={paintMode ? "Stop painting (Esc)" : "Paint bucket — click a label, a module, or a card header to color it"}
+				title={paintMode ? "Stop painting (Esc)" : "Paint bucket — click a label, a module, a card header or a card background to color it"}
 				onClick={onTogglePaint}
 			>
 				<BucketIcon />

@@ -61,6 +61,30 @@ export const SIZE = {
 	statValueCol: 48, // fits the "Modifier" heading and a signed two-digit value
 };
 
+// Phone sizes (see the phone view in SheetViewer): the same jobs, sized for
+// fingers — inputs at 16px+ (which also stops iOS zooming in on focus) and
+// comfortable touch targets. Only the phone gets these; desktop and the
+// scaled tablet view keep the designed sizes, since their layout is the grid.
+export const TOUCH_SIZE = {
+	labelHeight: 24,
+	labelFont: 13,
+	inputHeight: 38,
+	inputFont: 16,
+	bigInputHeight: 40,
+	bigInputFont: 22,
+	valueFont: 17,
+	bigValueFont: 24,
+	checkbox: 24,
+	checkboxGap: 10,
+	buttonHeight: 38,
+	buttonFont: 15,
+	rowHeight: 38,
+	captionFont: 12,
+	statCheckCol: 100, // the "Proficient?" heading at 16px
+	statSaveCheckCol: 40,
+	statValueCol: 72,
+};
+
 // Pixel size of a whole-unit span once inset on both sides.
 export function unitsToPx(units) {
 	return units * GRID_UNIT - 2 * INSET;
@@ -108,8 +132,10 @@ export function getTitleMinUnits(title = "") {
 
 // CSS custom properties mirroring the tokens above, applied inline on the
 // sheet's root so the stylesheet never hard-codes a size the JS also uses.
-export function tokenCssVars() {
+// `touch` swaps in the phone sizes (TOUCH_SIZE).
+export function tokenCssVars({ touch = false } = {}) {
 	const px = (value) => `${value}px`;
+	const size = touch ? { ...SIZE, ...TOUCH_SIZE } : SIZE;
 	return {
 		"--cs-unit": px(GRID_UNIT),
 		"--cs-inset": px(INSET),
@@ -117,29 +143,29 @@ export function tokenCssVars() {
 		"--cs-card-border": px(CARD_BORDER),
 		"--cs-card-pad": px(CARD_PAD),
 		"--cs-header-h": px(CARD_HEADER_HEIGHT),
-		"--cs-header-font": px(SIZE.headerFont),
-		"--cs-header-pad-x": px(SIZE.headerPadX),
-		"--cs-header-icon": px(SIZE.headerIcon),
-		"--cs-module-border": px(SIZE.moduleBorder),
-		"--cs-radius": px(SIZE.radius),
-		"--cs-label-h": px(SIZE.labelHeight),
-		"--cs-label-font": px(SIZE.labelFont),
-		"--cs-body-pad": px(SIZE.bodyPad),
-		"--cs-input-h": px(SIZE.inputHeight),
-		"--cs-input-font": px(SIZE.inputFont),
-		"--cs-big-input-h": px(SIZE.bigInputHeight),
-		"--cs-big-input-font": px(SIZE.bigInputFont),
-		"--cs-value-font": px(SIZE.valueFont),
-		"--cs-big-value-font": px(SIZE.bigValueFont),
-		"--cs-checkbox": px(SIZE.checkbox),
-		"--cs-checkbox-gap": px(SIZE.checkboxGap),
-		"--cs-button-h": px(SIZE.buttonHeight),
-		"--cs-button-font": px(SIZE.buttonFont),
-		"--cs-row-h": px(SIZE.rowHeight),
-		"--cs-row-gap": px(SIZE.rowGap),
-		"--cs-caption-font": px(SIZE.captionFont),
-		"--cs-stat-check-col": px(SIZE.statCheckCol),
-		"--cs-stat-save-check-col": px(SIZE.statSaveCheckCol),
-		"--cs-stat-value-col": px(SIZE.statValueCol),
+		"--cs-header-font": px(size.headerFont),
+		"--cs-header-pad-x": px(size.headerPadX),
+		"--cs-header-icon": px(size.headerIcon),
+		"--cs-module-border": px(size.moduleBorder),
+		"--cs-radius": px(size.radius),
+		"--cs-label-h": px(size.labelHeight),
+		"--cs-label-font": px(size.labelFont),
+		"--cs-body-pad": px(size.bodyPad),
+		"--cs-input-h": px(size.inputHeight),
+		"--cs-input-font": px(size.inputFont),
+		"--cs-big-input-h": px(size.bigInputHeight),
+		"--cs-big-input-font": px(size.bigInputFont),
+		"--cs-value-font": px(size.valueFont),
+		"--cs-big-value-font": px(size.bigValueFont),
+		"--cs-checkbox": px(size.checkbox),
+		"--cs-checkbox-gap": px(size.checkboxGap),
+		"--cs-button-h": px(size.buttonHeight),
+		"--cs-button-font": px(size.buttonFont),
+		"--cs-row-h": px(size.rowHeight),
+		"--cs-row-gap": px(size.rowGap),
+		"--cs-caption-font": px(size.captionFont),
+		"--cs-stat-check-col": px(size.statCheckCol),
+		"--cs-stat-save-check-col": px(size.statSaveCheckCol),
+		"--cs-stat-value-col": px(size.statValueCol),
 	};
 }

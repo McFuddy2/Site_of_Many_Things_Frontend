@@ -290,7 +290,9 @@ const anyOverlap = (rects) => {
 	check("no module overlaps after duplicating", anyOverlap(after.moduleRects), false);
 	check("no cards overlap after the card grew", anyOverlap(Object.fromEntries(ds.pages[0].cardLayouts.map((l) => [l.id, l]))), false);
 
-	ds = ops.setItemsColor(ds, [{ cardId: attack.id }, { cardId: attack.id, moduleId: nameId, part: "label" }], "#a01b1b");
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id, part: "background" }], "#efe8f8");
+	check("card background colours on its own", [ds.cards[attack.id].bodyColor, ds.cards[attack.id].headerColor], ["#efe8f8", null]);
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id, part: "header" }, { cardId: attack.id, moduleId: nameId, part: "label" }], "#a01b1b");
 	const named = () => ds.cards[attack.id].modules[nameId];
 	check("colours a card header and a module label in one go", [ds.cards[attack.id].headerColor, named().labelColor], ["#a01b1b", "#a01b1b"]);
 	check("colouring the label leaves the body alone", named().bodyColor, null);
@@ -298,6 +300,8 @@ const anyOverlap = (rects) => {
 	check("body colour is set exactly as picked", [named().labelColor, named().bodyColor], ["#a01b1b", "#fbf0cd"]);
 	ds = ops.setItemsColor(ds, [{ cardId: attack.id, moduleId: nameId }], null);
 	check("reset colour clears both label and body", [named().labelColor, named().bodyColor], [null, null]);
+	ds = ops.setItemsColor(ds, [{ cardId: attack.id }], null);
+	check("reset colour on a card clears header and background", [ds.cards[attack.id].headerColor, ds.cards[attack.id].bodyColor], [null, null]);
 }
 
 // --- align / distribute ---

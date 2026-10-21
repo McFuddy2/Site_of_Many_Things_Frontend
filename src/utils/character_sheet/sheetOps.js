@@ -244,13 +244,30 @@ export function setModuleColor(sheet, cardId, moduleId, color, part = "all") {
 	return replaceModule(sheet, cardId, next);
 }
 
-// Colours several things in one step: `items` are { cardId } (the card's
-// header) or { cardId, moduleId, part } (that module's label, body, or both).
-// null resets to the default.
+// A card's header and its background (the space around its modules) are
+// coloured separately: `part` is "header", "background", or "all".
+export function setCardColor(sheet, cardId, color, part = "all") {
+	const card = sheet.cards[cardId];
+	if (!card) {
+		return sheet;
+	}
+	const next = { ...card };
+	if (part === "header" || part === "all") {
+		next.headerColor = color;
+	}
+	if (part === "background" || part === "all") {
+		next.bodyColor = color;
+	}
+	return replaceCard(sheet, next);
+}
+
+// Colours several things in one step: `items` are { cardId, part } (the
+// card's header, background, or both) or { cardId, moduleId, part } (that
+// module's label, body, or both). null resets to the default.
 export function setItemsColor(sheet, items, color) {
 	let next = sheet;
 	for (const { cardId, moduleId, part = "all" } of items) {
-		next = moduleId ? setModuleColor(next, cardId, moduleId, color, part) : setCardHeaderColor(next, cardId, color);
+		next = moduleId ? setModuleColor(next, cardId, moduleId, color, part) : setCardColor(next, cardId, color, part);
 	}
 	return next;
 }

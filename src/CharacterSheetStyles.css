@@ -1856,6 +1856,106 @@
 	cursor: not-allowed;
 }
 
+/* ---------- Tablet and phone (see useViewMode / SheetViewer) ---------- */
+
+/* A page tab without its kebab (below desktop) keeps even padding. */
+.cs-page-tab:only-child {
+	padding-right: 1rem;
+}
+
+/* Tablet: the desktop layout, scaled (transform set inline). The wrap
+   scrolls sideways once the scale bottoms out. */
+.cs-scaled-wrap {
+	width: 100%;
+	overflow-x: auto;
+}
+
+.cs-scaled-sheet {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform-origin: 0 0;
+}
+
+/* Phone: one column of full-width cards whose modules wrap in reading order. */
+.cs-page--phone {
+	padding: 0.5rem 0.5rem 0;
+}
+
+.cs-flow-sheet {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding-bottom: 24px;
+}
+
+.cs-card--flow {
+	width: 100%;
+}
+
+.cs-card--flow .cs-card-body {
+	overflow: visible;
+}
+
+.cs-flow-modules {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cs-gap);
+	padding: var(--cs-inset);
+}
+
+.cs-module-slot--flow {
+	display: flex;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.cs-module-slot--flow > .cs-module {
+	flex: 1 1 auto;
+	height: auto;
+}
+
+.cs-module-slot--flow .cs-module--row {
+	min-height: calc(var(--cs-input-h) + 2 * var(--cs-module-border) + 4px);
+}
+
+.cs-module-slot--flow .cs-textarea {
+	min-height: 96px;
+}
+
+.cs-module-slot--flow .cs-image-preview,
+.cs-module-slot--flow .cs-image-empty {
+	min-height: 160px;
+}
+
+/* Every field a phone user can type into is 16px or more (smaller makes iOS
+   zoom in on focus) — including the editable Skills column headings. */
+.cs-page--phone .cs-column-header .cs-column-label,
+.cs-page--phone .cs-column-header .cs-column-label:last-child {
+	font-size: var(--cs-input-font);
+}
+
+/* Bigger tap targets for the small +/− row buttons. */
+.cs-page--phone .cs-row-btn {
+	width: 28px;
+	height: 22px;
+	font-size: 16px;
+}
+
+.cs-page--phone .cs-row-controls {
+	gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cs-page *,
+	.cs-page *::before,
+	.cs-page *::after {
+		scroll-behavior: auto !important;
+		transition: none !important;
+		animation: none !important;
+	}
+}
+
 /* ---------- Dev-only card gallery (see CharacterSheetGalleryPage) ---------- */
 
 .cs-page.cs-gallery {

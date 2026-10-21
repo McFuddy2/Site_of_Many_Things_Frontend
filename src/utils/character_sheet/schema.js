@@ -450,9 +450,10 @@ export function cloneCard(card) {
 
 // ---------- Cards ----------
 
-// `headerColor` is the user's override for the header bar, or null for navy.
+// `headerColor` / `bodyColor` are the user's own colours for the header bar
+// and the card's background, or null for the defaults (navy / white).
 export function createCard({ type, title, modules = [] }) {
-	const card = { id: makeId("card"), type, title, headerColor: null, modules: {}, moduleOrder: [] };
+	const card = { id: makeId("card"), type, title, headerColor: null, bodyColor: null, modules: {}, moduleOrder: [] };
 	for (const module of modules) {
 		card.modules[module.id] = module;
 		card.moduleOrder.push(module.id);

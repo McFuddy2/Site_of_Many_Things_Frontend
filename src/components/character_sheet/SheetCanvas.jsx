@@ -605,11 +605,10 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 	};
 
 	// Paint Mode: every click colours exactly the part it lands on — a
-	// module's label bar, a module's body, or a card's header — instead of
-	// focusing, typing or selecting; each one undo step. A click on a card's
-	// empty space paints nothing (so a slightly-off click never recolours the
-	// header by accident). Runs in the capture phase so nothing inside the
-	// card ever sees the press.
+	// module's label bar, a module's body, a card's header, or the card's
+	// background (the empty space around its modules) — instead of focusing,
+	// typing or selecting; each one undo step. Runs in the capture phase so
+	// nothing inside the card ever sees the press.
 	const onPointerDownCapture = (event) => {
 		if (!paintMode || event.button !== 0 || event.target.closest("[data-canvas-ui]")) {
 			return;
@@ -625,7 +624,9 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		if (hit.moduleId) {
 			item = { cardId, moduleId: hit.moduleId, part: event.target.closest(".cs-mod-label") ? "label" : "body" };
 		} else if (event.target.closest(".cs-card-header")) {
-			item = { cardId };
+			item = { cardId, part: "header" };
+		} else {
+			item = { cardId, part: "background" };
 		}
 		if (item) {
 			dispatch({ type: "setItemsColor", items: [item], color: paintColor });
@@ -1125,7 +1126,8 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 			const box = rectToPx(displayRect(layout));
 			selectedBoxes.push(box);
 			overlay.push(<div key={`outline-${id}`} className="cs-selection-outline" style={box} />);
-			if (selection.ids.length === 1) {
+			// No handles while painting: they'd sit on top of what's being painted.
+			if (selection.ids.length === 1 && !paintMode) {
 				overlay.push(<Handles key={`handles-${id}`} box={box} level="cards" id={id} />);
 			}
 		}
@@ -1140,7 +1142,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 			const box = moduleBox(cardRect, moduleRects[id]);
 			selectedBoxes.push(box);
 			overlay.push(<div key={`outline-${id}`} className="cs-selection-outline cs-selection-outline--module" style={box} />);
-			if (selection.ids.length === 1) {
+			if (selection.ids.length === 1 && !paintMode) {
 				overlay.push(<Handles key={`handles-${id}`} box={box} level="modules" id={id} layoutId={layout.id} />);
 			}
 		}
@@ -1181,7 +1183,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 						{ part: "label", label: "Label color", value: firstModule?.labelColor || paintColor },
 						{ part: "body", label: "Module color", value: firstModule?.bodyColor || paintColor },
 				  ]
-				: [{ part: "header", label: "Header color", value: firstCard?.headerColor || paintColor }];
+				: [{ part: "paint", label: "Paint color", value: paintColor }];
 		const left = Math.min(...selectedBoxes.map((box) => box.left));
 		const right = Math.max(...selectedBoxes.map((box) => box.left + box.width));
 		const top = Math.min(...selectedBoxes.map((box) => box.top));
@@ -1263,7 +1265,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 			{paintMode ? (
 				<div className="cs-paint-banner" role="status">
 					<span className="cs-paint-swatch" style={{ backgroundColor: paintColor }} aria-hidden="true" />
-					Painting — click a module’s label or body, or a card’s header, to color it.
+					Painting — click a label, a module, a card’s header or a card’s background to color it.
 					<button type="button" className="cs-paint-stop" onClick={() => setPaintMode(false)}>
 						Done (Esc)
 					</button>
