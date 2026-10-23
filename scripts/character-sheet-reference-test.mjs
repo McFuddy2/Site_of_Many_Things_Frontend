@@ -392,6 +392,38 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("unresolved roles say what they wait for", describe.describeSource(engine, { role: "proficiency.bonus" }), "Proficiency Bonus (no card yet)");
 }
 
+// ---------- Editor tokens ----------
+
+{
+	const tokens = await import(`${BASE}/character_sheet/engine/tokens.js`);
+	const src = { t: "src", src: { piece: "score" } };
+	// round down( [Score] ÷ 2 ) − 5, entered button by button.
+	const typed = [{ t: "fn", name: "floor" }, src, { t: "op", value: "/" }, { t: "num", value: "2" }, { t: ")" }, { t: "op", value: "-" }, { t: "num", value: "5" }];
+	const parsed = tokens.tokensToExpr(typed);
+	check("tokens parse into an expression", parsed.expr, ex.sub(ex.fn("floor", ex.div(ex.pieceSrc("score"), ex.num(2))), ex.num(5)));
+	check("…which evaluates (score 15 → +2)", evaluate(parsed.expr, { score: 15 }).value, 2);
+	check("expression turns back into the same tokens", tokens.exprToTokens(parsed.expr), typed);
+	check("precedence: × before +", tokens.tokensToExpr([{ t: "num", value: "1" }, { t: "op", value: "+" }, { t: "num", value: "2" }, { t: "op", value: "*" }, { t: "num", value: "3" }]).expr, ex.add(ex.num(1), ex.mul(ex.num(2), ex.num(3))));
+	const grouped = ex.mul(ex.add(ex.num(1), ex.num(2)), ex.num(3));
+	check("parentheses come back where needed", tokens.exprToTokens(grouped).map((token) => token.t), ["(", "num", "op", "num", ")", "op", "num"]);
+	check("a − (b − c) keeps its parentheses", tokens.tokensToExpr(tokens.exprToTokens(ex.sub(ex.num(9), ex.sub(ex.num(4), ex.num(1))))).expr, ex.sub(ex.num(9), ex.sub(ex.num(4), ex.num(1))));
+	check("unary minus", evaluate(tokens.tokensToExpr([{ t: "op", value: "-" }, { t: "num", value: "3" }]).expr).value, -3);
+	check("min takes several values", evaluate(tokens.tokensToExpr([{ t: "fn", name: "min" }, { t: "num", value: "4" }, { t: "," }, { t: "num", value: "2" }, { t: ")" }]).expr).value, 2);
+	check("built-in rules as functions", evaluate(tokens.tokensToExpr([{ t: "fn", name: "abilityModifier" }, { t: "num", value: "18" }, { t: ")" }]).expr).value, 4);
+	check("lookup tables as functions", evaluate(tokens.tokensToExpr([{ t: "lookup", name: "proficiencyBonusByLevel" }, { t: "num", value: "9" }, { t: ")" }]).expr).value, 4);
+	check("empty row says what to do", tokens.tokensToExpr([]).error, "Add a value or pick a source");
+	check("dangling operator is explained", tokens.tokensToExpr([src, { t: "op", value: "+" }]).error, "Add a value after “+”");
+	check("unclosed function is explained", tokens.tokensToExpr([{ t: "fn", name: "floor" }, src]).error, "Close “round down(” with “)”");
+	check("two values in a row need an operator", tokens.tokensToExpr([src, { t: "num", value: "2" }]).error, "Add an operator before “2”");
+	const ifElse = ex.ifThen(ex.pieceSrc("a"), ">=", ex.num(5), ex.num(1), ex.num(0));
+	check("anything else is kept whole", tokens.tokensToExpr(tokens.exprToTokens(ex.add(ifElse, ex.num(1)))).expr, ex.add(ifElse, ex.num(1)));
+
+	const card = numberCard("Preview", ["Score"]);
+	let sheet = newSheet(card);
+	sheet = ops.setPieceValue(sheet, numberIds(card)[0], 15);
+	check("preview evaluates against the live sheet", engineLib.previewExpression(engineLib.createEngine(sheet), ex.fn("abilityModifier", ex.pieceSrc(numberIds(card)[0]))).value, 2);
+}
+
 // ---------- Undo ----------
 
 {

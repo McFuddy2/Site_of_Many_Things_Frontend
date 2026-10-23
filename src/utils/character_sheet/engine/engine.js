@@ -332,10 +332,12 @@ function evaluateReference(graph, ref, readSource, literal, rules) {
 	return { value: literal, error: null, computed: false, state: "pending", partial: false, missingRoles };
 }
 
-function computeNode(graph, node, values, rules) {
+// Reads one source's current value for evaluation. A piece in a locked or
+// hidden module reads as 0 (or blank text) — except from that module's own
+// lock (`readerLock`), which sees its pieces as they are.
+function sourceReader(graph, values, readerLock = null) {
 	const { index } = graph;
-	const readerLock = node.kind === "lock" ? node.moduleId : null;
-	const readSource = (src) => {
+	return (src) => {
 		const target = graph.resolve(src);
 		if (!target) {
 			return { value: null, error: "Its source is missing" };
@@ -353,6 +355,11 @@ function computeNode(graph, node, values, rules) {
 		}
 		return entry.error ? { value: null, error: entry.error } : { value: entry.value, error: null };
 	};
+}
+
+function computeNode(graph, node, values, rules) {
+	const { index } = graph;
+	const readSource = sourceReader(graph, values, node.kind === "lock" ? node.moduleId : null);
 
 	if (graph.cyclic.has(node.id)) {
 		return { value: null, error: CYCLE_ERROR, computed: true, state: "linked" };
@@ -533,6 +540,12 @@ export function readSheetValue(sheet, src, engine = createEngine(sheet)) {
 	}
 	const entry = engine.values.get(target.pieceId ? nodeIds.piece(target.pieceId) : nodeIds.checked(target.moduleId));
 	return entry ? { value: entry.value, error: entry.error } : { value: null, error: "No such value on this sheet" };
+}
+
+// What an expression would evaluate to on this sheet right now — the
+// popover editor's live preview. { value, error }.
+export function previewExpression(engine, expr) {
+	return evaluateExpression(expr, sourceReader(engine, engine.values), engine.rules);
 }
 
 // ---------- Picking sources ----------

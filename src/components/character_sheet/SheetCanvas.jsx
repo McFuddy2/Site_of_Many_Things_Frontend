@@ -17,7 +17,8 @@ import {
 	distributeRects,
 } from "../../utils/character_sheet/placement";
 import { RESIZE_HANDLES, snapMove, resizeSnap, boxesTouch, boxFromPoints } from "../../utils/character_sheet/snapping";
-import { getModuleSizing } from "../../utils/character_sheet/moduleTypes";
+import { getModuleSizing, isValuePiece } from "../../utils/character_sheet/moduleTypes";
+import { useReferenceUI, caretFor } from "./references/useReferenceUI";
 import { checkDeletion } from "../../utils/character_sheet/references";
 import { countCardPlacements } from "../../utils/character_sheet/sheetOps";
 import {
@@ -48,7 +49,7 @@ const INTERACTIVE_SELECTOR = "input, textarea, select, button, a, label, [conten
 const HANDLE_HIT = 16; // px thickness of an edge's grab strip
 const CORNER_HIT = 20; // px square of a corner's grab area
 const TOOLBAR_HEIGHT = 40;
-const TOOLBAR_HALF_WIDTH = 76;
+const TOOLBAR_HALF_WIDTH = 90;
 const TOOLBAR_GAP = 14; // clears the selection's handles
 
 const rectOf = (layout) => ({ x: layout.x, y: layout.y, w: layout.w, h: layout.h });
@@ -172,6 +173,7 @@ function DeleteBlockedDialog({ blocked, onClose, onNavigate, onDeleteAnyway }) {
 
 export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) {
 	const { sheet, dispatch } = useCharacterSheet();
+	const refUI = useReferenceUI();
 	const page = sheet.pages.find((existing) => existing.id === sheet.activePageId) || sheet.pages[0];
 	const layouts = page.cardLayouts;
 	const canvasRef = useRef(null);
@@ -656,6 +658,12 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 	// the selection selects it first; inside a field the browser's own menu
 	// (copy, paste…) is left alone.
 	const onContextMenu = (event) => {
+		const chip = event.target.closest("[data-chip]");
+		if (chip && !paintMode) {
+			event.preventDefault();
+			openChipMenu(chip, event.clientX, event.clientY);
+			return;
+		}
 		if (paintMode || event.target.closest(`${INTERACTIVE_SELECTOR}, [data-canvas-ui]`)) {
 			return;
 		}
@@ -988,11 +996,77 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		["bottom", "Align Bottoms"],
 	];
 
-	// The selection's menu (right-click, or a card's ⋮).
+	// "Add reference…" for one module: straight to the editor when only one
+	// of its pieces can hold a reference, else a submenu naming each piece.
+	// A number that's already linked reads "Edit reference…"; a text piece
+	// always adds a new chip, where its caret last was.
+	const referenceItems = (layoutId, moduleId) => {
+		const module = sheet.cards[layoutById[layoutId]?.cardId]?.modules[moduleId];
+		if (!module) {
+			return [];
+		}
+		const pieces = module.pieceOrder
+			.map((pieceId) => module.pieces[pieceId])
+			.filter((piece) => (piece?.kind === "variable" || piece?.kind === "text") && isValuePiece(module, piece));
+		if (!pieces.length) {
+			return [];
+		}
+		const linked = (piece) => piece.kind === "variable" && piece.ref && !piece.ref.unlinked;
+		const open = (piece) => {
+			const element = canvasRef.current?.querySelector(`[data-piece-id="${piece.id}"]`);
+			const target =
+				piece.kind === "text"
+					? { kind: "chip", pieceId: piece.id, refId: null, offset: caretFor(piece.id) }
+					: { kind: "value", pieceId: piece.id };
+			refUI.openEditor(target, element);
+		};
+		if (pieces.length === 1) {
+			return [{ id: "reference", label: linked(pieces[0]) ? "Edit reference…" : "Add reference…", onSelect: () => open(pieces[0]) }];
+		}
+		// Rows of same-named pieces (list lines) are numbered.
+		const total = {};
+		pieces.forEach((piece) => (total[piece.label] = (total[piece.label] || 0) + 1));
+		const seen = {};
+		const submenu = pieces.map((piece) => {
+			seen[piece.label] = (seen[piece.label] || 0) + 1;
+			const name = `${piece.label || module.label}${total[piece.label] > 1 ? ` ${seen[piece.label]}` : ""}`;
+			return { id: `reference-${piece.id}`, label: linked(piece) ? `${name} — edit reference…` : name, onSelect: () => open(piece) };
+		});
+		return [{ id: "reference", label: "Add reference…", submenu }];
+	};
+
+	// A chip's own menu (right-click on it): the same actions as its info modal.
+	const openChipMenu = (chip, x, y) => {
+		const target =
+			chip.dataset.chipKind === "value"
+				? { kind: "value", pieceId: chip.dataset.chipPiece }
+				: { kind: "chip", pieceId: chip.closest("[data-piece-id]")?.dataset.pieceId, refId: chip.dataset.chip };
+		setMenu({
+			x,
+			y,
+			label: "Reference options",
+			items: [
+				{ id: "info", label: "Reference Info…", onSelect: () => refUI.openInfo(target) },
+				{ id: "edit", label: "Edit Reference…", onSelect: () => refUI.openEditor(target, chip) },
+				{ id: "unlink", label: "Unlink", onSelect: () => dispatch({ type: "unlinkReference", target }) },
+				{ separator: true },
+				{ id: "remove", label: "Remove", danger: true, onSelect: () => dispatch({ type: "removeReference", target }) },
+			],
+		});
+	};
+
+	// The selection's menu (right-click, or a ⋮).
 	const openMenu = (target, x, y) => {
 		const single = target.ids.length === 1;
 		const isCards = target.level === "cards";
-		const items = [{ id: "duplicate", label: "Duplicate", hint: "Ctrl+D", onSelect: duplicateSelection }];
+		const items = [];
+		if (!isCards && single) {
+			const references = referenceItems(target.layoutId, target.ids[0]);
+			if (references.length) {
+				items.push(...references, { separator: true });
+			}
+		}
+		items.push({ id: "duplicate", label: "Duplicate", hint: "Ctrl+D", onSelect: duplicateSelection });
 		if (isCards && single) {
 			items.push({ id: "rename", label: "Rename…", onSelect: () => setRenamingId(target.ids[0]) });
 			items.push({ id: "addModule", label: "Add Module…", onSelect: () => setAddModuleTo(target.ids[0]) });
@@ -1065,6 +1139,9 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 			// included) does what the field does.
 			const { blocked: blockedNow, paintMode: painting, menu: menuOpen, positionPopover: popoverOpen } = live.current;
 			if (event.type !== "keydown" || isFieldFocused() || blockedNow || menuOpen || popoverOpen) {
+				return;
+			}
+			if (event.target?.closest?.("[data-ref-ui], [data-chip]") || document.querySelector(".cs-ref-info")) {
 				return;
 			}
 			const mod = event.ctrlKey || event.metaKey;
@@ -1220,6 +1297,10 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 					setPositionPopover({ x: box.left, y: box.bottom + 6 });
 				}}
 				onDelete={deleteSelection}
+				onMore={(event) => {
+					const box = event.currentTarget.getBoundingClientRect();
+					openMenu(selection, box.left, box.bottom + 4);
+				}}
 				count={selection.ids.length}
 			/>
 		);

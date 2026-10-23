@@ -8,6 +8,9 @@ import { tokenCssVars, unitsToPx } from "../../utils/character_sheet/layoutConst
 import { useCharacterSheet } from "./CharacterSheetContext";
 import usePieceValue from "./usePieceValue";
 import { KebabIcon } from "./icons";
+import { ValueChip } from "./references/chips";
+import ChipTextField from "./references/ChipTextField";
+import { rememberCaret } from "./references/useReferenceUI";
 
 // Every module fills its grid rect exactly, and everything inside it is sized
 // by the shared tokens (see layoutConstants.js / tokenCssVars) — a label bar
@@ -48,52 +51,36 @@ export function moduleColorProps(module) {
 	return { className: defaultColorClass(module), style: Object.keys(style).length ? style : undefined };
 }
 
-function formatSigned(value) {
-	return value >= 0 ? `+${value}` : `${value}`;
-}
-
 const lockedClass = (read) => (read.locked ? " cs-locked" : "");
 
-// ---------- Piece views (all values go through usePieceValue) ----------
+// Remembers where the caret was in a plain text field, so "Add reference…"
+// can put a chip there.
+const caretProps = (pieceId) => {
+	const remember = (event) => rememberCaret(pieceId, event.target.selectionStart ?? null);
+	return { onSelect: remember, onBlur: remember };
+};
 
-// A computed value (a reference) is read-only; an error (a circular
-// reference, text used in math, a reference still waiting for data) renders
-// as a marked em dash instead of crashing. A value whose source was deleted
-// keeps showing its last known value, flagged.
-function ComputedDisplay({ read, signed = false, className = "" }) {
-	if (read.error) {
-		return (
-			<span className={`cs-ref-error ${className}`} title={read.error}>
-				—
-			</span>
-		);
-	}
-	const shown = typeof read.value === "number" && signed ? formatSigned(read.value) : read.value;
-	const missing = read.state === "missing";
-	return (
-		<span
-			className={`cs-computed ${className}${missing ? " cs-ref-error" : ""}${lockedClass(read)}`}
-			title={missing ? "Its source was deleted — this is its last known value" : undefined}
-		>
-			{shown}
-		</span>
-	);
-}
+// ---------- Piece views (all values go through usePieceValue) ----------
+//
+// Every value-holding piece carries data-piece-id: it's how Pick mode finds
+// the values on screen and how Go to source scrolls to one.
 
 // A number value. `signed` reads as a bonus ("+3"): a number input can't show
 // a leading plus, so it's drawn beside the field and hidden once the value is
-// negative. `suffix` is a unit after the value ("30 ft").
+// negative. `suffix` is a unit after the value ("30 ft"). A number whose
+// value is a reference shows as a chip instead of an input (see chips.jsx).
 function NumberField({ pieceId, signed = false, suffix = "", big = false, className = "" }) {
 	const read = usePieceValue(pieceId);
 	const inputClass = `cs-input cs-input--number${big ? " cs-input--big" : ""}`;
 	const field = read.computed ? (
-		<ComputedDisplay read={read} signed={signed} className={big ? "cs-value--big" : "cs-value"} />
+		<ValueChip read={read} pieceId={pieceId} signed={signed} big={big} />
 	) : (
 		<>
 			{signed && Number(read.value) >= 0 ? <span className="cs-value-sign">+</span> : null}
 			<input
 				type="number"
 				className={`${inputClass}${lockedClass(read)}`}
+				aria-label={read.piece?.label || undefined}
 				value={read.value ?? 0}
 				disabled={read.locked}
 				onChange={(event) => read.set(event.target.value === "" ? 0 : Number(event.target.value))}
@@ -101,7 +88,7 @@ function NumberField({ pieceId, signed = false, suffix = "", big = false, classN
 		</>
 	);
 	return (
-		<span className={`cs-number-field ${className}`}>
+		<span className={`cs-number-field ${className}`} data-piece-id={pieceId}>
 			{field}
 			{suffix ? <span className="cs-value-suffix">{suffix}</span> : null}
 		</span>
@@ -114,12 +101,14 @@ function NumberField({ pieceId, signed = false, suffix = "", big = false, classN
 function TextField({ pieceId, className = "cs-input", placeholder = "", title, tooltip = false }) {
 	const read = usePieceValue(pieceId);
 	if (read.computed) {
-		return <ComputedDisplay read={read} className="cs-text-display" />;
+		return <ChipTextField pieceId={pieceId} className={className.replace(/\bcs-input\b/, "")} />;
 	}
 	return (
 		<input
 			type="text"
 			className={`${className}${lockedClass(read)}`}
+			data-piece-id={pieceId}
+			{...caretProps(pieceId)}
 			inputMode={read.piece?.numberLocked ? "numeric" : undefined}
 			placeholder={placeholder}
 			title={title ?? (tooltip ? read.value || undefined : undefined)}
@@ -138,11 +127,13 @@ function TextField({ pieceId, className = "cs-input", placeholder = "", title, t
 function TextAreaField({ pieceId, placeholder = "" }) {
 	const read = usePieceValue(pieceId);
 	if (read.computed) {
-		return <ComputedDisplay read={read} className="cs-text-display" />;
+		return <ChipTextField pieceId={pieceId} multiline />;
 	}
 	return (
 		<textarea
 			className={`cs-textarea${lockedClass(read)}`}
+			data-piece-id={pieceId}
+			{...caretProps(pieceId)}
 			placeholder={placeholder}
 			value={read.value ?? ""}
 			disabled={read.locked}
@@ -157,6 +148,7 @@ function CheckboxField({ pieceId, label }) {
 		<input
 			type="checkbox"
 			className={`cs-checkbox${lockedClass(read)}`}
+			data-piece-id={pieceId}
 			aria-label={label || read.piece?.label}
 			checked={Boolean(read.value)}
 			disabled={read.locked}
@@ -172,6 +164,7 @@ function ButtonField({ pieceId, className = "" }) {
 		<button
 			type="button"
 			className={`cs-btn ${className}${lockedClass(read)}`}
+			data-piece-id={pieceId}
 			disabled={read.locked}
 			onClick={() => dispatch({ type: "pressButton", pieceId })}
 		>
@@ -185,6 +178,7 @@ function DropdownField({ pieceId }) {
 	return (
 		<select
 			className={`cs-input cs-select${lockedClass(read)}`}
+			data-piece-id={pieceId}
 			value={read.value ?? ""}
 			disabled={read.locked}
 			onChange={(event) => read.set(event.target.value)}
@@ -224,9 +218,11 @@ function ImageField({ pieceId }) {
 	return (
 		<>
 			{src ? (
-				<img className="cs-image-preview" src={src} alt={read.piece?.alt || read.piece?.label || ""} />
+				<img className="cs-image-preview" src={src} alt={read.piece?.alt || read.piece?.label || ""} data-piece-id={pieceId} />
 			) : (
-				<div className="cs-image-empty">No image yet</div>
+				<div className="cs-image-empty" data-piece-id={pieceId}>
+					No image yet
+				</div>
 			)}
 			<div className="cs-image-controls">
 				<input
@@ -294,12 +290,12 @@ function RowControls({ cardId, module }) {
 // The shape nearly every module is drawn as: a label bar naming it, with the
 // content filling the rest of the box beneath. Labels are single-line; one
 // that's too long for its module ellipsizes and shows in full on hover.
-function ModuleShell({ module, cardId, className = "", bodyClassName = "", children }) {
+function ModuleShell({ module, cardId, className = "", bodyClassName = "", labelProps = null, children }) {
 	const color = moduleColorProps(module);
 	const label = module.label || "Untitled";
 	return (
 		<div className={`cs-module ${color.className} ${className}`} style={color.style}>
-			<div className="cs-mod-label">
+			<div className="cs-mod-label" {...labelProps}>
 				<span className="cs-mod-label-text" title={label}>
 					{label}
 				</span>
@@ -331,11 +327,7 @@ function AbilityScoreModule({ module, cardId }) {
 		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack cs-ability-body">
 			<div className="cs-ability-line">
 				<span className="cs-caption">Bonus</span>
-				{bonus.computed ? (
-					<ComputedDisplay read={bonus} signed className="cs-value--big" />
-				) : (
-					<NumberField pieceId={bonusId} signed />
-				)}
+				<NumberField pieceId={bonusId} signed big={bonus.computed} />
 			</div>
 			<div className="cs-ability-line">
 				<span className="cs-caption">Score</span>
@@ -399,7 +391,6 @@ function DropdownModule({ module, cardId }) {
 function StatRowModule({ module }) {
 	const [profId, bonusId, labelId] = module.pieceOrder;
 	const name = usePieceValue(labelId);
-	const bonus = usePieceValue(bonusId);
 	const label = name.error ? module.label : name.value || module.label;
 	return (
 		<RowShell module={module} className={`cs-stat-row${module.type === "savingThrow" ? " cs-stat-row--save" : ""}`}>
@@ -407,7 +398,7 @@ function StatRowModule({ module }) {
 				<CheckboxField pieceId={profId} label={`${label} proficiency`} />
 			</span>
 			<span className="cs-stat-cell">
-				{bonus.computed ? <ComputedDisplay read={bonus} signed className="cs-value" /> : <NumberField pieceId={bonusId} signed />}
+				<NumberField pieceId={bonusId} signed />
 			</span>
 			<span className="cs-row-label" title={label}>
 				{label}
@@ -456,7 +447,7 @@ function CheckboxModule({ module }) {
 // moduleTypes.js), so every box always stays visible.
 function CheckboxRowModule({ module, cardId }) {
 	return (
-		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-checkbox-wrap">
+		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-checkbox-wrap" labelProps={{ "data-pick-module": module.id }}>
 			{module.pieceOrder.map((pieceId, index) => (
 				<CheckboxField key={pieceId} pieceId={pieceId} label={`${module.label} ${index + 1}`} />
 			))}
@@ -520,8 +511,8 @@ function CoinRow({ pieceId, className }) {
 			<span className="cs-coin-label" title={label}>
 				{label}
 			</span>
-			{read.computed ? (
-				<ComputedDisplay read={read} className="cs-coin-value" />
+			{read.kind === "variable" ? (
+				<NumberField pieceId={pieceId} className="cs-coin-value" />
 			) : (
 				<TextField pieceId={pieceId} className="cs-input cs-coin-value" />
 			)}
@@ -710,6 +701,7 @@ function FlowModules({ card, layout, moduleIds, cardId }) {
 					<div
 						key={moduleId}
 						className="cs-module-slot cs-module-slot--flow"
+						data-module-id={moduleId}
 						data-module-type={module.type}
 						style={{ flex: `1 1 ${unitsToPx(sizing.defaultW)}px`, minHeight: unitsToPx(sizing.defaultH) }}
 					>

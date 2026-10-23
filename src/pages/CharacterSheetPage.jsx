@@ -3,6 +3,7 @@ import { CharacterSheetProvider, useCharacterSheet } from "../components/charact
 import SheetCanvas from "../components/character_sheet/SheetCanvas";
 import SheetViewer from "../components/character_sheet/SheetViewer";
 import useViewMode from "../components/character_sheet/useViewMode";
+import { ReferenceUIProvider } from "../components/character_sheet/references/ReferenceUIContext";
 import CustomCardBuilder from "../components/character_sheet/CustomCardBuilder";
 import NewCardPicker from "../components/character_sheet/NewCardPicker";
 import { KebabIcon, UndoIcon, RedoIcon, InfoIcon } from "../components/character_sheet/icons";
@@ -237,26 +238,28 @@ function CharacterSheetContent() {
 	const onCardAdded = useCallback((cardId) => setFocusRequest({ cardId }), []);
 	return (
 		<div className={`cs-page cs-page--${mode}`} style={tokenCssVars({ touch: mode === "phone" })}>
-			<TopBar
-				onStartCustomCard={() => setBuildingCustom(true)}
-				showGrid={showGrid}
-				onToggleGrid={() => setShowGrid((current) => !current)}
-				getPageColumns={getPageColumns}
-				onCardAdded={onCardAdded}
-				editable={editable}
-			/>
-			{editable ? null : <ViewOnlyNote />}
-			<div className="cs-body" ref={bodyRef}>
-				<Canvas
-					buildingCustom={buildingCustom}
-					onCloseBuilder={() => setBuildingCustom(false)}
+			<ReferenceUIProvider editable={editable}>
+				<TopBar
+					onStartCustomCard={() => setBuildingCustom(true)}
 					showGrid={showGrid}
+					onToggleGrid={() => setShowGrid((current) => !current)}
 					getPageColumns={getPageColumns}
-					focusRequest={focusRequest}
 					onCardAdded={onCardAdded}
-					mode={mode}
+					editable={editable}
 				/>
-			</div>
+				{editable ? null : <ViewOnlyNote />}
+				<div className="cs-body" ref={bodyRef}>
+					<Canvas
+						buildingCustom={buildingCustom}
+						onCloseBuilder={() => setBuildingCustom(false)}
+						showGrid={showGrid}
+						getPageColumns={getPageColumns}
+						focusRequest={focusRequest}
+						onCardAdded={onCardAdded}
+						mode={mode}
+					/>
+				</div>
+			</ReferenceUIProvider>
 		</div>
 	);
 }

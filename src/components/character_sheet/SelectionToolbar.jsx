@@ -1,9 +1,10 @@
-import { BucketIcon, PositionIcon, TrashIcon } from "./icons";
+import { BucketIcon, PositionIcon, TrashIcon, KebabIcon } from "./icons";
 
 // The floating toolbar over the selected card — or, when modules are
-// selected, over the card they're in — with the same four tools either way:
-// the paint colour, the paint bucket, Position & Size, delete. Every button
-// has a tooltip and an aria-label.
+// selected, over the card they're in — with the same tools either way: the
+// paint colour, the paint bucket, Position & Size, delete, and ⋮ for the
+// selection's menu (Add reference…, Duplicate, Align…). Every button has a
+// tooltip and an aria-label.
 //
 // The colour wheel only sets the bucket's colour. The bucket toggles Paint
 // Mode, which paints exactly the part that's clicked — a module's label, a
@@ -20,6 +21,7 @@ export default function SelectionToolbar({
 	onPositionSize,
 	canPositionSize,
 	onDelete,
+	onMore,
 	count,
 }) {
 	const noun = count > 1 ? `${count} selected` : "selection";
@@ -70,6 +72,9 @@ export default function SelectionToolbar({
 				onClick={onDelete}
 			>
 				<TrashIcon />
+			</button>
+			<button type="button" className="cs-toolbar-btn" aria-label="More options" aria-haspopup="menu" title="More options" onClick={onMore}>
+				<KebabIcon />
 			</button>
 		</div>
 	);

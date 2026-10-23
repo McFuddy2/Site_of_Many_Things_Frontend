@@ -81,6 +81,19 @@
 	--cs-coin-sp: #d8dce0;
 	--cs-coin-cp: #e8b07a;
 
+	/* Reference chips (see references/chips.jsx): a linked value, one whose
+	   source was deleted or that has an error, and one still waiting for a
+	   card it needs. */
+	--cs-chip-bg: #e3ecfa;
+	--cs-chip-border: #5b82c0;
+	--cs-chip-text: #16335e;
+	--cs-chip-bad-bg: #fbe3e1;
+	--cs-chip-bad-border: #b3261e;
+	--cs-chip-bad-text: #8c1d18;
+	--cs-chip-warn-bg: #fdf3d6;
+	--cs-chip-warn-border: #b08400;
+	--cs-chip-warn-text: #5e4500;
+
 	/* Direct-manipulation chrome (see snapping.js / SheetCanvas): blue for
 	   selection, magenta for alignment guides — deliberately outside the card
 	   palette above so neither can be mistaken for card content. */
@@ -2013,6 +2026,526 @@
 	position: relative;
 	background-color: #ffffff;
 	outline: 1px dashed #b7bfcc;
+}
+
+/* ---------- References: chips, pick mode, editor, info modal ---------- */
+
+/* A chip: a linked value. Never edited in place — it opens its info modal. */
+.cs-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	height: calc(var(--cs-input-h) - 4px);
+	padding: 0 7px 0 5px;
+	border: 1px solid var(--cs-chip-border);
+	border-radius: 999px;
+	background-color: var(--cs-chip-bg);
+	color: var(--cs-chip-text);
+	font-family: inherit;
+	font-size: var(--cs-input-font);
+	font-weight: bold;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+	vertical-align: middle;
+}
+
+.cs-chip svg {
+	flex: none;
+	opacity: 0.75;
+}
+
+.cs-chip-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cs-chip:hover {
+	border-color: var(--cs-chip-text);
+}
+
+.cs-chip:focus-visible {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 1px;
+}
+
+/* A headline value (an ability's Bonus, Armor Class…): the value keeps the
+   room it had before it was linked — the link glyph moves to a small badge
+   on the chip's corner instead of sitting beside the number. */
+.cs-chip--big {
+	position: relative;
+	height: auto;
+	padding: 1px 2px;
+	font-size: var(--cs-big-value-font);
+}
+
+.cs-chip--big svg {
+	position: absolute;
+	top: -5px;
+	right: -5px;
+	width: 13px;
+	height: 13px;
+	padding: 1px;
+	box-sizing: border-box;
+	border: 1px solid var(--cs-chip-border);
+	border-radius: 50%;
+	background-color: #ffffff;
+	opacity: 1;
+}
+
+.cs-chip--error,
+.cs-chip--missing {
+	background-color: var(--cs-chip-bad-bg);
+	border-color: var(--cs-chip-bad-border);
+	color: var(--cs-chip-bad-text);
+}
+
+.cs-chip--pending {
+	background-color: var(--cs-chip-warn-bg);
+	border-color: var(--cs-chip-warn-border);
+	color: var(--cs-chip-warn-text);
+}
+
+/* Inside running text: sized to the line. */
+.cs-chip--inline {
+	height: 1.35em;
+	margin: 0 1px;
+	padding: 0 5px 0 4px;
+	font-size: 0.95em;
+	vertical-align: baseline;
+	user-select: none;
+}
+
+/* In the popover's expression row. */
+.cs-chip--token {
+	height: 24px;
+	font-size: 0.82rem;
+	max-width: 16rem;
+}
+
+/* A text field holding chips (see ChipTextField). */
+.cs-chiptext {
+	cursor: text;
+	outline: none;
+}
+
+.cs-chiptext--single {
+	display: block;
+	line-height: calc(var(--cs-input-h) - 2px);
+	white-space: nowrap;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none;
+}
+
+.cs-chiptext--single::-webkit-scrollbar {
+	display: none;
+}
+
+.cs-chiptext--multi {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	text-align: left;
+}
+
+.cs-chiptext:focus {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: -1px;
+}
+
+/* Pick mode: usable values outline on hover; the rest dim (the reason
+   follows the pointer — see .cs-pick-hint). */
+.cs-picking .cs-canvas,
+.cs-picking .cs-flow-sheet,
+.cs-picking .cs-scaled-wrap {
+	cursor: default;
+}
+
+[data-pick="ok"] {
+	cursor: crosshair !important;
+}
+
+[data-pick="ok"]:hover {
+	outline: 3px solid var(--cs-select-blue);
+	outline-offset: 1px;
+	border-radius: 4px;
+}
+
+[data-pick="bad"] {
+	opacity: 0.35;
+	cursor: not-allowed !important;
+}
+
+.cs-pick-hint {
+	position: fixed;
+	z-index: 80;
+	max-width: 18rem;
+	padding: 4px 8px;
+	border-radius: 6px;
+	background-color: #16263f;
+	color: #ffffff;
+	font-size: 0.8rem;
+	pointer-events: none;
+	box-shadow: 0 4px 12px rgba(22, 38, 63, 0.3);
+}
+
+.cs-pick-hint--bad {
+	background-color: #8c1d18;
+}
+
+.cs-ref-pickbar {
+	position: fixed;
+	z-index: 70;
+	top: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px 8px 14px;
+	background-color: #ffffff;
+	border: 2px solid var(--cs-select-blue);
+	border-radius: 10px;
+	box-shadow: 0 8px 24px rgba(22, 38, 63, 0.25);
+	font-size: 0.9rem;
+	color: #16263f;
+}
+
+/* Go to source: the source glows for a moment. */
+.cs-flash {
+	outline: 3px solid var(--cs-chip-warn-border);
+	outline-offset: 2px;
+	border-radius: 4px;
+	animation: cs-flash-pulse 0.6s ease-in-out 3;
+}
+
+@keyframes cs-flash-pulse {
+	50% {
+		outline-color: transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cs-flash {
+		animation: none;
+	}
+}
+
+/* The popover editor. */
+.cs-ref-editor {
+	width: min(30rem, calc(100vw - 16px));
+	max-height: calc(100vh - 16px);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.cs-ref-editor .cs-popover-title,
+.cs-ref-editor .cs-modal-actions {
+	margin: 0;
+}
+
+.cs-ref-editor-where,
+.cs-ref-info-where {
+	font-weight: normal;
+	font-size: 0.8rem;
+	color: #6a7489;
+}
+
+.cs-ref-tokens {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	min-height: 40px;
+	padding: 6px 8px;
+	box-sizing: border-box;
+	border: 1px solid #8b97ad;
+	border-radius: 6px;
+	background-color: #f7f9fc;
+	cursor: text;
+}
+
+.cs-ref-tokens:focus {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: -1px;
+	background-color: #ffffff;
+}
+
+.cs-ref-tokens-empty {
+	color: #7a8599;
+	font-size: 0.82rem;
+}
+
+.cs-ref-token {
+	padding: 2px 5px;
+	border-radius: 4px;
+	font-weight: bold;
+	color: #1f2a3d;
+	cursor: pointer;
+}
+
+.cs-ref-token--num {
+	background-color: #ffffff;
+	border: 1px solid #c3cad6;
+}
+
+.cs-ref-token--fn,
+.cs-ref-token--lookup,
+.cs-ref-token--expr {
+	background-color: #e8edf5;
+	color: #22385c;
+}
+
+.cs-ref-caret {
+	align-self: stretch;
+	width: 2px;
+	min-height: 20px;
+	background-color: var(--cs-select-blue);
+	animation: cs-caret-blink 1s steps(1) infinite;
+}
+
+@keyframes cs-caret-blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cs-ref-caret {
+		animation: none;
+	}
+}
+
+.cs-ref-keys {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.cs-ref-key {
+	min-width: 32px;
+	height: 28px;
+	padding: 0 8px;
+	border: 1px solid #c3cad6;
+	border-radius: 5px;
+	background-color: #ffffff;
+	font: inherit;
+	font-weight: bold;
+	color: #22385c;
+	cursor: pointer;
+}
+
+.cs-ref-key:hover {
+	background-color: #e8edf5;
+}
+
+.cs-ref-key:focus-visible,
+.cs-ref-chooser-input:focus,
+.cs-ref-number:focus,
+.cs-ref-nickname input:focus {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 1px;
+}
+
+.cs-ref-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.cs-ref-row .cs-modal-button {
+	padding: 0.3rem 0.7rem;
+	font-size: 0.82rem;
+}
+
+.cs-ref-number,
+.cs-ref-nickname input,
+.cs-ref-chooser-input {
+	height: 30px;
+	box-sizing: border-box;
+	padding: 0 8px;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	font: inherit;
+}
+
+.cs-ref-number {
+	width: 6rem;
+}
+
+.cs-ref-nickname span {
+	font-size: 0.8rem;
+	color: #3a465e;
+}
+
+.cs-ref-nickname input {
+	flex: 1 1 10rem;
+}
+
+.cs-ref-preview {
+	padding: 6px 8px;
+	border-radius: 6px;
+	background-color: var(--cs-chip-bg);
+	color: var(--cs-chip-text);
+	font-weight: bold;
+}
+
+.cs-ref-preview--problem {
+	background-color: var(--cs-chip-warn-bg);
+	color: var(--cs-chip-warn-text);
+	font-weight: normal;
+}
+
+.cs-modal-actions-spacer {
+	flex: 1 1 auto;
+}
+
+/* Choose source. */
+.cs-ref-chooser {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cs-ref-chooser-list {
+	list-style: none;
+	margin: 0;
+	padding: 2px;
+	max-height: 12rem;
+	overflow-y: auto;
+	border: 1px solid #c3cad6;
+	border-radius: 6px;
+}
+
+.cs-ref-chooser-option {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.82rem;
+}
+
+.cs-ref-chooser-option--active {
+	background-color: #e8edf5;
+}
+
+.cs-ref-chooser-option[aria-disabled="true"] {
+	color: #9aa3b4;
+	cursor: not-allowed;
+}
+
+.cs-ref-chooser-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cs-ref-chooser-value {
+	flex: none;
+	max-width: 45%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: #6a7489;
+}
+
+.cs-ref-chooser-empty {
+	padding: 6px 8px;
+	font-size: 0.82rem;
+	color: #7a8599;
+}
+
+/* The reference info modal. */
+.cs-ref-info-value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
+.cs-ref-info-value .cs-chip {
+	cursor: default;
+}
+
+.cs-ref-info-expr {
+	color: #3a465e;
+	overflow-wrap: anywhere;
+}
+
+.cs-ref-info-note {
+	margin: 0;
+	padding: 6px 8px;
+	border-radius: 6px;
+	font-size: 0.85rem;
+}
+
+.cs-ref-info-note--bad {
+	background-color: var(--cs-chip-bad-bg);
+	color: var(--cs-chip-bad-text);
+}
+
+.cs-ref-info-note--warn {
+	background-color: var(--cs-chip-warn-bg);
+	color: var(--cs-chip-warn-text);
+}
+
+.cs-ref-info-heading {
+	margin-bottom: 4px;
+	font-size: 0.72rem;
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #7a8599;
+}
+
+.cs-ref-info-sources {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.cs-ref-info-source {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px;
+	border: 1px solid #e1e5ec;
+	border-radius: 6px;
+}
+
+.cs-ref-info-source-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	font-size: 0.85rem;
+}
+
+.cs-ref-info-source-text span {
+	color: #6a7489;
+	font-size: 0.78rem;
+}
+
+.cs-ref-info-source-value {
+	font-weight: bold;
+	color: #1f2a3d;
+}
+
+.cs-ref-info .cs-modal-actions {
+	flex-wrap: wrap;
 }
 
 /* Dev-only reference engine sandbox (see CharacterSheetReferenceSandboxPage). */

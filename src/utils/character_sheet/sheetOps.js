@@ -626,7 +626,8 @@ export function setPieceValue(sheet, pieceId, value) {
 		case "tristate":
 			return setTristateValue(sheet, pieceId, value);
 		case "text":
-			return setTextPlain(sheet, pieceId, value);
+			// Plain text, or — from a field holding chips — the segments themselves.
+			return Array.isArray(value) ? setTextSegments(sheet, pieceId, value) : setTextPlain(sheet, pieceId, value);
 		case "dropdown":
 			return setDropdownSelection(sheet, pieceId, value);
 		case "image":

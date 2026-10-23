@@ -114,3 +114,19 @@ export function SearchIcon() {
 export const BUCKET_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="#16263f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(24 0) scale(-1 1)"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></g></svg>'
 )}") 4 22, crosshair`;
+
+// The link glyph on a chip — marks a value that comes from somewhere else.
+export const LINK_ICON_PATHS = [
+	"M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.5",
+	"M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07L12.5 19.5",
+];
+
+export function LinkIcon({ size = 12 }) {
+	return (
+		<Icon size={size}>
+			{LINK_ICON_PATHS.map((d) => (
+				<path key={d} d={d} />
+			))}
+		</Icon>
+	);
+}
