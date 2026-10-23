@@ -1,46 +1,60 @@
 // The one read path for a piece's value. Views never touch piece.value /
 // piece.segments directly — they ask this layer (through usePieceValue), by
-// piece id. A piece's stored value is either a literal or something computed
-// from other pieces (today: a variable's formula, or a text piece with
-// reference segments); callers just see `computed` and render read-only, so
-// new kinds of computed value can be introduced here later without touching
-// any card UI.
+// piece id, and it answers from the reference engine (see engine/engine.js).
+// A piece's value is either a literal or computed from other pieces by a
+// reference; callers just see `computed` and render it as linked, so cards
+// never need to know how a value came to be.
 //
-// `locked` is the shared hook for conditions that grey a piece out (e.g.
-// "unlocks at level 5"). Nothing sets it yet; every view already honours it.
+// `locked` / `hidden` come from the piece's module rules (see createRule):
+// locked greys the piece out and makes it non-interactive with its contents
+// kept; hidden isn't drawn.
 
-import { getPieceNumericValue, getPieceTextValue } from "./references.js";
+import { nodeIds, moduleLockState } from "./engine/engine.js";
 
-const isPlainText = (piece) => piece.segments.length === 1 && piece.segments[0].type === "text";
+const NO_PIECE = { piece: null, kind: null, value: null, computed: false, error: "Missing piece", locked: false, hidden: false, state: null };
 
-// Returns { piece, kind, value, computed, error, locked }. `value` is what the
-// view should show: the literal (for editing) or the resolved result.
-export function readPieceValue(pieceIndex, pieceId) {
-	const entry = pieceIndex[pieceId];
+// Returns { piece, kind, value, computed, error, locked, hidden, state,
+// partial, missingRoles }. `value` is what the view should show: the literal
+// (for editing) or the computed result. `state` is the reference's state
+// (linked | pending | missing | unlinked) or null when there's no reference.
+export function readPieceValue(engine, pieceId) {
+	const entry = engine.index.pieces[pieceId];
 	if (!entry) {
-		return { piece: null, kind: null, value: null, computed: false, error: "Missing piece", locked: false };
+		return NO_PIECE;
 	}
-	const { piece } = entry;
-	const base = { piece, kind: piece.kind, computed: false, error: null, locked: false };
+	const { piece, moduleId } = entry;
+	const lock = moduleLockState(engine, moduleId);
+	const base = {
+		piece,
+		kind: piece.kind,
+		computed: false,
+		error: null,
+		locked: lock === "locked",
+		hidden: lock === "hidden",
+		state: null,
+	};
+	const node = engine.values.get(nodeIds.piece(pieceId));
 	switch (piece.kind) {
-		case "variable": {
-			if (!piece.formula) {
-				return { ...base, value: piece.value };
-			}
-			const resolved = getPieceNumericValue(pieceId, pieceIndex);
-			return { ...base, computed: true, value: resolved.value, error: resolved.error };
-		}
+		case "variable":
+		case "text":
+			return node
+				? {
+						...base,
+						value: node.value,
+						computed: Boolean(node.computed),
+						error: node.error,
+						state: node.state ?? null,
+						partial: Boolean(node.partial),
+						missingRoles: node.missingRoles || [],
+				  }
+				: { ...base, value: piece.kind === "text" ? "" : piece.value };
 		case "checkbox":
 			return { ...base, value: Boolean(piece.value) };
-		case "text": {
-			if (isPlainText(piece)) {
-				return { ...base, value: piece.segments[0].value };
-			}
-			const resolved = getPieceTextValue(pieceId, pieceIndex);
-			return { ...base, computed: true, value: resolved.text, error: resolved.error };
-		}
+		case "tristate":
+			return { ...base, value: node?.value ?? 0 };
 		case "dropdown":
-			return { ...base, value: piece.selectedIndex };
+			// The selection is the editable value; `result` is what it evaluates to.
+			return { ...base, value: node?.optionId ?? piece.selectedOptionId, result: node?.value ?? null, error: node?.error ?? null };
 		case "image":
 			return { ...base, value: piece.src };
 		default:

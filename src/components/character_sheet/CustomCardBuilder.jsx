@@ -1,17 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import {
-	MODULE_TYPE_OPTIONS,
-	ABILITY_NAMES,
-	createCustomCard,
-	createModuleForType,
-	createTextModule,
-} from "../../utils/character_sheet/schema";
-import {
-	refTokenFor,
-	textToSegments,
-	resolveSegmentsPreview,
-	referenceablePieces,
-} from "../../utils/character_sheet/refTokens";
+import { useMemo, useState } from "react";
+import { MODULE_TYPE_OPTIONS, ABILITY_NAMES, createCustomCard, createModuleForType } from "../../utils/character_sheet/schema";
 import { useCharacterSheet, SheetPreviewProvider } from "./CharacterSheetContext";
 import { CardPreview } from "./CharacterSheetCard";
 
@@ -86,7 +74,6 @@ function parseItemLine(line) {
 // Also used by "Add Module…" on an existing card (see AddModuleDialog), which
 // relabels the add button.
 export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Another" }) {
-	const { sheet, pieceIndex } = useCharacterSheet();
 	const [label, setLabel] = useState(DEFAULT_LABELS[typeId] || "");
 	const [numberValue, setNumberValue] = useState(typeId === "abilityScore" ? 10 : 0);
 	const [text, setText] = useState("");
@@ -96,28 +83,6 @@ export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Ano
 	const [ability, setAbility] = useState("wisdom");
 	const [imageSrc, setImageSrc] = useState("");
 
-	// Reference picker (Description modules only)
-	const cards = Object.values(sheet.cards);
-	const [refCardId, setRefCardId] = useState(cards[0]?.id || "");
-	const refPieces = useMemo(
-		() => (sheet.cards[refCardId] ? referenceablePieces(sheet.cards[refCardId]) : []),
-		[sheet, refCardId]
-	);
-	const [refPieceId, setRefPieceId] = useState("");
-	const textareaRef = useRef(null);
-
-	const insertReference = () => {
-		const pieceId = refPieceId || refPieces[0]?.id;
-		if (!pieceId) {
-			return;
-		}
-		const token = refTokenFor(pieceId, pieceIndex);
-		const textarea = textareaRef.current;
-		const start = textarea ? textarea.selectionStart : text.length;
-		const end = textarea ? textarea.selectionEnd : text.length;
-		setText(text.slice(0, start) + token + text.slice(end));
-	};
-
 	const lines = optionsText
 		.split("\n")
 		.map((line) => line.trim())
@@ -125,13 +90,6 @@ export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Ano
 
 	const handleAdd = () => {
 		const finalLabel = label.trim() || DEFAULT_LABELS[typeId] || "Module";
-
-		// Text Field modules keep their own path: they're the one type that can
-		// carry live reference segments (see the picker below), which the plain
-		// createModuleForType config can't express.
-		if (typeId === "text") {
-			return onAdd(createTextModule(finalLabel, { segments: textToSegments(text, pieceIndex) }));
-		}
 
 		const module = createModuleForType(typeId, {
 			label: finalLabel,
@@ -147,9 +105,6 @@ export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Ano
 		});
 		return module ? onAdd(module) : undefined;
 	};
-
-	const preview =
-		typeId === "text" ? resolveSegmentsPreview(textToSegments(text, pieceIndex), pieceIndex) : null;
 
 	return (
 		<>
@@ -214,7 +169,7 @@ export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Ano
 				</label>
 			)}
 
-			{(typeId === "bigText" || typeId === "textArea") && (
+			{(typeId === "text" || typeId === "bigText" || typeId === "textArea") && (
 				<textarea
 					className="cs-builder-textarea"
 					rows={typeId === "textArea" ? 5 : 2}
@@ -222,65 +177,6 @@ export function ConfigureModuleForm({ typeId, onAdd, onBack, addLabel = "Add Ano
 					value={text}
 					onChange={(event) => setText(event.target.value)}
 				/>
-			)}
-
-			{typeId === "text" && (
-				<>
-					<textarea
-						ref={textareaRef}
-						className="cs-builder-textarea"
-						rows={5}
-						placeholder="Description…"
-						value={text}
-						onChange={(event) => setText(event.target.value)}
-					/>
-					<div className="cs-ref-picker">
-						<select
-							className="cs-select"
-							value={refCardId}
-							onChange={(event) => {
-								setRefCardId(event.target.value);
-								setRefPieceId("");
-							}}
-						>
-							{cards.length === 0 && <option value="">No cards to reference</option>}
-							{cards.map((card) => (
-								<option key={card.id} value={card.id}>
-									{card.title}
-								</option>
-							))}
-						</select>
-						<select
-							className="cs-select"
-							value={refPieceId || refPieces[0]?.id || ""}
-							onChange={(event) => setRefPieceId(event.target.value)}
-						>
-							{refPieces.length === 0 && <option value="">Nothing referenceable</option>}
-							{refPieces.map((piece) => (
-								<option key={piece.id} value={piece.id}>
-									{piece.label}
-								</option>
-							))}
-						</select>
-						<button
-							type="button"
-							className="cs-layout-btn"
-							onClick={insertReference}
-							disabled={!refPieces.length}
-						>
-							Insert Reference
-						</button>
-					</div>
-					<p className="cs-builder-hint">
-						Inserted references pull live info from another card — if that card changes, this text updates too.
-					</p>
-					{text && (
-						<div className="cs-builder-preview-text">
-							<span className="cs-field-label">Preview</span>
-							<p>{preview}</p>
-						</div>
-					)}
-				</>
 			)}
 
 			{NEEDS_LINES.has(typeId) && (
@@ -324,7 +220,7 @@ export default function CustomCardBuilder({ onClose, getPageColumns, onCardAdded
 	const [nameInput, setNameInput] = useState("");
 	const [pendingType, setPendingType] = useState("");
 
-	// The preview resolves formulas/references against the real sheet plus the
+	// The preview resolves references against the real sheet plus the
 	// draft card, so e.g. a draft stat's Bonus calculates before the card exists.
 	const previewSheet = useMemo(
 		() => ({ ...sheet, cards: { ...sheet.cards, [draft.id]: draft } }),

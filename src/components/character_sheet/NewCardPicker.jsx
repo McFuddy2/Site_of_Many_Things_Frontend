@@ -257,7 +257,7 @@ export default function NewCardPicker({ onStartCustomCard, getPageColumns, onCar
 			setInserting(true);
 			return;
 		}
-		const card = createStandardCard(option.id, sheet);
+		const card = createStandardCard(option.id);
 		if (card) {
 			dispatch({ type: "addCardToPage", pageId: sheet.activePageId, card, maxCols: getPageColumns() });
 			onCardAdded(card.id);

@@ -23,8 +23,12 @@ const NEW_WISDOM_SCORE = 20; // changed at the end — watch the feat text updat
 
 const BASE = new URL("../src/utils", import.meta.url).href;
 const schema = await import(`${BASE}/character_sheet/schema.js`);
-const refs = await import(`${BASE}/character_sheet/references.js`);
 const ops = await import(`${BASE}/character_sheet/sheetOps.js`);
+const refs = await import(`${BASE}/character_sheet/references.js`);
+const { readSheetValue } = await import(`${BASE}/character_sheet/engine/engine.js`);
+const { pieceSrc } = await import(`${BASE}/character_sheet/engine/expression.js`);
+
+const valueOf = (pieceId) => readSheetValue(sheet, { piece: pieceId }).value;
 
 const heading = (text) => console.log(`\n=== ${text} ===`);
 const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
@@ -35,16 +39,16 @@ const pageId = sheet.pages[0].id;
 
 const abilities = schema.createAbilityScoresCard();
 sheet = ops.addCardToPage(sheet, pageId, abilities);
-const bonusIds = schema.getAbilityBonusPieceIds(sheet.cards[abilities.id]);
+const bonusIds = Object.fromEntries(
+	Object.values(sheet.cards[abilities.id].modules).map((module) => [module.label.toLowerCase(), module.pieceOrder[1]])
+);
 for (const [name, score] of Object.entries(ABILITY_SCORES)) {
 	const module = Object.values(sheet.cards[abilities.id].modules).find((m) => m.label === name);
 	sheet = ops.setVariableValue(sheet, module.pieceOrder[0], score);
 }
 
-const saves = schema.createSavingThrowsCard({
-	abilityBonusPieceIds: bonusIds,
-	proficiencyBonus: PROFICIENCY_BONUS,
-});
+// Saves find each ability's Bonus by role — no wiring needed.
+const saves = schema.createSavingThrowsCard({ proficiencyBonus: PROFICIENCY_BONUS });
 sheet = ops.addCardToPage(sheet, pageId, saves);
 for (const name of PROFICIENT_SAVES) {
 	const module = Object.values(sheet.cards[saves.id].modules).find((m) => m.label === name);
@@ -67,7 +71,7 @@ const descModule = schema.createModuleForType("text", {
 	label: "Description",
 	segments: [
 		{ type: "text", value: "The creature regains HP equal to the roll plus " },
-		{ type: "ref", pieceId: bonusIds.wisdom },
+		schema.createChipSegment(pieceSrc(bonusIds.wisdom)),
 		{ type: "text", value: " (your Wisdom modifier)." },
 	],
 });
@@ -75,11 +79,9 @@ sheet = ops.addModuleToCard(sheet, feat.id, descModule);
 const descPieceId = descModule.pieceOrder[0];
 
 // --- Show what the engine computes ---
-let index = refs.buildPieceIndex(sheet);
-
-heading("Ability Scores (bonus is a live formula: floor((score - 10) / 2))");
+heading("Ability Scores (bonus is a live reference: abilityModifier(score))");
 for (const name of Object.keys(ABILITY_SCORES)) {
-	const bonus = refs.getPieceNumericValue(bonusIds[name.toLowerCase()], index).value;
+	const bonus = valueOf(bonusIds[name.toLowerCase()]);
 	console.log(`${name.padEnd(13)} score ${String(ABILITY_SCORES[name]).padEnd(3)} bonus ${signed(bonus)}`);
 }
 
@@ -87,36 +89,31 @@ heading(`Saving Throws (= ability bonus + checkbox x ${PROFICIENCY_BONUS}; check
 for (const moduleId of sheet.cards[saves.id].moduleOrder) {
 	const module = sheet.cards[saves.id].modules[moduleId];
 	const [profId, saveBonusId] = module.pieceOrder;
-	const prof = index[profId].piece.value;
-	const bonus = refs.getPieceNumericValue(saveBonusId, index).value;
+	const prof = valueOf(profId);
+	const bonus = valueOf(saveBonusId);
 	console.log(`${module.label.padEnd(13)} ${prof ? "[x]" : "[ ]"} ${signed(bonus)}`);
 }
 
 heading("Health buttons");
-console.log(`Start:  ${refs.getPieceNumericValue(curHpId, index).value}/${MAX_HP} HP`);
+console.log(`Start:  ${valueOf(curHpId)}/${MAX_HP} HP`);
 sheet = ops.setTextPlain(sheet, amountId, String(DAMAGE_TAKEN));
 sheet = ops.pressButton(sheet, damageBtnId);
-index = refs.buildPieceIndex(sheet);
-console.log(`After Damage(${DAMAGE_TAKEN}):  ${refs.getPieceNumericValue(curHpId, index).value}/${MAX_HP} HP  (clamps at 0)`);
+console.log(`After Damage(${DAMAGE_TAKEN}):  ${valueOf(curHpId)}/${MAX_HP} HP  (clamps at 0)`);
 sheet = ops.setTextPlain(sheet, amountId, String(HEALING_DONE));
 sheet = ops.pressButton(sheet, healBtnId);
-index = refs.buildPieceIndex(sheet);
-console.log(`After Heal(${HEALING_DONE}):  ${refs.getPieceNumericValue(curHpId, index).value}/${MAX_HP} HP  (clamps at Max HP)`);
+console.log(`After Heal(${HEALING_DONE}):  ${valueOf(curHpId)}/${MAX_HP} HP  (clamps at Max HP)`);
 
 heading("Live cross-card reference inside custom card text");
-console.log(`Feat text now:   "${refs.getPieceTextValue(descPieceId, index).text}"`);
+console.log(`Feat text now:   "${valueOf(descPieceId)}"`);
 const wisModule = Object.values(sheet.cards[abilities.id].modules).find((m) => m.label === "Wisdom");
 sheet = ops.setVariableValue(sheet, wisModule.pieceOrder[0], NEW_WISDOM_SCORE);
-index = refs.buildPieceIndex(sheet);
-console.log(`Wisdom -> ${NEW_WISDOM_SCORE}:    "${refs.getPieceTextValue(descPieceId, index).text}"`);
+console.log(`Wisdom -> ${NEW_WISDOM_SCORE}:    "${valueOf(descPieceId)}"`);
 
 heading("Delete guard");
 let attempt = ops.deleteCard(sheet, abilities.id);
 console.log(`Try to delete "Ability Scores": ${attempt.ok ? "deleted" : "BLOCKED"}`);
-for (const blocker of attempt.referencedBy) {
-	for (const reference of blocker.references) {
-		console.log(`  referenced by "${blocker.cardTitle}" -> module "${reference.moduleLabel}"`);
-	}
+for (const dependent of refs.describeDependents(sheet, attempt.dependents)) {
+	console.log(`  used by ${dependent.label}`);
 }
 attempt = ops.deleteCard(sheet, health.id);
 console.log(`Try to delete "Health" (nothing references it): ${attempt.ok ? "deleted" : "BLOCKED"}`);
@@ -134,5 +131,4 @@ const labelsOf = (page) =>
 		.join(", ");
 console.log(`Page 1 order: ${labelsOf(sheet.pages[0])}`);
 console.log(`Page 2 order: ${labelsOf(sheet.pages[1])}  <- reversed, Page 1 untouched`);
-index = refs.buildPieceIndex(sheet);
-console.log(`Wisdom bonus read via either page: ${signed(refs.getPieceNumericValue(bonusIds.wisdom, index).value)} (one shared value)`);
+console.log(`Wisdom bonus read via either page: ${signed(valueOf(bonusIds.wisdom))} (one shared value)`);

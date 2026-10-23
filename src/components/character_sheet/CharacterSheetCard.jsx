@@ -56,8 +56,10 @@ const lockedClass = (read) => (read.locked ? " cs-locked" : "");
 
 // ---------- Piece views (all values go through usePieceValue) ----------
 
-// A computed value (formula / references) is read-only; an error (missing or
-// circular reference) renders as a marked em dash instead of crashing.
+// A computed value (a reference) is read-only; an error (a circular
+// reference, text used in math, a reference still waiting for data) renders
+// as a marked em dash instead of crashing. A value whose source was deleted
+// keeps showing its last known value, flagged.
 function ComputedDisplay({ read, signed = false, className = "" }) {
 	if (read.error) {
 		return (
@@ -67,7 +69,15 @@ function ComputedDisplay({ read, signed = false, className = "" }) {
 		);
 	}
 	const shown = typeof read.value === "number" && signed ? formatSigned(read.value) : read.value;
-	return <span className={`cs-computed ${className}${lockedClass(read)}`}>{shown}</span>;
+	const missing = read.state === "missing";
+	return (
+		<span
+			className={`cs-computed ${className}${missing ? " cs-ref-error" : ""}${lockedClass(read)}`}
+			title={missing ? "Its source was deleted — this is its last known value" : undefined}
+		>
+			{shown}
+		</span>
+	);
 }
 
 // A number value. `signed` reads as a bonus ("+3"): a number input can't show
@@ -177,11 +187,11 @@ function DropdownField({ pieceId }) {
 			className={`cs-input cs-select${lockedClass(read)}`}
 			value={read.value ?? ""}
 			disabled={read.locked}
-			onChange={(event) => read.set(Number(event.target.value))}
+			onChange={(event) => read.set(event.target.value)}
 		>
-			{(read.piece?.options || []).map((option, optionIndex) => (
-				<option key={optionIndex} value={optionIndex}>
-					{option}
+			{(read.piece?.options || []).map((option) => (
+				<option key={option.id} value={option.id}>
+					{option.label}
 				</option>
 			))}
 		</select>

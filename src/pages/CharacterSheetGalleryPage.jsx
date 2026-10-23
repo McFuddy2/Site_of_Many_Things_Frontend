@@ -166,9 +166,9 @@ function buildModuleSamples() {
 function buildGallerySheet() {
 	let sheet = createSheet("Gallery");
 	const cards = {};
-	// Ability Scores first so Skills/Saving Throws get wired to it, like on a real sheet.
+	// Ability Scores first, like on a real sheet.
 	for (const type of ["abilityScores", ...STANDARD_CARD_TYPES.filter((t) => t !== "abilityScores")]) {
-		const card = createStandardCard(type, { ...sheet, cards });
+		const card = createStandardCard(type);
 		cards[card.id] = card;
 	}
 	const sampleCard = createCard({ type: "custom", title: "Module samples", modules: buildModuleSamples() });

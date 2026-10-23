@@ -20,9 +20,13 @@ import SpellSearchPage from "./pages/SpellSearchPage";
 import TheLibrary from "./pages/TheLibrary";
 import CharacterSheetPage from "./pages/CharacterSheetPage";
 
-// Dev-only audit page for the Character Sheet's card sizing. The DEV check is
+// Dev-only pages for the Character Sheet: the card-sizing audit and the
+// reference engine sandbox. The DEV check is
 // static, so production builds drop this import (and its chunk) entirely.
 const CharacterSheetGalleryPage = import.meta.env.DEV ? lazy(() => import("./pages/CharacterSheetGalleryPage")) : null;
+const CharacterSheetReferenceSandboxPage = import.meta.env.DEV
+  ? lazy(() => import("./pages/CharacterSheetReferenceSandboxPage"))
+  : null;
 
 import ArticlesIndexPage from "./pages/ArticlesIndexPage";
 import ArticlePage from "./pages/ArticlePage";
@@ -86,6 +90,16 @@ function AppContent() {
               element={
                 <Suspense fallback={null}>
                   <CharacterSheetGalleryPage />
+                </Suspense>
+              }
+            />
+          )}
+          {CharacterSheetReferenceSandboxPage && (
+            <Route
+              path="/character-sheet/references"
+              element={
+                <Suspense fallback={null}>
+                  <CharacterSheetReferenceSandboxPage />
                 </Suspense>
               }
             />

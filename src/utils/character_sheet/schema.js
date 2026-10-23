@@ -2,20 +2,26 @@
 //
 // Concept hierarchy:
 //   Sheet -> Pages (layout only) + Cards (data)
-//   Card  -> Modules -> Module Pieces (variable | checkbox | text | button | dropdown)
+//   Card  -> Modules -> Module Pieces (variable | checkbox | tristate | text | button | dropdown | image)
 //
 // Card data (module pieces + their values) is a single source of truth stored once
 // in sheet.cards. Pages only store cardLayouts — which cards appear on that page and
 // in what per-page module order — so the same card can live on multiple pages with
 // different arrangements but shared values.
+//
+// Values can be linked: a number piece's `ref`, a chip inside a text piece, a
+// dropdown option's `ref`, a checkbox group's `capacity` and a module's
+// `rules` all hold reference expressions — plain data evaluated by the engine
+// (see engine/). A piece's `role` ("ability.dex.bonus") is how card types'
+// default references find each other across cards.
 
-import { ref } from "./formula.js";
+import { mapSources, fn, add, mul, div, num, pieceSrc, roleSrc } from "./engine/expression.js";
 
 // Every card, module, piece, layout and page gets a random id that is saved
-// with the sheet and never reused — references (formulas, ref segments,
-// button actions, future linked values) point at these, so they have to stay
-// stable for the life of the sheet. Falls back to time + random where
-// crypto.randomUUID isn't available (non-secure origins, old node).
+// with the sheet and never reused — references (expressions, chips, button
+// actions) point at these, so they have to stay stable for the life of the
+// sheet. Falls back to time + random where crypto.randomUUID isn't available
+// (non-secure origins, old node).
 export function makeId(prefix) {
 	const random =
 		typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -24,27 +30,57 @@ export function makeId(prefix) {
 	return `${prefix}-${random}`;
 }
 
+// ---------- References ----------
+
+// One saved reference: an expression (see engine/expression.js) and how it
+// came to be.
+//   origin     "default" (a card type's built-in link — may name roles) or
+//              "user" (made by hand, always by piece id)
+//   unlinked   false, "user" (the player unlinked it) or "typed" (they typed
+//              their own value while it was still pending) — either way it
+//              never auto-connects again
+//   nickname   the player's own name for it, or null
+//   lastKnown  { value } once a source was deleted out from under it
+export function createReference(expr, { origin = "user", nickname = null } = {}) {
+	return { id: makeId("ref"), expr, origin, unlinked: false, nickname, lastKnown: null };
+}
+
+// A chip inside a text piece: the reference is the chip's whole content, and
+// its id names the chip.
+export function createChipSegment(expr, options = {}) {
+	return { type: "chip", ref: createReference(expr, options) };
+}
+
 // ---------- Module Pieces ----------
 
-export function createVariablePiece({ label = "", value = 0, formula = null } = {}) {
-	// A variable holds either a literal number (value) or a formula string
-	// referencing other pieces as #{pieceId}. When formula is set, value is ignored.
-	return { id: makeId("piece"), kind: "variable", label, value, formula };
+// `role` is optional and only set on pieces other cards' defaults look for.
+const withRole = (role) => (role ? { role } : {});
+
+export function createVariablePiece({ label = "", value = 0, ref = null, role = null } = {}) {
+	// A number: the literal `value`, unless `ref` links it to other values.
+	return { id: makeId("piece"), kind: "variable", label, value, ref, ...withRole(role) };
 }
 
-export function createCheckboxPiece({ label = "", value = false } = {}) {
-	return { id: makeId("piece"), kind: "checkbox", label, value };
+export function createCheckboxPiece({ label = "", value = false, role = null } = {}) {
+	return { id: makeId("piece"), kind: "checkbox", label, value, ...withRole(role) };
 }
 
-export function createTextPiece({ label = "", text = "", segments = null, numberLocked = false } = {}) {
-	// Text is stored as an array of segments so live references can sit inside it:
-	//   { type: "text", value: "plus your " } | { type: "ref", pieceId: "piece-..." }
+// A three-way toggle — none (0), proficient (1), expertise (2) — that counts
+// as its number in math.
+export function createTristatePiece({ label = "", value = 0, role = null } = {}) {
+	return { id: makeId("piece"), kind: "tristate", label, value, ...withRole(role) };
+}
+
+export function createTextPiece({ label = "", text = "", segments = null, numberLocked = false, role = null } = {}) {
+	// Text is stored as an array of segments so chips can sit inside it:
+	//   { type: "text", value: "plus your " } | { type: "chip", ref: { …reference } }
 	return {
 		id: makeId("piece"),
 		kind: "text",
 		label,
 		segments: segments || [{ type: "text", value: text }],
 		numberLocked,
+		...withRole(role),
 	};
 }
 
@@ -55,13 +91,24 @@ export function createButtonPiece({ label = "", actions = [] } = {}) {
 	return { id: makeId("piece"), kind: "button", label, actions };
 }
 
-export function createDropdownPiece({ label = "", options = [], selectedIndex = null } = {}) {
+// One dropdown option: plain text (`ref` null — its value is its label), or
+// a reference ("STR" → the Strength Bonus).
+export function createDropdownOption(label = "", ref = null) {
+	return { id: makeId("option"), label, ref };
+}
+
+// `options` may be labels or { label, ref } objects. The value is the
+// selected option's: its reference's result, or its label.
+export function createDropdownPiece({ label = "", options = [] } = {}) {
+	const built = options.map((option) =>
+		typeof option === "string" ? createDropdownOption(option) : createDropdownOption(option.label, option.ref ?? null)
+	);
 	return {
 		id: makeId("piece"),
 		kind: "dropdown",
 		label,
-		options,
-		selectedIndex: selectedIndex ?? (options.length ? 0 : null),
+		options: built,
+		selectedOptionId: built[0]?.id ?? null,
 	};
 }
 
@@ -79,6 +126,9 @@ export function createImagePiece({ label = "", src = "", alt = "" } = {}) {
 // view reads (see CharacterSheetCard.jsx), not data the reference engine touches.
 // `labelColor` / `bodyColor` are the user's own colours for the module's
 // label bar and its body, chosen separately; null means the default palette.
+// `capacity` links a checkbox group's box count to a reference, and `rules`
+// lock or hide the module when a condition holds:
+//   { id, left: expression, cmp: "<" | "<=" | ">" | ">=" | "=" | "!=", right: expression, effect: "locked" | "hidden" }
 export function createModule({ type, label = "", pieces = [], ...options }) {
 	const module = {
 		id: makeId("module"),
@@ -86,6 +136,8 @@ export function createModule({ type, label = "", pieces = [], ...options }) {
 		label,
 		labelColor: null,
 		bodyColor: null,
+		capacity: null,
+		rules: [],
 		...options,
 		pieces: {},
 		pieceOrder: [],
@@ -97,15 +149,37 @@ export function createModule({ type, label = "", pieces = [], ...options }) {
 	return module;
 }
 
-// Standard 5e ability modifier: floor((score - 10) / 2), kept live via formula.
-// `ability` tints the tile with that ability's own colour (see the --cs-ability-*
-// palette in CharacterSheetStyles.css); the six standard abilities each have one,
-// and a made-up ability (the mockup's "Sanity") just falls back to the neutral tint.
+// A module rule: "when <left> <cmp> <right>, the module is <effect>".
+export function createRule({ left, cmp = "<", right = { num: 0 }, effect = "locked" }) {
+	return { id: makeId("rule"), left, cmp, right, effect };
+}
+
+// Short keys the six abilities' roles use ("ability.dex.bonus").
+export const ABILITY_KEYS = {
+	strength: "str",
+	dexterity: "dex",
+	constitution: "con",
+	intelligence: "int",
+	wisdom: "wis",
+	charisma: "cha",
+};
+
+const abilityKey = (name) => ABILITY_KEYS[String(name || "").toLowerCase()] || null;
+const slug = (text) => String(text).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// Standard 5e ability modifier: the Bonus is a default reference to the
+// rules file's abilityModifier of its own Score. `ability` tints the tile
+// with that ability's own colour (see the --cs-ability-* palette in
+// CharacterSheetStyles.css); the six standard abilities each have one (and a
+// role other cards find them by), and a made-up ability (the mockup's
+// "Sanity") just falls back to the neutral tint.
 export function createAbilityScoreModule(label, score = 10) {
-	const scorePiece = createVariablePiece({ label: "Score", value: score });
+	const key = abilityKey(label);
+	const scorePiece = createVariablePiece({ label: "Score", value: score, role: key && `ability.${key}.score` });
 	const bonusPiece = createVariablePiece({
 		label: "Bonus",
-		formula: `floor((${ref(scorePiece.id)} - 10) / 2)`,
+		role: key && `ability.${key}.bonus`,
+		ref: createReference(fn("abilityModifier", pieceSrc(scorePiece.id)), { origin: "default" }),
 	});
 	return createModule({
 		type: "abilityScore",
@@ -116,21 +190,22 @@ export function createAbilityScoreModule(label, score = 10) {
 }
 
 // `suffix` renders after the value ("30" + "ft"); `signed` forces a leading +
-// on non-negative values (bonuses read "+3", not "3").
-export function createNumberModule(label, value = 0, { suffix = "", signed = false } = {}) {
+// on non-negative values (bonuses read "+3", not "3"). `role` and `ref` go
+// on the number piece.
+export function createNumberModule(label, value = 0, { suffix = "", signed = false, role = null, ref = null } = {}) {
 	return createModule({
 		type: "number",
 		label,
 		suffix,
 		signed,
-		pieces: [createVariablePiece({ label, value })],
+		pieces: [createVariablePiece({ label, value, role, ref })],
 	});
 }
 
 // A single headline number (Armor Class, Initiative, Proficiency Bonus) — the
 // value at display size under its label bar.
-export function createBigNumberModule(label, value = 0, { signed = false } = {}) {
-	return createModule({ type: "bigNumber", label, signed, pieces: [createVariablePiece({ label, value })] });
+export function createBigNumberModule(label, value = 0, { signed = false, role = null, ref = null } = {}) {
+	return createModule({ type: "bigNumber", label, signed, pieces: [createVariablePiece({ label, value, role, ref })] });
 }
 
 // A single oversized text field under its label bar (a character's or an
@@ -214,7 +289,13 @@ export function createCurrencyModule(label = "Currency") {
 	const copper = createTextPiece({ label: "Copper Pieces (CP)", text: "0", numberLocked: true });
 	const total = createVariablePiece({
 		label: "Total Converted to GP",
-		formula: `${ref(platinum.id)} * 10 + ${ref(gold.id)} + ${ref(silver.id)} / 10 + ${ref(copper.id)} / 100`,
+		ref: createReference(
+			add(
+				add(add(mul(pieceSrc(platinum.id), num(10)), pieceSrc(gold.id)), div(pieceSrc(silver.id), num(10))),
+				div(pieceSrc(copper.id), num(100))
+			),
+			{ origin: "default" }
+		),
 	});
 	return createModule({ type: "currency", label, pieces: [total, platinum, gold, silver, copper] });
 }
@@ -252,18 +333,29 @@ export function createCheckboxModule(label, value = false) {
 	return createModule({ type: "checkbox", label, pieces: [createCheckboxPiece({ label, value })] });
 }
 
+// "<ability bonus> + (proficient × proficiency bonus)" as a default
+// reference: the ability's Bonus is found by role, so it connects whenever an
+// Ability Scores card is on the sheet (and the field is a plain editable
+// number until then). A checkbox counts as 0/1 in math, so proficiency needs
+// no conditional.
+function abilityPlusProficiency(key, proficiencyPieceId, proficiencyBonus) {
+	if (!key) {
+		return null;
+	}
+	return createReference(add(roleSrc(`ability.${key}.bonus`), mul(pieceSrc(proficiencyPieceId), num(proficiencyBonus))), {
+		origin: "default",
+	});
+}
+
 // One saving throw: proficiency checkbox + calculated bonus + label text.
-// When the matching ability's Bonus piece id is provided, the save bonus stays live:
-// checkbox references coerce to 0/1 in formulas, so proficiency is simply
-// "+ (checkbox * proficiencyBonus)" — no conditional syntax needed.
-export function createSavingThrowModule(label, { abilityBonusPieceId = null, proficiencyBonus = 2 } = {}) {
+export function createSavingThrowModule(label, { proficiencyBonus = 2 } = {}) {
+	const key = abilityKey(label);
 	const proficiencyPiece = createCheckboxPiece({ label: "Proficient" });
 	const bonusPiece = createVariablePiece({
 		label: "Save Bonus",
 		value: 0,
-		formula: abilityBonusPieceId
-			? `${ref(abilityBonusPieceId)} + (${ref(proficiencyPiece.id)} * ${proficiencyBonus})`
-			: null,
+		role: key && `save.${key}.bonus`,
+		ref: abilityPlusProficiency(key, proficiencyPiece.id, proficiencyBonus),
 	});
 	const labelPiece = createTextPiece({ label: "Label", text: label });
 	return createModule({
@@ -302,20 +394,20 @@ export const SKILL_NAMES = Object.keys(SKILL_ABILITIES);
 // Structurally a saving throw (proficiency checkbox + live modifier + name), but
 // its own type so the two read as different things in the module picker and can
 // diverge later (expertise, half-proficiency…).
-export function createSkillModule(label, { ability = null, abilityBonusPieceId = null, proficiencyBonus = 2 } = {}) {
+export function createSkillModule(label, { ability = null, proficiencyBonus = 2 } = {}) {
+	const governing = ability || SKILL_ABILITIES[label] || null;
 	const proficiencyPiece = createCheckboxPiece({ label: "Proficient" });
 	const bonusPiece = createVariablePiece({
 		label: "Modifier",
 		value: 0,
-		formula: abilityBonusPieceId
-			? `${ref(abilityBonusPieceId)} + (${ref(proficiencyPiece.id)} * ${proficiencyBonus})`
-			: null,
+		role: `skill.${slug(label)}.modifier`,
+		ref: abilityPlusProficiency(abilityKey(governing), proficiencyPiece.id, proficiencyBonus),
 	});
 	const labelPiece = createTextPiece({ label: "Label", text: label });
 	return createModule({
 		type: "skill",
 		label,
-		ability: ability || SKILL_ABILITIES[label] || null,
+		ability: governing,
 		pieces: [proficiencyPiece, bonusPiece, labelPiece],
 	});
 }
@@ -366,28 +458,42 @@ export function createModuleForType(typeId, config = {}) {
 // ---------- Copies ----------
 //
 // A copy gets fresh ids for everything (ids are never reused). References
-// between pieces inside the copy are remapped to the copy's own pieces — a
-// copied Currency module totals its own coins — while references out to
-// anything else (a skill's link to the Ability Scores card) are kept.
+// between pieces inside the copy are re-pointed to the copy's own pieces — a
+// copied Currency module totals its own coins, a copied Ability Scores card's
+// Bonuses follow its own Scores — while references out to anything else (a
+// skill's link to the Ability Scores card) are kept, and so are role-based
+// references, which find their source by role wherever it is.
 
 const BUTTON_REF_KEYS = ["targetPieceId", "operandPieceId", "minPieceId", "maxPieceId"];
 
-function remapPiece(piece, idMap) {
-	const swap = (pieceId) => idMap.get(pieceId) || pieceId;
-	const id = idMap.get(piece.id);
+function remapExpr(expr, ids) {
+	return mapSources(expr, (src) => {
+		if (src.piece && ids.pieces.has(src.piece)) {
+			return { ...src, piece: ids.pieces.get(src.piece) };
+		}
+		if (src.module && ids.modules.has(src.module)) {
+			return { ...src, module: ids.modules.get(src.module) };
+		}
+		return src;
+	});
+}
+
+function remapReference(ref, ids) {
+	return ref ? { ...ref, id: makeId("ref"), expr: remapExpr(ref.expr, ids) } : ref;
+}
+
+function remapPiece(piece, ids) {
+	const swap = (pieceId) => ids.pieces.get(pieceId) || pieceId;
+	const id = ids.pieces.get(piece.id);
 	switch (piece.kind) {
 		case "variable":
-			return {
-				...piece,
-				id,
-				formula: piece.formula ? piece.formula.replace(/#\{([^}]+)\}/g, (match, refId) => `#{${swap(refId)}}`) : piece.formula,
-			};
+			return { ...piece, id, ref: remapReference(piece.ref, ids) };
 		case "text":
 			return {
 				...piece,
 				id,
 				segments: piece.segments.map((segment) =>
-					segment.type === "ref" ? { ...segment, pieceId: swap(segment.pieceId) } : { ...segment }
+					segment.type === "chip" ? { ...segment, ref: remapReference(segment.ref, ids) } : { ...segment }
 				),
 			};
 		case "button":
@@ -405,41 +511,54 @@ function remapPiece(piece, idMap) {
 				}),
 			};
 		case "dropdown":
-			return { ...piece, id, options: [...piece.options] };
+			return { ...piece, id, options: piece.options.map((option) => ({ ...option, ref: remapReference(option.ref, ids) })) };
 		default:
 			return { ...piece, id };
 	}
 }
 
-function copyModule(module, idMap) {
+function copyModule(module, ids) {
 	const pieces = {};
 	for (const pieceId of module.pieceOrder) {
-		const piece = remapPiece(module.pieces[pieceId], idMap);
+		const piece = remapPiece(module.pieces[pieceId], ids);
 		pieces[piece.id] = piece;
 	}
-	return { ...module, id: makeId("module"), pieces, pieceOrder: module.pieceOrder.map((pieceId) => idMap.get(pieceId)) };
+	return {
+		...module,
+		id: ids.modules.get(module.id),
+		capacity: remapReference(module.capacity ?? null, ids),
+		rules: (module.rules || []).map((rule) => ({
+			...rule,
+			id: makeId("rule"),
+			left: remapExpr(rule.left, ids),
+			right: remapExpr(rule.right, ids),
+		})),
+		pieces,
+		pieceOrder: module.pieceOrder.map((pieceId) => ids.pieces.get(pieceId)),
+	};
 }
 
-function freshPieceIds(modules) {
-	const idMap = new Map();
+function freshIds(modules) {
+	const ids = { pieces: new Map(), modules: new Map() };
 	for (const module of modules) {
+		ids.modules.set(module.id, makeId("module"));
 		for (const pieceId of module.pieceOrder) {
-			idMap.set(pieceId, makeId("piece"));
+			ids.pieces.set(pieceId, makeId("piece"));
 		}
 	}
-	return idMap;
+	return ids;
 }
 
 export function cloneModule(module) {
-	return copyModule(module, freshPieceIds([module]));
+	return copyModule(module, freshIds([module]));
 }
 
 // The copy's moduleOrder lines up index-for-index with the original's, which
 // is how a placement's module rects are carried over to the copy.
 export function cloneCard(card) {
 	const originals = card.moduleOrder.map((moduleId) => card.modules[moduleId]);
-	const idMap = freshPieceIds(originals);
-	const copies = originals.map((module) => copyModule(module, idMap));
+	const ids = freshIds(originals);
+	const copies = originals.map((module) => copyModule(module, ids));
 	return {
 		...card,
 		id: makeId("card"),
@@ -471,31 +590,13 @@ export function createAbilityScoresCard() {
 	});
 }
 
-// Maps ability name (lowercased) -> the Bonus piece id of that ability's module,
-// used to wire Saving Throws (and later Skills, etc.) to an Ability Scores card.
-export function getAbilityBonusPieceIds(abilityScoresCard) {
-	const bonusIds = {};
-	for (const moduleId of abilityScoresCard.moduleOrder) {
-		const module = abilityScoresCard.modules[moduleId];
-		if (module && module.type === "abilityScore") {
-			bonusIds[module.label.toLowerCase()] = module.pieceOrder[1];
-		}
-	}
-	return bonusIds;
-}
-
-// abilityBonusPieceIds: { strength: pieceId, ... } (see getAbilityBonusPieceIds).
-// Missing abilities fall back to an unwired save bonus of 0.
-export function createSavingThrowsCard({ abilityBonusPieceIds = {}, proficiencyBonus = 2 } = {}) {
+// Each save links to its ability's Bonus by role, so it connects to whichever
+// Ability Scores card is on the sheet — now or added later.
+export function createSavingThrowsCard({ proficiencyBonus = 2 } = {}) {
 	return createCard({
 		type: "savingThrows",
 		title: "Saving Throws",
-		modules: ABILITY_NAMES.map((name) =>
-			createSavingThrowModule(name, {
-				abilityBonusPieceId: abilityBonusPieceIds[name.toLowerCase()] || null,
-				proficiencyBonus,
-			})
-		),
+		modules: ABILITY_NAMES.map((name) => createSavingThrowModule(name, { proficiencyBonus })),
 	});
 }
 
@@ -550,7 +651,7 @@ export function createBasicInfoCard() {
 		title: "Basic Information",
 		modules: [
 			createTextModule("Class"),
-			createNumberModule("Lvl", 1),
+			createNumberModule("Lvl", 1, { role: "character.level" }),
 			createTextModule("Background"),
 			createTextModule("Player Name"),
 			createTextModule("Race"),
@@ -572,24 +673,18 @@ export function createProficiencyBonusCard(value = 2) {
 	return createCard({
 		type: "proficiencyBonus",
 		title: "Proficiency",
-		modules: [createBigNumberModule("Proficiency Bonus", value, { signed: true })],
+		modules: [createBigNumberModule("Proficiency Bonus", value, { signed: true, role: "proficiency.bonus" })],
 	});
 }
 
-// abilityBonusPieceIds: { strength: pieceId, ... } (see getAbilityBonusPieceIds) —
-// each skill's modifier live-references the Bonus of the ability that governs it.
-export function createSkillsCard({ abilityBonusPieceIds = {}, proficiencyBonus = 2 } = {}) {
+// Each skill's modifier links to the Bonus of the ability that governs it, by role.
+export function createSkillsCard({ proficiencyBonus = 2 } = {}) {
 	return createCard({
 		type: "skills",
 		title: "Skills",
 		modules: [
 			createColumnHeaderModule(["Proficient?", "Modifier", "Stat"]),
-			...SKILL_NAMES.map((name) =>
-				createSkillModule(name, {
-					abilityBonusPieceId: abilityBonusPieceIds[SKILL_ABILITIES[name]] || null,
-					proficiencyBonus,
-				})
-			),
+			...SKILL_NAMES.map((name) => createSkillModule(name, { proficiencyBonus })),
 		],
 	});
 }
@@ -823,25 +918,18 @@ const STANDARD_CARD_BUILDERS = {
 	proficiencyBonus: createProficiencyBonusCard,
 	spellcastingStats: createSpellcastingStatsCard,
 	spellList: createSpellListCard,
+	savingThrows: createSavingThrowsCard,
+	skills: createSkillsCard,
 	symbol: createSymbolCard,
 	treasure: createTreasureCard,
 };
 
-export const STANDARD_CARD_TYPES = [...Object.keys(STANDARD_CARD_BUILDERS), "savingThrows", "skills"];
+export const STANDARD_CARD_TYPES = Object.keys(STANDARD_CARD_BUILDERS);
 
-// Builds a fresh standard card. Cards whose numbers derive from the Ability
-// Scores card get wired to it when one is already on `sheet`, so their
-// modifiers stay live; without one they're created unwired and each row is
-// just an editable number. Returns null for an unknown type.
-export function createStandardCard(typeId, sheet = null) {
-	const abilityCard = sheet ? Object.values(sheet.cards).find((card) => card.type === "abilityScores") : null;
-	const wiring = abilityCard ? { abilityBonusPieceIds: getAbilityBonusPieceIds(abilityCard) } : {};
-	if (typeId === "savingThrows") {
-		return createSavingThrowsCard(wiring);
-	}
-	if (typeId === "skills") {
-		return createSkillsCard(wiring);
-	}
+// Builds a fresh standard card, or null for an unknown type. Cards whose
+// numbers come from other cards (a skill from its ability's Bonus) link by
+// role, so they connect on their own whenever the source card is on the sheet.
+export function createStandardCard(typeId) {
 	const build = STANDARD_CARD_BUILDERS[typeId];
 	return build ? build() : null;
 }
@@ -871,8 +959,10 @@ export function createPage(name) {
 }
 
 // Bump whenever the saved shape changes incompatibly — sheets saved with any
-// other version are discarded on load (see loadInitialSheet).
-export const SHEET_VERSION = 2;
+// other version are discarded on load (see loadInitialSheet). v3: references
+// became expression data (piece.ref, chip segments, option refs, capacity,
+// rules) instead of formula strings.
+export const SHEET_VERSION = 3;
 
 export function createSheet(name = "New Character") {
 	const firstPage = createPage("Page 1");

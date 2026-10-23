@@ -2014,3 +2014,45 @@
 	background-color: #ffffff;
 	outline: 1px dashed #b7bfcc;
 }
+
+/* Dev-only reference engine sandbox (see CharacterSheetReferenceSandboxPage). */
+.cs-sandbox-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.cs-sandbox-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+	margin-bottom: 24px;
+	background: #fff;
+}
+
+.cs-sandbox-table th,
+.cs-sandbox-table td {
+	border: 1px solid var(--cs-header-border);
+	padding: 4px 8px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.cs-sandbox-state--ok {
+	color: var(--cs-dex-bar);
+}
+
+.cs-sandbox-state--warn {
+	color: var(--cs-wis-bar);
+	font-weight: bold;
+}
+
+.cs-sandbox-state--bad {
+	color: var(--cs-str-bar);
+	font-weight: bold;
+}
+
+.cs-sandbox-state--muted {
+	color: #6b7280;
+}

@@ -9,7 +9,9 @@ const grid = await import(`${BASE}/grid.js`);
 const tokens = await import(`${BASE}/layoutConstants.js`);
 const moduleTypes = await import(`${BASE}/moduleTypes.js`);
 const cardLayouts = await import(`${BASE}/cardLayouts.js`);
+const engine = await import(`${BASE}/engine/engine.js`);
 const refs = await import(`${BASE}/references.js`);
+const expression = await import(`${BASE}/engine/expression.js`);
 const values = await import(`${BASE}/values.js`);
 const colors = await import(`${BASE}/colors.js`);
 const placement = await import(`${BASE}/placement.js`);
@@ -105,11 +107,11 @@ let vSheet = ops.addCardToPage(schema.createSheet("Values"), schema.createSheet(
 vSheet = { ...vSheet, cards: { ...vSheet.cards, [health.id]: health } };
 const hpId = health.modules[health.moduleOrder[0]].pieceOrder[0];
 vSheet = ops.setPieceValue(vSheet, hpId, 7);
-check("setPieceValue writes a variable", values.readPieceValue(refs.buildPieceIndex(vSheet), hpId).value, 7);
+check("setPieceValue writes a variable", values.readPieceValue(engine.createEngine(vSheet), hpId).value, 7);
 const abil = schema.createAbilityScoresCard();
-const abilIndex = refs.buildPieceIndex({ cards: { [abil.id]: abil } });
-const bonusRead = values.readPieceValue(abilIndex, abil.modules[abil.moduleOrder[0]].pieceOrder[1]);
-check("formula values read as computed", [bonusRead.computed, bonusRead.value], [true, 0]);
+const abilEngine = engine.createEngine({ pages: [], cards: { [abil.id]: abil } });
+const bonusRead = values.readPieceValue(abilEngine, abil.modules[abil.moduleOrder[0]].pieceOrder[1]);
+check("referenced values read as computed", [bonusRead.computed, bonusRead.value], [true, 0]);
 check("locked defaults to false", bonusRead.locked, false);
 
 // --- push-away placement ---
@@ -211,10 +213,10 @@ const anyOverlap = (rects) => {
 	check("value edits are not undo steps", state.past.length, 1);
 	state = reducer(state, { type: "undo" });
 	check("undo restores the layout", state.sheet.pages[0].cardLayouts[0].x, 0);
-	check("undo keeps values typed since", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	check("undo keeps values typed since", values.readPieceValue(engine.createEngine(state.sheet), hpPiece).value, 3);
 	state = reducer(state, { type: "redo" });
 	check("redo reapplies the layout", state.sheet.pages[0].cardLayouts[0].x, 5);
-	check("redo keeps live values too", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	check("redo keeps live values too", values.readPieceValue(engine.createEngine(state.sheet), hpPiece).value, 3);
 	state = reducer(state, { type: "redo" });
 	check("redo with nothing to redo is a no-op", state.future.length, 0);
 }
@@ -247,9 +249,9 @@ const anyOverlap = (rects) => {
 	check("copy has new module ids", copy.moduleOrder.every((id) => !money.modules[id]), true);
 	const copiedTotal = copiedModule.pieces[copiedModule.pieceOrder[0]];
 	const ownPieces = new Set(copiedModule.pieceOrder);
-	const totalRefs = [...copiedTotal.formula.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]);
+	const totalRefs = expression.collectSources(copiedTotal.ref.expr).map((src) => src.piece);
 	check("copied total adds up the copy's own coins", totalRefs.every((id) => ownPieces.has(id)), true);
-	check("original total untouched", originalModule.pieces[originalModule.pieceOrder[0]].formula === copiedTotal.formula, false);
+	check("copied reference gets a new id", originalModule.pieces[originalModule.pieceOrder[0]].ref.id === copiedTotal.ref.id, false);
 
 	let cs = schema.createSheet("Copies");
 	const abilities = schema.createAbilityScoresCard();
@@ -259,7 +261,8 @@ const anyOverlap = (rects) => {
 	const skillModule = skillCopy.modules[skillCopy.moduleOrder[1]];
 	const modifier = skillModule.pieces[skillModule.pieceOrder[1]];
 	const abilityPieces = new Set(Object.values(abilities.modules).flatMap((module) => module.pieceOrder));
-	check("copied skill still reads the Ability Scores card", [...modifier.formula.matchAll(/#\{([^}]+)\}/g)].some((m) => abilityPieces.has(m[1])), true);
+	check("copied skill still reads the Dexterity Bonus by role", expression.collectSources(modifier.ref.expr)[0], { role: "ability.dex.bonus" });
+	check("abilities aren't copied along", abilityPieces.size, 12);
 
 	const health = schema.createHealthCard();
 	const healthCopy = schema.cloneCard(health);

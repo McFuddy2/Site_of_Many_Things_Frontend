@@ -18,7 +18,7 @@ import {
 } from "../../utils/character_sheet/placement";
 import { RESIZE_HANDLES, snapMove, resizeSnap, boxesTouch, boxFromPoints } from "../../utils/character_sheet/snapping";
 import { getModuleSizing } from "../../utils/character_sheet/moduleTypes";
-import { canDeleteCard, canDeleteModule } from "../../utils/character_sheet/references";
+import { checkDeletion } from "../../utils/character_sheet/references";
 import { countCardPlacements } from "../../utils/character_sheet/sheetOps";
 import {
 	GRID_UNIT,
@@ -115,9 +115,10 @@ function Handles({ box, level, id, layoutId }) {
 	));
 }
 
-// Explains why something can't be deleted yet and lets the player jump to
-// each card that still references it.
-function DeleteBlockedDialog({ blocked, onClose, onNavigate }) {
+// Explains why something can't be deleted yet: every field that still uses
+// its values, each a link to that field. "Delete anyway" goes ahead — those
+// fields then keep their last known value, flagged as missing.
+function DeleteBlockedDialog({ blocked, onClose, onNavigate, onDeleteAnyway }) {
 	return (
 		<Dialog.Root open={Boolean(blocked)} onOpenChange={(open) => !open && onClose()}>
 			<Dialog.Portal>
@@ -125,30 +126,40 @@ function DeleteBlockedDialog({ blocked, onClose, onNavigate }) {
 				<Dialog.Content className="cs-modal" aria-describedby={undefined}>
 					{blocked && (
 						<>
-							<Dialog.Title className="cs-modal-title">Can’t Delete “{blocked.title}” Yet</Dialog.Title>
+							<Dialog.Title className="cs-modal-title">Delete “{blocked.title}”?</Dialog.Title>
 							<p className="cs-builder-hint">
-								Something else on the sheet still uses its values. Remove those references first — click a card
-								below to go to it.
+								{blocked.dependents.length === 1 ? "This field uses" : `These ${blocked.dependents.length} fields use`} its
+								values. Click one to go to it, or delete anyway — they’ll keep their last value, marked as missing.
 							</p>
 							<ul className="cs-delete-blocked-list">
-								{blocked.referencedBy.map((entry) => (
-									<li key={entry.cardId}>
+								{blocked.dependents.map((dependent) => (
+									<li key={`${dependent.kind}-${dependent.refId || dependent.ruleId || dependent.pieceId || dependent.moduleId}`}>
 										<button
 											type="button"
 											className="cs-modal-button"
 											onClick={() => {
 												onClose();
-												onNavigate(entry.cardId);
+												onNavigate(dependent);
 											}}
 										>
-											{entry.cardTitle}
+											{dependent.label}
 										</button>
 									</li>
 								))}
 							</ul>
 							<div className="cs-modal-actions">
 								<button type="button" className="cs-modal-button" onClick={onClose}>
-									Close
+									Cancel
+								</button>
+								<button
+									type="button"
+									className="cs-modal-button cs-modal-button--danger"
+									onClick={() => {
+										onClose();
+										onDeleteAnyway();
+									}}
+								>
+									Delete Anyway
 								</button>
 							</div>
 						</>
@@ -176,7 +187,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		setPreview(next);
 	}, []);
 	const [blocked, setBlocked] = useState(null);
-	const [pendingFocus, setPendingFocus] = useState(null); // card ids to select (and scroll to) once they're on screen
+	const [pendingFocus, setPendingFocus] = useState(null); // { cardIds, moduleId? } to select (and scroll to) once on screen
 	const [menu, setMenu] = useState(null); // { x, y, items, label }
 	const [positionPopover, setPositionPopover] = useState(null); // { x, y }
 	const [renamingId, setRenamingId] = useState(null); // layout id whose title is being edited
@@ -211,19 +222,27 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 	// shows it.
 	useEffect(() => {
 		if (focusRequest?.cardId) {
-			setPendingFocus([focusRequest.cardId]);
+			setPendingFocus({ cardIds: [focusRequest.cardId] });
 		}
 	}, [focusRequest]);
 
 	useEffect(() => {
-		const targets = (pendingFocus || []).map((cardId) => layouts.find((each) => each.cardId === cardId));
+		const targets = (pendingFocus?.cardIds || []).map((cardId) => layouts.find((each) => each.cardId === cardId));
 		if (!targets.length || targets.some((layout) => !layout)) {
 			return;
 		}
-		setSelection({ level: "cards", layoutId: null, ids: targets.map((layout) => layout.id) });
+		const moduleId = pendingFocus.moduleId && targets[0].moduleRects[pendingFocus.moduleId] ? pendingFocus.moduleId : null;
+		setSelection(
+			moduleId
+				? { level: "modules", layoutId: targets[0].id, ids: [moduleId] }
+				: { level: "cards", layoutId: null, ids: targets.map((layout) => layout.id) }
+		);
 		setPendingFocus(null);
+		const selector = moduleId
+			? `[data-layout-id="${targets[0].id}"] [data-module-id="${moduleId}"]`
+			: `[data-layout-id="${targets[0].id}"]`;
 		requestAnimationFrame(() =>
-			canvasRef.current?.querySelector(`[data-layout-id="${targets[0].id}"]`)?.scrollIntoView({
+			canvasRef.current?.querySelector(selector)?.scrollIntoView({
 				block: "nearest",
 				inline: "nearest",
 				behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
@@ -753,53 +772,47 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		[dispatch, maxCols]
 	);
 
-	// Deletes the selection. Anything another card still references stays,
-	// and the dialog explains which cards are holding on to it.
+	// Deletes the selection. If anything outside it still uses its values,
+	// nothing is deleted yet: the dialog lists those fields and offers
+	// "Delete anyway". Either way it's one action, so one undo step.
 	const deleteSelection = useCallback(() => {
 		const { sheet: currentSheet, page: currentPage, layouts: currentLayouts, selection: current } = live.current;
 		if (current.level === "cards") {
-			const allowed = [];
-			let firstBlocked = null;
-			for (const layoutId of current.ids) {
-				const layout = currentLayouts.find((each) => each.id === layoutId);
-				if (!layout) {
-					continue;
-				}
-				const check = countCardPlacements(currentSheet, layout.cardId) > 1 ? { ok: true } : canDeleteCard(currentSheet, layout.cardId);
-				if (check.ok) {
-					allowed.push(layoutId);
-				} else if (!firstBlocked) {
-					firstBlocked = { title: currentSheet.cards[layout.cardId].title, referencedBy: check.referencedBy };
-				}
+			const selected = current.ids.map((id) => currentLayouts.find((each) => each.id === id)).filter(Boolean);
+			if (!selected.length) {
+				return;
 			}
-			if (allowed.length) {
-				dispatch({ type: "deleteLayouts", pageId: currentPage.id, layoutIds: allowed });
-			}
+			const action = { type: "deleteLayouts", pageId: currentPage.id, layoutIds: selected.map((layout) => layout.id) };
+			// Only cards losing their last placement are really deleted.
+			const doomed = [...new Set(selected.map((layout) => layout.cardId))].filter(
+				(cardId) => countCardPlacements(currentSheet, cardId) === selected.filter((layout) => layout.cardId === cardId).length
+			);
+			const check = checkDeletion(currentSheet, { cardIds: doomed });
 			setSelection(NO_SELECTION);
-			setBlocked(firstBlocked);
+			if (check.ok) {
+				dispatch(action);
+			} else {
+				const title = selected.length === 1 ? currentSheet.cards[selected[0].cardId].title : `${selected.length} cards`;
+				setBlocked({ title, dependents: check.dependents, action: { ...action, force: true } });
+			}
 			return;
 		}
 		if (current.level === "modules") {
 			const layout = currentLayouts.find((each) => each.id === current.layoutId);
-			if (!layout) {
+			const card = layout && currentSheet.cards[layout.cardId];
+			const moduleIds = card ? current.ids.filter((id) => card.modules[id]) : [];
+			if (!moduleIds.length) {
 				return;
 			}
-			const card = currentSheet.cards[layout.cardId];
-			const allowed = [];
-			let firstBlocked = null;
-			for (const moduleId of current.ids) {
-				const check = canDeleteModule(currentSheet, card.id, moduleId);
-				if (check.ok) {
-					allowed.push(moduleId);
-				} else if (!firstBlocked) {
-					firstBlocked = { title: card.modules[moduleId]?.label || "this module", referencedBy: check.referencedBy };
-				}
-			}
-			if (allowed.length) {
-				dispatch({ type: "deleteModules", cardId: card.id, moduleIds: allowed });
-			}
+			const action = { type: "deleteModules", cardId: card.id, moduleIds };
+			const check = checkDeletion(currentSheet, { modules: moduleIds.map((moduleId) => ({ cardId: card.id, moduleId })) });
 			setSelection(NO_SELECTION);
-			setBlocked(firstBlocked);
+			if (check.ok) {
+				dispatch(action);
+			} else {
+				const title = moduleIds.length === 1 ? card.modules[moduleIds[0]].label || "this module" : `${moduleIds.length} modules`;
+				setBlocked({ title, dependents: check.dependents, action: { ...action, force: true } });
+			}
 		}
 	}, [dispatch]);
 
@@ -845,7 +858,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 				.map((layout) => ({ sourceLayoutId: layout.id, card: cloneCard(currentSheet.cards[layout.cardId]) }));
 			if (entries.length) {
 				dispatch({ type: "duplicateCards", pageId: currentPage.id, entries, maxCols: maxCols() });
-				setPendingFocus(entries.map((entry) => entry.card.id));
+				setPendingFocus({ cardIds: entries.map((entry) => entry.card.id) });
 			}
 		} else if (current.level === "modules") {
 			const layout = currentLayouts.find((each) => each.id === current.layoutId);
@@ -1094,9 +1107,10 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 
 	useEffect(() => () => frameRef.current !== null && cancelAnimationFrame(frameRef.current), []);
 
-	// Jumps to a card (from the "referenced by" dialog): its page, selected,
+	// Jumps to a field (from the delete dialog): its card's page, then the
+	// module holding it selected (or the card, for a card-level link) and
 	// scrolled into view.
-	const navigateToCard = (cardId) => {
+	const navigateTo = ({ cardId, moduleId = null }) => {
 		const targetPage = layouts.some((layout) => layout.cardId === cardId)
 			? page
 			: sheet.pages.find((each) => each.cardLayouts.some((layout) => layout.cardId === cardId));
@@ -1106,7 +1120,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		if (targetPage.id !== page.id) {
 			dispatch({ type: "setActivePage", pageId: targetPage.id });
 		}
-		setPendingFocus([cardId]);
+		setPendingFocus({ cardIds: [cardId], moduleId });
 	};
 
 	// ---------- Rendering ----------
@@ -1285,7 +1299,12 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 					onClose={() => setAddModuleTo(null)}
 				/>
 			) : null}
-			<DeleteBlockedDialog blocked={blocked} onClose={() => setBlocked(null)} onNavigate={navigateToCard} />
+			<DeleteBlockedDialog
+				blocked={blocked}
+				onClose={() => setBlocked(null)}
+				onNavigate={navigateTo}
+				onDeleteAnyway={() => blocked && dispatch(blocked.action)}
+			/>
 		</>
 	);
 }

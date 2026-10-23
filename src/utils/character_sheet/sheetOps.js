@@ -5,8 +5,10 @@
 // All geometry here is in whole grid units (see grid.js): a card layout's
 // x/y/w/h are page cells, and moduleRects are cells on the card's module grid.
 
-import { createCardLayout, createPage, createTextPiece, createCheckboxPiece } from "./schema.js";
-import { buildPieceIndex, getPieceNumericValue, canDeleteCard, canDeleteModule } from "./references.js";
+import { createCardLayout, createPage, createTextPiece, createCheckboxPiece, createReference, makeId } from "./schema.js";
+import { removalOf, getDependents, captureLastKnown } from "./references.js";
+import { createEngine, resolveRoles, nodeIds } from "./engine/engine.js";
+import { mapSources, toNumber } from "./engine/expression.js";
 import { findFreeSpot, fitCardSize, moduleGridSize, getCardMinSize } from "./grid.js";
 import { planCardChange, planModuleChange, pageColumnLimit } from "./placement.js";
 import { buildDefaultModuleRects } from "./cardLayouts.js";
@@ -187,20 +189,32 @@ export function removeCardFromPage(sheet, pageId, layoutId) {
 	});
 }
 
-// Deletes a card's data everywhere — but only when no other card references it.
-// On refusal, referencedBy lists the referencing cards for the warning modal.
-export function deleteCard(sheet, cardId) {
-	const { ok, referencedBy } = canDeleteCard(sheet, cardId);
-	if (!ok) {
-		return { ok: false, referencedBy, sheet };
+// A deletion is refused while anything outside it still reads what it would
+// remove (see getDependents) — unless `force` ("Delete anyway"), in which case
+// every broken reference first keeps its last known value. Returns
+// { ok, dependents, sheet } with the sheet ready for the deletion itself.
+function prepareDeletion(sheet, spec, force) {
+	const dependents = getDependents(sheet, removalOf(sheet, spec));
+	if (dependents.length && !force) {
+		return { ok: false, dependents, sheet };
 	}
-	const cards = { ...sheet.cards };
+	return { ok: true, dependents, sheet: captureLastKnown(sheet, dependents) };
+}
+
+// Deletes a card's data everywhere — refused while something else on the
+// sheet reads it, unless `force`.
+export function deleteCard(sheet, cardId, { force = false } = {}) {
+	const prepared = prepareDeletion(sheet, { cardIds: [cardId] }, force);
+	if (!prepared.ok) {
+		return prepared;
+	}
+	const cards = { ...prepared.sheet.cards };
 	delete cards[cardId];
-	const pages = sheet.pages.map((page) => ({
+	const pages = prepared.sheet.pages.map((page) => ({
 		...page,
 		cardLayouts: page.cardLayouts.filter((layout) => layout.cardId !== cardId),
 	}));
-	return { ok: true, referencedBy: [], sheet: { ...sheet, cards, pages } };
+	return { ok: true, dependents: prepared.dependents, sheet: { ...prepared.sheet, cards, pages } };
 }
 
 export function setCardTitle(sheet, cardId, title) {
@@ -492,18 +506,20 @@ export function applyPageLayout(sheet, pageId, { cardRects = {}, moduleLayoutId 
 	);
 }
 
-// Deletes modules from a card's data, everywhere it's placed. Modules another
-// module still references are skipped (the UI checks canDeleteModule first
-// and explains why).
-export function deleteModules(sheet, cardId, moduleIds) {
+// Deletes modules from a card's data, everywhere it's placed. Refused as a
+// whole while anything outside them still reads them (the UI checks first
+// and explains why), unless `force`.
+export function deleteModules(sheet, cardId, moduleIds, { force = false } = {}) {
+	if (!sheet.cards[cardId]) {
+		return sheet;
+	}
+	const removable = moduleIds.filter((moduleId) => sheet.cards[cardId].modules[moduleId]);
+	const prepared = prepareDeletion(sheet, { modules: removable.map((moduleId) => ({ cardId, moduleId })) }, force);
+	if (!removable.length || !prepared.ok) {
+		return sheet;
+	}
+	sheet = prepared.sheet;
 	const card = sheet.cards[cardId];
-	if (!card) {
-		return sheet;
-	}
-	const removable = moduleIds.filter((moduleId) => card.modules[moduleId] && canDeleteModule(sheet, cardId, moduleId).ok);
-	if (!removable.length) {
-		return sheet;
-	}
 	const modules = { ...card.modules };
 	for (const moduleId of removable) {
 		delete modules[moduleId];
@@ -527,11 +543,21 @@ export function deleteModules(sheet, cardId, moduleIds) {
 }
 
 // Deletes cards from a page. A card that's also placed on other pages only
-// loses this placement; a card placed only here is deleted outright, unless
-// another card references it, in which case it's left alone (the UI checks
-// canDeleteCard first and explains why).
-export function deleteLayouts(sheet, pageId, layoutIds) {
-	let next = sheet;
+// loses this placement; a card placed only here is deleted outright. Refused
+// as a whole while anything outside the deleted cards still reads them (the
+// UI checks first and explains why), unless `force`.
+export function deleteLayouts(sheet, pageId, layoutIds, { force = false } = {}) {
+	const page = sheet.pages.find((each) => each.id === pageId);
+	const selected = (page?.cardLayouts || []).filter((layout) => layoutIds.includes(layout.id));
+	// Cards losing every placement they have are the ones actually deleted.
+	const doomed = [...new Set(selected.map((layout) => layout.cardId))].filter(
+		(cardId) => countCardPlacements(sheet, cardId) === selected.filter((layout) => layout.cardId === cardId).length
+	);
+	const prepared = prepareDeletion(sheet, { cardIds: doomed }, force);
+	if (!prepared.ok) {
+		return sheet;
+	}
+	let next = prepared.sheet;
 	for (const layoutId of layoutIds) {
 		const layout = next.pages.find((page) => page.id === pageId)?.cardLayouts.find((each) => each.id === layoutId);
 		if (!layout) {
@@ -540,8 +566,8 @@ export function deleteLayouts(sheet, pageId, layoutIds) {
 		if (countCardPlacements(next, layout.cardId) > 1) {
 			next = removeCardFromPage(next, pageId, layoutId);
 		} else {
-			const result = deleteCard(next, layout.cardId);
-			next = result.ok ? result.sheet : next;
+			// Already checked (and remembered) as a whole above.
+			next = deleteCard(next, layout.cardId, { force: true }).sheet;
 		}
 	}
 	return next;
@@ -553,12 +579,12 @@ export function setVariableValue(sheet, pieceId, value) {
 	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, value }));
 }
 
-export function setVariableFormula(sheet, pieceId, formula) {
-	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, formula }));
-}
-
 export function setCheckboxValue(sheet, pieceId, value) {
 	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, value: Boolean(value) }));
+}
+
+export function setTristateValue(sheet, pieceId, value) {
+	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, value: Math.max(0, Math.min(2, Math.trunc(Number(value) || 0))) }));
 }
 
 export function setTextSegments(sheet, pieceId, segments) {
@@ -569,8 +595,8 @@ export function setTextPlain(sheet, pieceId, text) {
 	return setTextSegments(sheet, pieceId, [{ type: "text", value: text }]);
 }
 
-export function setDropdownSelection(sheet, pieceId, selectedIndex) {
-	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, selectedIndex }));
+export function setDropdownSelection(sheet, pieceId, optionId) {
+	return replacePiece(sheet, pieceId, (piece) => ({ ...piece, selectedOptionId: optionId }));
 }
 
 export function setImageSrc(sheet, pieceId, src) {
@@ -580,13 +606,25 @@ export function setImageSrc(sheet, pieceId, src) {
 // The one write path for a piece's literal value, whatever its kind — what
 // the value accessor layer (values.js) dispatches, so views never need to
 // know which op a kind uses.
+//
+// A number whose reference is still pending is an ordinary editable field;
+// typing into it unlinks the reference ("typed"), so auto-connect never
+// overwrites what the player entered. (A linked number never reaches here:
+// it shows as a chip, not a field.)
 export function setPieceValue(sheet, pieceId, value) {
 	const location = findPieceLocation(sheet, pieceId);
-	switch (location?.module.pieces[pieceId].kind) {
+	const piece = location?.module.pieces[pieceId];
+	switch (piece?.kind) {
 		case "variable":
-			return setVariableValue(sheet, pieceId, value);
+			return replacePiece(sheet, pieceId, (current) => ({
+				...current,
+				value,
+				ref: current.ref && !current.ref.unlinked ? { ...current.ref, unlinked: "typed" } : current.ref,
+			}));
 		case "checkbox":
 			return setCheckboxValue(sheet, pieceId, value);
+		case "tristate":
+			return setTristateValue(sheet, pieceId, value);
 		case "text":
 			return setTextPlain(sheet, pieceId, value);
 		case "dropdown":
@@ -641,21 +679,22 @@ export function addModuleRow(sheet, cardId, moduleId) {
 	return ensureModuleFits(replaceModule(sheet, cardId, { ...module, pieces, pieceOrder }), cardId, moduleId);
 }
 
-// Drops row `rowIndex` (and every piece in it). Nothing guards against another
-// card referencing one of those pieces — a dangling reference already renders as
-// a marked em dash rather than crashing (see getPieceNumericValue), and the
-// reference-picking UI that would make this reachable isn't built yet. The
-// module keeps its size; the user shrinks it if they want the space back.
+// Drops row `rowIndex` (and every piece in it). A row is never blocked from
+// removal: anything that referenced one of its pieces keeps its last known
+// value and shows as missing. The module keeps its size; the user shrinks it
+// if they want the space back.
 export function removeModuleRow(sheet, cardId, moduleId, rowIndex) {
-	const module = sheet.cards[cardId]?.modules[moduleId];
-	const shape = getModuleRowShape(module?.type);
+	const shape = getModuleRowShape(sheet.cards[cardId]?.modules[moduleId]?.type);
 	if (!shape) {
 		return sheet;
 	}
-	const removedIds = module.pieceOrder.slice(rowIndex * shape.length, (rowIndex + 1) * shape.length);
-	if (!removedIds.length) {
+	const rowIds = sheet.cards[cardId].modules[moduleId].pieceOrder.slice(rowIndex * shape.length, (rowIndex + 1) * shape.length);
+	if (!rowIds.length) {
 		return sheet;
 	}
+	sheet = prepareDeletion(sheet, { pieceIds: rowIds }, true).sheet;
+	const module = sheet.cards[cardId].modules[moduleId];
+	const removedIds = rowIds;
 	const pieces = { ...module.pieces };
 	for (const pieceId of removedIds) {
 		delete pieces[pieceId];
@@ -667,39 +706,291 @@ export function removeModuleRow(sheet, cardId, moduleId, rowIndex) {
 	});
 }
 
+// Replaces a dropdown's options ({ id, label, ref } — see
+// createDropdownOption). The selection stays on the same option while it
+// exists, else moves to the first.
 export function setDropdownOptions(sheet, pieceId, options) {
 	return replacePiece(sheet, pieceId, (piece) => ({
 		...piece,
-		options: [...options],
-		selectedIndex: options.length ? Math.min(piece.selectedIndex ?? 0, options.length - 1) : null,
+		options: options.map((option) => ({ ...option })),
+		selectedOptionId: options.some((option) => option.id === piece.selectedOptionId)
+			? piece.selectedOptionId
+			: options[0]?.id ?? null,
 	}));
 }
 
-// Fires every action on a button piece. Targets must be writable variables
-// (no formula). Unresolvable operands (e.g. an empty damage input) count as 0.
+// ---------- References ----------
+//
+// A reference lives in one of four places, named by a target:
+//   { kind: "value", pieceId }              a number piece's whole value
+//   { kind: "chip", pieceId, refId }        one chip inside a text piece
+//   { kind: "option", pieceId, optionId }   one dropdown option
+//   { kind: "capacity", moduleId }          a checkbox group's box count
+// Every op here is one undoable step (see HISTORY_ACTIONS).
+
+// The graph node a target's value lives at.
+export function targetNode(target) {
+	switch (target.kind) {
+		case "chip":
+			return nodeIds.part(target.pieceId, target.refId);
+		case "option":
+			return nodeIds.part(target.pieceId, target.optionId);
+		case "capacity":
+			return nodeIds.capacity(target.moduleId);
+		default:
+			return nodeIds.piece(target.pieceId);
+	}
+}
+
+function findModuleLocation(sheet, moduleId) {
+	for (const card of Object.values(sheet.cards)) {
+		if (card.modules[moduleId]) {
+			return { card, module: card.modules[moduleId] };
+		}
+	}
+	return null;
+}
+
+function replaceModuleById(sheet, moduleId, updater) {
+	const location = findModuleLocation(sheet, moduleId);
+	return location ? replaceModule(sheet, location.card.id, updater(location.module)) : sheet;
+}
+
+// The reference currently held at a target, or null.
+export function getTargetReference(sheet, target) {
+	if (target.kind === "capacity") {
+		return findModuleLocation(sheet, target.moduleId)?.module.capacity || null;
+	}
+	const piece = findPieceLocation(sheet, target.pieceId)?.module.pieces[target.pieceId];
+	if (!piece) {
+		return null;
+	}
+	if (target.kind === "chip") {
+		return piece.segments.find((segment) => segment.type === "chip" && segment.ref?.id === target.refId)?.ref || null;
+	}
+	if (target.kind === "option") {
+		return piece.options.find((option) => option.id === target.optionId)?.ref || null;
+	}
+	return piece.ref || null;
+}
+
+// Swaps the reference at a target for `update(currentRef)` (null removes it).
+function updateTargetReference(sheet, target, update) {
+	if (target.kind === "capacity") {
+		return replaceModuleById(sheet, target.moduleId, (module) => ({ ...module, capacity: update(module.capacity || null) }));
+	}
+	return replacePiece(sheet, target.pieceId, (piece) => {
+		if (target.kind === "chip") {
+			return {
+				...piece,
+				segments: piece.segments.map((segment) =>
+					segment.type === "chip" && segment.ref?.id === target.refId ? { ...segment, ref: update(segment.ref) } : segment
+				),
+			};
+		}
+		if (target.kind === "option") {
+			return {
+				...piece,
+				options: piece.options.map((option) => (option.id === target.optionId ? { ...option, ref: update(option.ref || null) } : option)),
+			};
+		}
+		return { ...piece, ref: update(piece.ref || null) };
+	});
+}
+
+// Adjacent text segments merged, empty ones dropped (but always at least one
+// segment, so a text piece is never empty-shaped).
+function normalizeSegments(segments) {
+	const merged = [];
+	for (const segment of segments) {
+		const last = merged[merged.length - 1];
+		if (segment.type === "text" && last?.type === "text") {
+			merged[merged.length - 1] = { ...last, value: last.value + segment.value };
+		} else if (segment.type !== "text" || segment.value) {
+			merged.push(segment);
+		}
+	}
+	return merged.length ? merged : [{ type: "text", value: "" }];
+}
+
+// A hand-made reference is always by piece id: any role in it is replaced by
+// the piece that holds the role right now (a role nobody holds stays a role).
+function byId(sheet, expr) {
+	const roles = resolveRoles(sheet);
+	return mapSources(expr, (src) => (src.role && roles.has(src.role) ? { piece: roles.get(src.role) } : src));
+}
+
+// Saves `expr` as the reference at a target — new, or replacing what's there
+// (a chip keeps its id). Editing a card's default reference by hand turns it
+// into an ordinary by-id reference.
+export function setReference(sheet, target, expr, { nickname } = {}) {
+	return updateTargetReference(sheet, target, (current) => ({
+		...(current || createReference(null)),
+		expr: byId(sheet, expr),
+		origin: "user",
+		unlinked: false,
+		lastKnown: null,
+		nickname: nickname === undefined ? current?.nickname ?? null : nickname,
+	}));
+}
+
+// Inserts a new chip into a text piece at `offset` (counting characters of
+// text, and each chip as one; null = the end). Returns { sheet, refId }.
+export function insertChip(sheet, pieceId, expr, { offset = null, nickname = null } = {}) {
+	const ref = { ...createReference(byId(sheet, expr)), nickname };
+	const chip = { type: "chip", ref };
+	const next = replacePiece(sheet, pieceId, (piece) => {
+		const segments = [];
+		let remaining = offset ?? Infinity;
+		let inserted = false;
+		for (const segment of piece.segments) {
+			if (!inserted && remaining === 0) {
+				segments.push(chip);
+				inserted = true;
+			}
+			const length = segment.type === "text" ? segment.value.length : 1;
+			if (!inserted && segment.type === "text" && remaining < length) {
+				segments.push({ type: "text", value: segment.value.slice(0, remaining) }, chip, {
+					type: "text",
+					value: segment.value.slice(remaining),
+				});
+				inserted = true;
+			} else {
+				segments.push(segment);
+			}
+			remaining -= length;
+		}
+		if (!inserted) {
+			segments.push(chip);
+		}
+		return { ...piece, segments: normalizeSegments(segments) };
+	});
+	return { sheet: next, refId: ref.id };
+}
+
+// The current value at a target, from the engine.
+function currentValue(sheet, target) {
+	return createEngine(sheet).values.get(targetNode(target)) || null;
+}
+
+// Gives a checkbox group exactly `count` boxes (what it shows once its box
+// count is no longer linked).
+function setBoxCount(sheet, moduleId, count) {
+	return replaceModuleById(sheet, moduleId, (module) => {
+		const boxes = module.pieceOrder.filter((pieceId) => module.pieces[pieceId]?.kind === "checkbox");
+		if (!Number.isInteger(count) || count === boxes.length) {
+			return module;
+		}
+		const pieces = { ...module.pieces };
+		let pieceOrder = [...module.pieceOrder];
+		if (count > boxes.length) {
+			for (let index = boxes.length; index < count; index += 1) {
+				const piece = createCheckboxPiece({ label: `${module.label} ${index + 1}` });
+				pieces[piece.id] = piece;
+				pieceOrder.push(piece.id);
+			}
+		} else {
+			const dropped = new Set(boxes.slice(count));
+			dropped.forEach((pieceId) => delete pieces[pieceId]);
+			pieceOrder = pieceOrder.filter((pieceId) => !dropped.has(pieceId));
+		}
+		return { ...module, pieces, pieceOrder };
+	});
+}
+
+// Unlink: the reference is replaced by the value it shows right now, as a
+// plain value the player can then change. A card's default reference is
+// kept (marked unlinked) so it never auto-connects again; a hand-made one is
+// dropped. A chip becomes its value as plain text.
+export function unlinkReference(sheet, target) {
+	const current = currentValue(sheet, target);
+	const shown = current && !current.error ? current.value : null;
+	if (target.kind === "chip") {
+		return replacePiece(sheet, target.pieceId, (piece) => ({
+			...piece,
+			segments: normalizeSegments(
+				piece.segments.map((segment) =>
+					segment.type === "chip" && segment.ref?.id === target.refId
+						? { type: "text", value: shown === null || shown === undefined ? "" : String(shown) }
+						: segment
+				)
+			),
+		}));
+	}
+	if (target.kind === "capacity") {
+		const count = typeof shown === "number" ? shown : null;
+		const cleared = replaceModuleById(sheet, target.moduleId, (module) => ({ ...module, capacity: null }));
+		return count === null ? cleared : setBoxCount(cleared, target.moduleId, count);
+	}
+	if (target.kind === "option") {
+		return updateTargetReference(sheet, target, () => null);
+	}
+	const unlinked = updateTargetReference(sheet, target, (ref) => (ref?.origin === "default" ? { ...ref, unlinked: "user" } : null));
+	return typeof shown === "number" ? replacePiece(unlinked, target.pieceId, (piece) => ({ ...piece, value: shown })) : unlinked;
+}
+
+// Remove: the reference and its value are both cleared (a chip disappears; a
+// box count goes back to its −/+ buttons at the count it showed).
+export function removeReference(sheet, target) {
+	if (target.kind === "chip") {
+		return replacePiece(sheet, target.pieceId, (piece) => ({
+			...piece,
+			segments: normalizeSegments(piece.segments.filter((segment) => !(segment.type === "chip" && segment.ref?.id === target.refId))),
+		}));
+	}
+	if (target.kind === "capacity") {
+		return unlinkReference(sheet, target);
+	}
+	if (target.kind === "option") {
+		return updateTargetReference(sheet, target, () => null);
+	}
+	return replacePiece(updateTargetReference(sheet, target, () => null), target.pieceId, (piece) => ({ ...piece, value: 0 }));
+}
+
+// Replaces a module's lock/hide rules (see createRule).
+export function setModuleRules(sheet, moduleId, rules) {
+	return replaceModuleById(sheet, moduleId, (module) => ({
+		...module,
+		rules: rules.map((rule) => ({ ...rule, id: rule.id || makeId("rule") })),
+	}));
+}
+
+// ---------- Buttons ----------
+
+// A piece's current number, or null when it has none (missing, error, text).
+function numberAt(engine, pieceId) {
+	const entry = pieceId ? engine.values.get(nodeIds.piece(pieceId)) : null;
+	if (!entry || entry.error) {
+		return null;
+	}
+	return toNumber(entry.value).value;
+}
+
+// Fires every action on a button piece. Targets must be number pieces whose
+// value isn't computed by a reference. Unresolvable operands (e.g. an empty
+// damage input) count as 0.
 export function pressButton(sheet, buttonPieceId) {
-	const index = buildPieceIndex(sheet);
-	const entry = index[buttonPieceId];
-	if (!entry || entry.piece.kind !== "button") {
+	const button = findPieceLocation(sheet, buttonPieceId)?.module.pieces[buttonPieceId];
+	if (!button || button.kind !== "button") {
 		return sheet;
 	}
 	let nextSheet = sheet;
-	for (const action of entry.piece.actions) {
-		const currentIndex = buildPieceIndex(nextSheet);
-		const targetEntry = currentIndex[action.targetPieceId];
-		if (!targetEntry || targetEntry.piece.kind !== "variable" || targetEntry.piece.formula) {
+	for (const action of button.actions) {
+		const engine = createEngine(nextSheet);
+		const target = engine.index.pieces[action.targetPieceId];
+		const targetEntry = engine.values.get(nodeIds.piece(action.targetPieceId));
+		if (!target || target.piece.kind !== "variable" || targetEntry?.computed) {
 			continue;
 		}
 
 		let amount = 0;
 		if (action.operandPieceId) {
-			const resolved = getPieceNumericValue(action.operandPieceId, currentIndex);
-			amount = resolved.error ? 0 : resolved.value;
+			amount = numberAt(engine, action.operandPieceId) ?? 0;
 		} else if (typeof action.amount === "number") {
 			amount = action.amount;
 		}
 
-		const current = Number(targetEntry.piece.value) || 0;
+		const current = numberAt(engine, action.targetPieceId) ?? 0;
 		let value = current;
 		if (action.op === "add") {
 			value = current + amount;
@@ -715,17 +1006,13 @@ export function pressButton(sheet, buttonPieceId) {
 		if (typeof action.max === "number") {
 			value = Math.min(action.max, value);
 		}
-		if (action.minPieceId) {
-			const resolved = getPieceNumericValue(action.minPieceId, currentIndex);
-			if (!resolved.error) {
-				value = Math.max(resolved.value, value);
-			}
+		const min = numberAt(engine, action.minPieceId);
+		if (min !== null) {
+			value = Math.max(min, value);
 		}
-		if (action.maxPieceId) {
-			const resolved = getPieceNumericValue(action.maxPieceId, currentIndex);
-			if (!resolved.error) {
-				value = Math.min(resolved.value, value);
-			}
+		const max = numberAt(engine, action.maxPieceId);
+		if (max !== null) {
+			value = Math.min(max, value);
 		}
 
 		nextSheet = replacePiece(nextSheet, action.targetPieceId, (piece) => ({ ...piece, value }));
