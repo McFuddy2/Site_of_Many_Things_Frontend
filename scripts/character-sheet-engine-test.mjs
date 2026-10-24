@@ -11,6 +11,7 @@ globalThis.localStorage = {
 };
 
 const schema = await import(`${BASE}/character_sheet/schema.js`);
+const cards = await import(`${BASE}/character_sheet/cardDefinitions.js`);
 const refs = await import(`${BASE}/character_sheet/references.js`);
 const ops = await import(`${BASE}/character_sheet/sheetOps.js`);
 const engine = await import(`${BASE}/character_sheet/engine/engine.js`);
@@ -34,7 +35,7 @@ const errorOf = (s, pieceId) => engine.readSheetValue(s, { piece: pieceId }).err
 // --- ability scores: bonus auto-calculates and stays live ---
 let sheet = schema.createSheet("Test");
 const page1 = sheet.pages[0];
-const abilities = schema.createAbilityScoresCard();
+const abilities = cards.createStandardCard("abilityScores");
 sheet = ops.addCardToPage(sheet, page1.id, abilities);
 
 const abilityModule = (index) => sheet.cards[abilities.id].modules[sheet.cards[abilities.id].moduleOrder[index]];
@@ -47,9 +48,12 @@ check("bonus live update (15 -> +2)", valueOf(sheet, strBonusId), 2);
 sheet = ops.setVariableValue(sheet, strScoreId, 7);
 check("bonus live update (7 -> -2)", valueOf(sheet, strBonusId), -2);
 
-// --- saving throws: role link to the ability + proficiency checkbox as 0/1 ---
-const saves = schema.createSavingThrowsCard({ proficiencyBonus: 3 });
+// --- saving throws: role links to the ability and the proficiency bonus; checkbox as 0/1 ---
+const saves = cards.createStandardCard("savingThrows");
 sheet = ops.addCardToPage(sheet, page1.id, saves);
+const proficiency = cards.createStandardCard("proficiencyBonus");
+sheet = ops.addCardToPage(sheet, page1.id, proficiency);
+sheet = ops.setPieceValue(sheet, proficiency.modules[proficiency.moduleOrder[0]].pieceOrder[0], 3);
 const strSaveModule = sheet.cards[saves.id].modules[sheet.cards[saves.id].moduleOrder[0]];
 const [strProfId, strSaveBonusId] = strSaveModule.pieceOrder;
 
@@ -60,7 +64,7 @@ sheet = ops.setVariableValue(sheet, strScoreId, 18);
 check("save follows ability change live", valueOf(sheet, strSaveBonusId), 7);
 
 // --- health: damage/heal buttons with clamps ---
-const health = schema.createHealthCard();
+const health = cards.createStandardCard("health");
 sheet = ops.addCardToPage(sheet, page1.id, health);
 const healthCard = sheet.cards[health.id];
 const [curModId, maxModId, , dhModId] = healthCard.moduleOrder;
@@ -126,7 +130,7 @@ check("deletable once refs removed", del.ok, true);
 
 // --- shared card across pages: shared data, independent layout ---
 let multi = schema.createSheet("Multi");
-const mAbilities = schema.createAbilityScoresCard();
+const mAbilities = cards.createStandardCard("abilityScores");
 multi = ops.addCardToPage(multi, multi.pages[0].id, mAbilities);
 multi = ops.addPage(multi);
 const mPage2 = multi.pages[1];
@@ -164,7 +168,7 @@ check("arrangement keeps rects for kept modules", arrAfter.moduleRects[arrModule
 check("arrangement prunes rects for removed modules", arrModuleIds[5] in arrAfter.moduleRects, false);
 check("card never smaller than its modules", [arrAfter.w >= 16, arrAfter.h >= 8], [true, true]);
 
-const secondCard = schema.createHealthCard();
+const secondCard = cards.createStandardCard("health");
 multi = ops.addCardToPage(multi, multi.pages[0].id, secondCard, { maxCols: 60 });
 const [layoutA, layoutB] = multi.pages[0].cardLayouts;
 check("new card doesn't overlap", layoutB.x >= layoutA.x + layoutA.w || layoutB.y >= layoutA.y + layoutA.h, true);

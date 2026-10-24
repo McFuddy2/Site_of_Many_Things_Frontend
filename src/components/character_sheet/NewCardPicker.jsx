@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { CARD_TYPE_OPTIONS, createStandardCard } from "../../utils/character_sheet/schema";
+import { CARD_TYPE_OPTIONS, createStandardCard } from "../../utils/character_sheet/cardDefinitions";
 import { useCharacterSheet, SheetPreviewProvider } from "./CharacterSheetContext";
 import { CardPreview } from "./CharacterSheetCard";
 import { PlusIcon, SearchIcon } from "./icons";

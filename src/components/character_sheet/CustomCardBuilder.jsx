@@ -25,7 +25,6 @@ export const CONFIGURE_INSTRUCTIONS = {
 	itemList: "Provide the starting items (one per line, as “Name, Qty”):",
 	image: "Add an image:",
 	currency: "Name this currency tracker:",
-	spellEntry: "Name this spell — the rest is filled in on the card:",
 };
 
 const DEFAULT_LABELS = {
@@ -45,18 +44,17 @@ const DEFAULT_LABELS = {
 	itemList: "Items",
 	image: "Image",
 	currency: "Currency",
-	spellEntry: "Spell",
 };
 
 // Which extra inputs a module type's form needs beyond its name. Types not
-// listed here (currency, spellEntry) are fully configured by their name alone —
+// listed here (currency) are fully configured by their name alone —
 // everything else about them is filled in directly on the card afterwards.
 const NEEDS_NUMBER = new Set(["abilityScore", "number", "bigNumber", "passiveSkill"]);
 const NEEDS_LINES = new Set(["dropdown", "columnHeader", "listText", "itemList"]);
 
 const LINES_PLACEHOLDER = {
 	dropdown: "First option\nSecond option",
-	columnHeader: "Proficient?\nModifier\nStat",
+	columnHeader: "Proficient?\nModifier\nSkill",
 	listText: "Light Armor\nShields\nElvish",
 	itemList: "Backpack, 1\nFlask of Oil, 10",
 };

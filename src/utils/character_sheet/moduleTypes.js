@@ -75,14 +75,6 @@ export const MODULE_TYPES = {
 		minW: 6,
 		minH: pxToUnits(FIELD_CHROME + 40),
 	},
-	spellEntry: {
-		role: "text",
-		defaultW: 20,
-		defaultH: 10,
-		minW: 14,
-		// Name, the stat columns (caption + field), then at least two lines of description.
-		minH: pxToUnits(FIELD_CHROME + SIZE.inputHeight + 4 + (12 + SIZE.rowHeight) + 4 + 40),
-	},
 	dropdown: { role: "choice", defaultW: 8, defaultH: FIELD_H, minW: 5, minH: FIELD_H },
 	checkbox: { role: "tracker", defaultW: 6, defaultH: ROW_H, minW: 4, minH: ROW_H },
 	checkboxRow: { role: "tracker", defaultW: 9, defaultH: checkboxRowHeight, minW: 5, minH: checkboxRowHeight },

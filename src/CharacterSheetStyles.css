@@ -882,25 +882,6 @@
 }
 
 /* One spell: name, the five stat columns, then the description. */
-.cs-spell-columns {
-	flex: none;
-	display: grid;
-	grid-template-columns: repeat(5, minmax(0, 1fr));
-	gap: 4px;
-}
-
-.cs-spell-column {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.cs-spell-column .cs-caption {
-	height: 12px;
-	line-height: 12px;
-	text-align: center;
-}
-
 /* Damage/Heal: amount + the two buttons on one line. */
 .cs-damage-heal .cs-input {
 	flex: 1 1 auto;
@@ -1050,6 +1031,43 @@
 	flex: none;
 	accent-color: var(--cs-navy);
 	cursor: pointer;
+}
+
+/* A skill's proficiency (see TristateField): empty ring → filled dot →
+   filled dot with a second ring and an "E". */
+.cs-tristate {
+	position: relative;
+	flex: none;
+	width: var(--cs-checkbox);
+	height: var(--cs-checkbox);
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px solid var(--cs-navy);
+	border-radius: 50%;
+	background-color: #ffffff;
+	color: #ffffff;
+	font-size: calc(var(--cs-checkbox) * 0.6);
+	font-weight: bold;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.cs-tristate--1,
+.cs-tristate--2 {
+	background-color: var(--cs-navy);
+}
+
+.cs-tristate--2 {
+	box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--cs-navy);
+}
+
+.cs-tristate:focus-visible {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 4px;
 }
 
 .cs-btn {
@@ -2108,6 +2126,13 @@
 	background-color: var(--cs-chip-warn-bg);
 	border-color: var(--cs-chip-warn-border);
 	color: var(--cs-chip-warn-text);
+}
+
+/* In a skill or save row's narrow Modifier column: tighter, so a two-digit
+   modifier ("+17" with expertise) still fits. */
+.cs-stat-cell .cs-chip {
+	gap: 2px;
+	padding: 0 3px 0 2px;
 }
 
 /* Inside running text: sized to the line. */

@@ -1,50 +1,19 @@
-// Default module arrangements, authored on the grid. Each standard card type
-// lists its rows in module order: `w` is each module's width in units, and a
-// row's height is the tallest default height among its modules (or `h` when
-// given). Every module in a row is stretched to the row's height and every
-// row spans the same width, so a fresh card has no dead space — and the card
-// itself is sized to exactly that bounding box plus its header (see
-// fitCardSize in grid.js).
+// Default module arrangements, authored on the grid as each card type's
+// `rows` (see cardDefinitions.js). Each row lists its modules' widths in
+// units, in module order; a row's height is the tallest default height among
+// its modules (or `h` when given). Every module in a row is stretched to the
+// row's height and every row spans the same width, so a fresh card has no
+// dead space — and the card itself is sized to exactly that bounding box
+// plus its header (see fitCardSize in grid.js).
 //
-// Card types without an entry here (custom cards, or a standard card whose
-// modules no longer match its recipe) fall back to autoPackRows below.
+// Card types without rows (custom cards, an unknown type from an older save,
+// or a standard card whose modules no longer match its recipe) fall back to
+// autoPackRows below.
 
 import { getModuleSizing } from "./moduleTypes.js";
 import { getTitleMinUnits, CARD_CHROME_W } from "./layoutConstants.js";
 import { fitCardSize } from "./grid.js";
-
-const column = (count, width, h) => Array.from({ length: count }, () => ({ w: [width], ...(h ? { h } : {}) }));
-
-export const CARD_DEFAULT_ROWS = {
-	abilityScores: [{ w: [5, 5, 5, 5, 5, 5] }],
-	allies: column(2, 14),
-	appearance: [{ w: [12] }, { w: [12] }],
-	armorClass: [{ w: [7] }],
-	attack: [{ w: [8, 5, 6, 5] }, { w: [8, 8, 8] }, { w: [24], h: 4 }],
-	backstory: [{ w: [14], h: 8 }],
-	basicDescriptions: [{ w: [6, 6, 6] }, { w: [6, 6, 6] }],
-	basicInfo: [{ w: [6, 3, 6, 6] }, { w: [6, 7, 8] }],
-	characterName: [{ w: [12] }],
-	deathSaves: column(2, 9),
-	equipment: [{ w: [14] }],
-	feature: [{ w: [14] }, { w: [14] }],
-	health: [{ w: [6, 6, 6] }, { w: [18] }],
-	hitDice: [{ w: [6, 5, 9] }],
-	initiative: [{ w: [6] }],
-	inspiration: [{ w: [7] }],
-	money: [{ w: [12] }],
-	movementSpeed: [{ w: [6, 4, 4, 4] }],
-	passiveSkills: [{ w: [10] }],
-	personality: [{ w: [10, 10] }, { w: [10, 10] }],
-	proficiencies: [{ w: [14] }],
-	proficiencyBonus: [{ w: [7] }],
-	savingThrows: column(6, 10),
-	skills: column(19, 13),
-	spellcastingStats: [{ w: [8, 7, 6] }],
-	spellList: [{ w: [20] }],
-	symbol: [{ w: [12] }, { w: [12] }],
-	treasure: [{ w: [14] }],
-};
+import { CARD_DEFINITIONS } from "./cardDefinitions.js";
 
 // Widest a custom card's rows run before wrapping.
 const AUTO_PACK_COLUMNS = 24;
@@ -72,7 +41,7 @@ function autoPackRows(card) {
 }
 
 function recipeFor(card) {
-	const recipe = CARD_DEFAULT_ROWS[card.type];
+	const recipe = CARD_DEFINITIONS[card.type]?.rows;
 	const count = recipe ? recipe.reduce((total, row) => total + row.w.length, 0) : -1;
 	return count === card.moduleOrder.length ? recipe : autoPackRows(card);
 }

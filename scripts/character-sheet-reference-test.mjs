@@ -14,6 +14,7 @@ globalThis.localStorage = {
 };
 
 const schema = await import(`${BASE}/character_sheet/schema.js`);
+const cards = await import(`${BASE}/character_sheet/cardDefinitions.js`);
 const ops = await import(`${BASE}/character_sheet/sheetOps.js`);
 const refs = await import(`${BASE}/character_sheet/references.js`);
 const engineLib = await import(`${BASE}/character_sheet/engine/engine.js`);
@@ -107,7 +108,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Sheet: live values ----------
 
 {
-	const abilities = schema.createAbilityScoresCard();
+	const abilities = cards.createStandardCard("abilityScores");
 	let sheet = newSheet(abilities);
 	const [scoreId, bonusId] = piecesOf(abilities, 0);
 	for (const [score, modifier] of [[1, -5], [9, -1], [10, 0], [15, 2], [20, 5]]) {
@@ -120,8 +121,8 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Only dependents recompute ----------
 
 {
-	const abilities = schema.createAbilityScoresCard();
-	const saves = schema.createSavingThrowsCard();
+	const abilities = cards.createStandardCard("abilityScores");
+	const saves = cards.createStandardCard("savingThrows");
 	let sheet = newSheet(abilities, saves);
 	const before = engineLib.createEngine(sheet);
 	const [strScore, strBonus] = piecesOf(abilities, 0);
@@ -163,7 +164,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Roles: pending → linked, unlinked never overwritten ----------
 
 {
-	const skills = schema.createSkillsCard();
+	const skills = cards.createStandardCard("skills");
 	let sheet = newSheet(skills);
 	const acrobatics = piecesOf(skills, 1)[1];
 	const athletics = piecesOf(skills, 4)[1];
@@ -173,9 +174,11 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	sheet = ops.setPieceValue(sheet, athletics, 5);
 	check("typing into a pending field unlinks it", sheet.cards[skills.id].modules[skills.moduleOrder[4]].pieces[athletics].ref.unlinked, "typed");
 
-	const abilities = schema.createAbilityScoresCard();
+	const abilities = cards.createStandardCard("abilityScores");
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, abilities, { maxCols: 60 });
 	sheet = ops.setPieceValue(sheet, piecesOf(abilities, 1)[0], 16); // Dexterity 16 → +3
+	check("with only Ability Scores, a skill is pending and needs more data", [stateOf(sheet, acrobatics), read(sheet, acrobatics).partial], ["pending", true]);
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, cards.createStandardCard("proficiencyBonus"), { maxCols: 60 });
 	check("pending connects when the card is added", stateOf(sheet, acrobatics), "linked");
 	check("…and computes from it", valueOf(sheet, acrobatics), 3);
 	check("auto-connect leaves a typed value alone", [stateOf(sheet, athletics), valueOf(sheet, athletics)], ["unlinked", 5]);
@@ -184,13 +187,13 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	const custom = numberCard("Mixed", ["Total"]);
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, custom, { maxCols: 60 });
 	const total = numberIds(custom)[0];
-	const mixed = schema.createReference(ex.add(ex.roleSrc("ability.dex.bonus"), ex.roleSrc("proficiency.bonus")), { origin: "default" });
+	const mixed = schema.createReference(ex.add(ex.roleSrc("ability.dex.bonus"), ex.roleSrc("character.level")), { origin: "default" });
 	sheet = withRef(sheet, custom.id, total, mixed);
 	const partial = read(sheet, total);
 	check("partly resolved reference is pending and needs more data", [partial.state, partial.partial, partial.error], ["pending", true, "Needs more data"]);
-	check("…and says which role is missing", partial.missingRoles, ["proficiency.bonus"]);
-	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, schema.createProficiencyBonusCard(2), { maxCols: 60 });
-	check("…then connects once every role resolves", [stateOf(sheet, total), valueOf(sheet, total)], ["linked", 5]);
+	check("…and says which role is missing", partial.missingRoles, ["character.level"]);
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, cards.createStandardCard("basicInfo"), { maxCols: 60 });
+	check("…then connects once every role resolves", [stateOf(sheet, total), valueOf(sheet, total)], ["linked", 4]);
 
 	// Explicit Unlink keeps the value, stays unlinked.
 	const unlinked = ops.unlinkReference(sheet, { kind: "value", pieceId: acrobatics });
@@ -198,7 +201,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("Remove clears the reference and value", [read(ops.removeReference(sheet, { kind: "value", pieceId: acrobatics }), acrobatics).state, valueOf(ops.removeReference(sheet, { kind: "value", pieceId: acrobatics }), acrobatics)], [null, 0]);
 
 	// First match wins: page order, then reading order.
-	const second = schema.createAbilityScoresCard();
+	const second = cards.createStandardCard("abilityScores");
 	let two = ops.addPage(sheet);
 	two = ops.addCardToPage(two, two.pages[1].id, second, { maxCols: 60 });
 	two = ops.setPieceValue(two, piecesOf(second, 1)[0], 20);
@@ -209,10 +212,10 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Delete: blocked, delete anyway, missing, reconnect ----------
 
 {
-	const abilities = schema.createAbilityScoresCard();
-	const saves = schema.createSavingThrowsCard();
+	const abilities = cards.createStandardCard("abilityScores");
+	const saves = cards.createStandardCard("savingThrows");
 	const custom = numberCard("Feat", ["Bonus HP"]);
-	let sheet = newSheet(abilities, saves, custom);
+	let sheet = newSheet(abilities, saves, custom, cards.createStandardCard("proficiencyBonus"));
 	const [strScore, strBonus] = piecesOf(abilities, 0);
 	const featBonus = numberIds(custom)[0];
 	const strSave = piecesOf(saves, 0)[1];
@@ -234,7 +237,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("role-based dependent too", [stateOf(sheet, strSave), valueOf(sheet, strSave)], ["missing", 4]);
 	check("missing never throws, and has no error", read(sheet, featBonus).error, null);
 
-	const again = schema.createAbilityScoresCard();
+	const again = cards.createStandardCard("abilityScores");
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, again, { maxCols: 60 });
 	check("role-based reference reconnects when a matching card returns", [stateOf(sheet, strSave), valueOf(sheet, strSave)], ["linked", 0]);
 	check("hand-made reference stays missing", stateOf(sheet, featBonus), "missing");
@@ -242,13 +245,13 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("…until it's edited", stateOf(sheet, featBonus), "linked");
 
 	// A second holder of the role means nothing breaks.
-	const spare = schema.createAbilityScoresCard();
+	const spare = cards.createStandardCard("abilityScores");
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, spare, { maxCols: 60 });
 	const roleOnly = refs.getDependents(sheet, refs.removalOf(sheet, { cardIds: [again.id] })).filter((d) => d.cardId === saves.id);
 	check("a role another card can take over isn't a dependent", roleOnly.length, 0);
 
 	// Rows: removing one never blocks, but its dependents keep their value.
-	const deathSaves = schema.createDeathSavesCard();
+	const deathSaves = cards.createStandardCard("deathSaves");
 	const counter = numberCard("Counter", ["Successes"]);
 	let rows = newSheet(deathSaves, counter);
 	const successes = deathSaves.moduleOrder[0];
@@ -262,9 +265,9 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	// Pages.
 	let paged = newSheet(schema.createCustomCard("Unused"));
 	paged = ops.addPage(paged);
-	const pageCard = schema.createAbilityScoresCard();
+	const pageCard = cards.createStandardCard("abilityScores");
 	paged = ops.addCardToPage(paged, paged.pages[1].id, pageCard, { maxCols: 60 });
-	paged = ops.addCardToPage(paged, paged.pages[0].id, schema.createSavingThrowsCard(), { maxCols: 60 });
+	paged = ops.addCardToPage(paged, paged.pages[0].id, cards.createStandardCard("savingThrows"), { maxCols: 60 });
 	check("a page's dependents are found too", refs.canDeletePage(paged, paged.pages[1].id).dependents.length, 6);
 	check("a card shown elsewhere doesn't make its page's dependents", refs.canDeletePage(ops.insertExistingCardOnPage(paged, paged.pages[0].id, pageCard.id), paged.pages[1].id).ok, true);
 }
@@ -294,7 +297,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	sheet = ops.setPieceValue(sheet, a2, 7);
 	check("the copy computes on its own", [valueOf(sheet, b2), valueOf(sheet, b)], [14, 0]);
 
-	const abilities = schema.cloneCard(schema.createAbilityScoresCard());
+	const abilities = schema.cloneCard(cards.createStandardCard("abilityScores"));
 	const [score, bonus] = piecesOf(abilities, 0);
 	check("a duplicated Ability Scores card's Bonus follows its own Score", ex.collectSources(abilities.modules[abilities.moduleOrder[0]].pieces[bonus].ref.expr), [{ piece: score }]);
 }
@@ -302,7 +305,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Chips, dropdowns, rules, capacity ----------
 
 {
-	const abilities = schema.createAbilityScoresCard();
+	const abilities = cards.createStandardCard("abilityScores");
 	const notes = schema.createCustomCard("Notes");
 	const textModule = schema.createTextModule("Feature", { text: "Gain  Temp HP." });
 	notes.modules[textModule.id] = textModule;
@@ -345,7 +348,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("a plain option's value is its label", valueOf(sheet, dropdownId), "None");
 
 	// Rules: lock when Level < 5, counted as 0 while locked, contents kept.
-	const basics = schema.createBasicInfoCard();
+	const basics = cards.createStandardCard("basicInfo");
 	const levelId = basics.modules[basics.moduleOrder[1]].pieceOrder[0];
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, basics, { maxCols: 60 });
 	const featureModule = schema.createNumberModule("Feature Bonus", 3);
@@ -366,14 +369,15 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("hidden counts as 0 too", [engineLib.moduleLockState(engineLib.createEngine(sheet), featureModule.id), valueOf(sheet, numberIds(user)[0])], ["hidden", 10]);
 
 	// Capacity: box count follows a reference; checked states kept.
-	const hitDice = schema.createHitDiceCard();
+	const hitDice = cards.createStandardCard("hitDice");
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, hitDice, { maxCols: 60 });
 	const [, totalModule, usedModule] = hitDice.moduleOrder;
 	const totalId = hitDice.modules[totalModule].pieceOrder[0];
-	const boxes = hitDice.modules[usedModule].pieceOrder;
+	check("Hit Dice comes with its box count linked to Total", ex.collectSources(hitDice.modules[usedModule].capacity.expr), [{ piece: totalId }]);
 	sheet = ops.setReference(sheet, { kind: "capacity", moduleId: usedModule }, ex.pieceSrc(totalId));
-	for (const box of boxes) {
-		sheet = ops.setPieceValue(sheet, box, true);
+	sheet = ops.setPieceValue(sheet, totalId, 5);
+	for (let index = 0; index < 5; index += 1) {
+		sheet = ops.setBoxChecked(sheet, usedModule, index, true);
 	}
 	sheet = ops.setPieceValue(sheet, totalId, 2);
 	engine = engineLib.createEngine(sheet);
@@ -438,7 +442,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("missing else is explained", tokens.tokensToExpr(row.filter((token) => token.t !== "else")).error, "Add “else” after the “then” value");
 
 	// Rules as a reference target.
-	const basics = schema.createBasicInfoCard();
+	const basics = cards.createStandardCard("basicInfo");
 	const card = numberCard("Feature", ["Bonus"]);
 	let sheet = newSheet(basics, card);
 	const levelId = basics.modules[basics.moduleOrder[1]].pieceOrder[0];
@@ -478,11 +482,12 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("an option's reference is set like any other", valueOf(sheet, dropdownId), 7);
 
 	// Linked box counts.
-	const hitDice = schema.createHitDiceCard();
+	const hitDice = cards.createStandardCard("hitDice");
 	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, hitDice, { maxCols: 60 });
 	const [, totalModule, usedModule] = hitDice.moduleOrder;
 	const totalId = hitDice.modules[totalModule].pieceOrder[0];
 	let state = createHistoryState(sheet);
+	state = historyReducer(state, { type: "setPieceValue", pieceId: totalId, value: 5 });
 	state = historyReducer(state, { type: "setReference", target: { kind: "capacity", moduleId: usedModule }, expr: ex.pieceSrc(totalId) });
 	const used = () => live(state.sheet, hitDice).modules[usedModule];
 	check("a linked group records the boxes it shows", used().shownBoxes, 5);
@@ -506,7 +511,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("unlinking the count keeps the boxes it showed", [used().capacity, used().shownBoxes, used().pieceOrder.length], [null, undefined, 15]);
 
 	// Loops through links that don't exist yet are caught at pick time.
-	const fresh = schema.createHitDiceCard();
+	const fresh = cards.createStandardCard("hitDice");
 	let loops = newSheet(fresh, numberCard("Reader", ["Reads"]));
 	const freshUsed = fresh.moduleOrder[2];
 	check(
@@ -529,7 +534,7 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 		null
 	);
 
-	const tile = schema.createAbilityScoresCard();
+	const tile = cards.createStandardCard("abilityScores");
 	const tileSheet = newSheet(tile);
 	const strength = tile.moduleOrder[0];
 	check(
@@ -546,6 +551,112 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	pending = ops.addModuleToCard(pending, featId, pendingGroup);
 	pending = ops.addModuleRow(pending, featId, pendingGroup.id);
 	check("−/+ on a pending count makes it the player's", pending.cards[featId].modules[pendingGroup.id].capacity.unlinked, "typed");
+}
+
+// ---------- Phase 4: standard cards ----------
+
+{
+	// A fresh sheet with every standard card.
+	let sheet = schema.createSheet("Everything");
+	const byType = {};
+	for (const type of cards.STANDARD_CARD_TYPES) {
+		byType[type] = cards.createStandardCard(type);
+		sheet = ops.addCardToPage(sheet, sheet.pages[0].id, byType[type], { maxCols: 60 });
+	}
+	const moduleNamed = (type, label) => {
+		const card = byType[type];
+		return card.modules[card.moduleOrder.find((id) => card.modules[id].label === label)];
+	};
+	const valueIn = (type, label, index = 0) => valueOf(sheet, moduleNamed(type, label).pieceOrder[index]);
+	const set = (type, label, index, value) => (sheet = ops.setPieceValue(sheet, moduleNamed(type, label).pieceOrder[index], value));
+
+	check("no default reference is left pending or broken", (() => {
+		const engine = engineLib.createEngine(sheet);
+		return [...engine.values.entries()].filter(([, entry]) => entry.state && entry.state !== "linked").map(([id]) => id);
+	})(), []);
+
+	set("abilityScores", "Dexterity", 0, 16); // +3
+	check("Dex Bonus follows its Score", valueIn("abilityScores", "Dexterity", 1), 3);
+	check("…the Dexterity save", valueIn("savingThrows", "Dexterity", 1), 3);
+	check("…Dex skills", [valueIn("skills", "Acrobatics", 1), valueIn("skills", "Stealth", 1), valueIn("skills", "Sleight of Hand", 1)], [3, 3, 3]);
+	check("…Initiative", valueIn("initiative", "Initiative"), 3);
+	check("…Armor Class (10 + Dex)", valueIn("armorClass", "Armor Class"), 13);
+	set("abilityScores", "Wisdom", 0, 14); // +2
+	check("Passive Perception = 10 + Perception", valueIn("passiveSkills", "Perception (WIS)"), 12);
+	check("Passive Insight = 10 + Insight", valueIn("passiveSkills", "Insight (WIS)"), 12);
+	check("Passive Investigation = 10 + Investigation", valueIn("passiveSkills", "Investigation (INT)"), 10);
+
+	// Proficiency, expertise, Level.
+	set("savingThrows", "Dexterity", 0, true);
+	set("skills", "Stealth", 0, 1);
+	set("skills", "Acrobatics", 0, 2);
+	check("Proficiency Bonus at Level 1 is +2", valueIn("proficiencyBonus", "Proficiency Bonus"), 2);
+	check("proficient save adds it", valueIn("savingThrows", "Dexterity", 1), 5);
+	check("proficient skill adds it", valueIn("skills", "Stealth", 1), 5);
+	check("expertise adds it twice", valueIn("skills", "Acrobatics", 1), 7);
+	set("basicInfo", "Level", 0, 9);
+	check("Level 9 → Proficiency Bonus +4", valueIn("proficiencyBonus", "Proficiency Bonus"), 4);
+	check("…which flows into saves and skills", [valueIn("savingThrows", "Dexterity", 1), valueIn("skills", "Stealth", 1), valueIn("skills", "Acrobatics", 1)], [7, 7, 11]);
+	check("…and Hit Dice Total", valueIn("hitDice", "Total"), 9);
+	const used = moduleNamed("hitDice", "Hit Dice Used");
+	const state = historyReducer(createHistoryState(sheet), { type: "setPieceValue", pieceId: moduleNamed("basicInfo", "Level").pieceOrder[0], value: 10 });
+	check("…and its box count", live(state.sheet, byType.hitDice).modules[used.id].shownBoxes, 10);
+
+	// Attack: the Ability dropdown drives To Hit and Dmg +.
+	const ability = moduleNamed("attack", "Ability");
+	const dropdownId = ability.pieceOrder[0];
+	const options = ability.pieces[dropdownId].options;
+	check("Attack's Ability dropdown lists STR…CHA", options.map((option) => option.label), ["STR", "DEX", "CON", "INT", "WIS", "CHA"]);
+	check("To Hit = STR + proficiency", valueIn("attack", "To Hit Bonus"), 4);
+	sheet = ops.setPieceValue(sheet, dropdownId, options[1].id);
+	check("choosing DEX changes To Hit", valueIn("attack", "To Hit Bonus"), 7);
+	check("…and Dmg +", valueIn("attack", "Dmg +"), 3);
+	const attackCopy = schema.cloneCard(live(sheet, byType.attack));
+	const copyToHit = attackCopy.modules[attackCopy.moduleOrder[2]].pieces[attackCopy.modules[attackCopy.moduleOrder[2]].pieceOrder[0]];
+	check("a duplicated Attack's To Hit reads its own dropdown", ex.collectSources(copyToHit.ref.expr)[0], { piece: attackCopy.modules[attackCopy.moduleOrder[1]].pieceOrder[0] });
+
+	// Deleting a source offers its dependents.
+	const deps = refs.canDeleteCard(sheet, byType.abilityScores.id).dependents;
+	check("deleting Ability Scores lists what uses it", deps.length > 30, true);
+	check("…including Attack's options", deps.filter((dep) => dep.kind === "option").length, 6);
+
+	// Cards that changed.
+	check("Skills header says Skill", byType.skills.modules[byType.skills.moduleOrder[0]].pieceOrder.map((id) => byType.skills.modules[byType.skills.moduleOrder[0]].pieces[id].segments[0].value), ["Proficient?", "Modifier", "Skill"]);
+	check("skill proficiency is a tri-state", byType.skills.modules[byType.skills.moduleOrder[1]].pieces[byType.skills.modules[byType.skills.moduleOrder[1]].pieceOrder[0]].kind, "tristate");
+	check("Basic Info has a numeric Level", moduleNamed("basicInfo", "Level").pieces[moduleNamed("basicInfo", "Level").pieceOrder[0]].kind, "variable");
+}
+
+{
+	// Only Skills: plain editable fields; Ability Scores and Proficiency Bonus
+	// added afterwards connect on their own, leaving an unlinked field alone.
+	const skills = cards.createStandardCard("skills");
+	let sheet = newSheet(skills);
+	const ids = skills.moduleOrder.slice(1).map((id) => skills.modules[id].pieceOrder[1]);
+	check("Skills alone: every modifier is a plain field", ids.every((id) => read(sheet, id).computed === false), true);
+	sheet = ops.setPieceValue(sheet, ids[0], 9);
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, cards.createStandardCard("abilityScores"), { maxCols: 60 });
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, cards.createStandardCard("proficiencyBonus"), { maxCols: 60 });
+	check("…then they connect", ids.slice(1).every((id) => stateOf(sheet, id) === "linked"), true);
+	check("…except the one typed over", [stateOf(sheet, ids[0]), valueOf(sheet, ids[0])], ["unlinked", 9]);
+}
+
+{
+	// Spellcasting Stats, Spell List and the Spell module are gone — and an
+	// older save that still has them doesn't break anything.
+	check("removed cards aren't standard cards", ["spellcastingStats", "spellList", "spellSlots"].filter((type) => cards.STANDARD_CARD_TYPES.includes(type) || cards.CARD_TYPE_OPTIONS.some((option) => option.id === type)), []);
+	check("the Spell module type is gone from the builder", schema.MODULE_TYPE_OPTIONS.some((option) => option.id === "spellEntry"), false);
+	check("an unknown type builds nothing", cards.createStandardCard("spellList"), null);
+	const legacy = schema.createCard({
+		type: "spellList",
+		title: "Spell List",
+		modules: [schema.createModule({ type: "spellEntry", label: "Fireball", pieces: [schema.createTextPiece({ label: "Name", text: "Fireball" })] })],
+	});
+	const cardLayouts = await import(`${BASE}/character_sheet/cardLayouts.js`);
+	let sheet = newSheet(legacy);
+	check("an old Spell List card still lays out", Object.keys(cardLayouts.buildDefaultLayout(legacy).moduleRects).length, 1);
+	check("…and its values still read", valueOf(sheet, legacy.modules[legacy.moduleOrder[0]].pieceOrder[0]), "Fireball");
+	sheet = ops.deleteCard(sheet, legacy.id).sheet;
+	check("…and it can be deleted", Boolean(sheet.cards[legacy.id]), false);
 }
 
 // ---------- Undo ----------
@@ -582,9 +693,9 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 // ---------- Persistence ----------
 
 {
-	const abilities = schema.createAbilityScoresCard();
-	const skills = schema.createSkillsCard();
-	let sheet = newSheet(abilities, skills);
+	const abilities = cards.createStandardCard("abilityScores");
+	const skills = cards.createStandardCard("skills");
+	let sheet = newSheet(abilities, skills, cards.createStandardCard("proficiencyBonus"));
 	sheet = ops.setPieceValue(sheet, piecesOf(abilities, 1)[0], 14);
 	check("sheet version is 3", sheet.version, 3);
 	check("storage key moved to v3", storage.CHARACTER_SHEETS_STORAGE_KEY, "character_sheets_v3");

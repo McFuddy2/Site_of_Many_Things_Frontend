@@ -23,6 +23,7 @@ const NEW_WISDOM_SCORE = 20; // changed at the end — watch the feat text updat
 
 const BASE = new URL("../src/utils", import.meta.url).href;
 const schema = await import(`${BASE}/character_sheet/schema.js`);
+const cards = await import(`${BASE}/character_sheet/cardDefinitions.js`);
 const ops = await import(`${BASE}/character_sheet/sheetOps.js`);
 const refs = await import(`${BASE}/character_sheet/references.js`);
 const { readSheetValue } = await import(`${BASE}/character_sheet/engine/engine.js`);
@@ -37,7 +38,7 @@ const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 let sheet = schema.createSheet("Playground");
 const pageId = sheet.pages[0].id;
 
-const abilities = schema.createAbilityScoresCard();
+const abilities = cards.createStandardCard("abilityScores");
 sheet = ops.addCardToPage(sheet, pageId, abilities);
 const bonusIds = Object.fromEntries(
 	Object.values(sheet.cards[abilities.id].modules).map((module) => [module.label.toLowerCase(), module.pieceOrder[1]])
@@ -47,15 +48,19 @@ for (const [name, score] of Object.entries(ABILITY_SCORES)) {
 	sheet = ops.setVariableValue(sheet, module.pieceOrder[0], score);
 }
 
-// Saves find each ability's Bonus by role — no wiring needed.
-const saves = schema.createSavingThrowsCard({ proficiencyBonus: PROFICIENCY_BONUS });
+// Saves find each ability's Bonus and the Proficiency Bonus by role — no
+// wiring needed, just the cards on the sheet.
+const proficiency = cards.createStandardCard("proficiencyBonus");
+sheet = ops.addCardToPage(sheet, pageId, proficiency);
+sheet = ops.setPieceValue(sheet, proficiency.modules[proficiency.moduleOrder[0]].pieceOrder[0], PROFICIENCY_BONUS);
+const saves = cards.createStandardCard("savingThrows");
 sheet = ops.addCardToPage(sheet, pageId, saves);
 for (const name of PROFICIENT_SAVES) {
 	const module = Object.values(sheet.cards[saves.id].modules).find((m) => m.label === name);
 	sheet = ops.setCheckboxValue(sheet, module.pieceOrder[0], true);
 }
 
-const health = schema.createHealthCard();
+const health = cards.createStandardCard("health");
 sheet = ops.addCardToPage(sheet, pageId, health);
 const healthModules = sheet.cards[health.id];
 const curHpId = healthModules.modules[healthModules.moduleOrder[0]].pieceOrder[0];

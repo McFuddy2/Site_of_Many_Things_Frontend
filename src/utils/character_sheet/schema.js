@@ -300,21 +300,20 @@ export function createCurrencyModule(label = "Currency") {
 	return createModule({ type: "currency", label, pieces: [total, platinum, gold, silver, copper] });
 }
 
-// One spell's block: name, the five stat columns, then the description.
-export function createSpellEntryModule(name = "", details = {}) {
-	return createModule({
-		type: "spellEntry",
-		label: name || "Spell",
-		pieces: [
-			createTextPiece({ label: "Name", text: name }),
-			createTextPiece({ label: "Level", text: details.level ?? "" }),
-			createTextPiece({ label: "Casting Time", text: details.castingTime ?? "" }),
-			createTextPiece({ label: "School", text: details.school ?? "" }),
-			createTextPiece({ label: "Source", text: details.source ?? "" }),
-			createTextPiece({ label: "Classes", text: details.classes ?? "" }),
-			createTextPiece({ label: "Description", text: details.description ?? "" }),
-		],
+// Health's Damage/Heal control: a number-locked amount and two buttons —
+// Damage takes the amount off `currentPieceId` (not below 0), Heal adds it
+// back (not above `maxPieceId`).
+export function createDamageHealModule(label = "Damage/Heal", { currentPieceId = null, maxPieceId = null } = {}) {
+	const amountPiece = createTextPiece({ label: "Amount", text: "", numberLocked: true });
+	const damageButton = createButtonPiece({
+		label: "Damage",
+		actions: currentPieceId ? [{ targetPieceId: currentPieceId, op: "subtract", operandPieceId: amountPiece.id, min: 0 }] : [],
 	});
+	const healButton = createButtonPiece({
+		label: "Heal",
+		actions: currentPieceId ? [{ targetPieceId: currentPieceId, op: "add", operandPieceId: amountPiece.id, maxPieceId }] : [],
+	});
+	return createModule({ type: "damageHeal", label, pieces: [amountPiece, damageButton, healButton] });
 }
 
 export function createTextModule(label, { text = "", segments = null, numberLocked = false } = {}) {
@@ -333,29 +332,30 @@ export function createCheckboxModule(label, value = false) {
 	return createModule({ type: "checkbox", label, pieces: [createCheckboxPiece({ label, value })] });
 }
 
-// "<ability bonus> + (proficient × proficiency bonus)" as a default
-// reference: the ability's Bonus is found by role, so it connects whenever an
-// Ability Scores card is on the sheet (and the field is a plain editable
-// number until then). A checkbox counts as 0/1 in math, so proficiency needs
-// no conditional.
-function abilityPlusProficiency(key, proficiencyPieceId, proficiencyBonus) {
+// "<ability bonus> + (proficiency × proficiency bonus)" as a default
+// reference. Both are found by role — the ability's Bonus on an Ability Scores
+// card, the bonus on a Proficiency Bonus card — so the field connects
+// whenever those cards are on the sheet, and is a plain editable number
+// until then. A checkbox counts as 0/1 and a tri-state as 0/1/2 in math, so
+// proficiency (and expertise) need no conditional.
+function abilityPlusProficiency(key, proficiencyPieceId) {
 	if (!key) {
 		return null;
 	}
-	return createReference(add(roleSrc(`ability.${key}.bonus`), mul(pieceSrc(proficiencyPieceId), num(proficiencyBonus))), {
+	return createReference(add(roleSrc(`ability.${key}.bonus`), mul(pieceSrc(proficiencyPieceId), roleSrc("proficiency.bonus"))), {
 		origin: "default",
 	});
 }
 
 // One saving throw: proficiency checkbox + calculated bonus + label text.
-export function createSavingThrowModule(label, { proficiencyBonus = 2 } = {}) {
+export function createSavingThrowModule(label) {
 	const key = abilityKey(label);
 	const proficiencyPiece = createCheckboxPiece({ label: "Proficient" });
 	const bonusPiece = createVariablePiece({
 		label: "Save Bonus",
 		value: 0,
 		role: key && `save.${key}.bonus`,
-		ref: abilityPlusProficiency(key, proficiencyPiece.id, proficiencyBonus),
+		ref: abilityPlusProficiency(key, proficiencyPiece.id),
 	});
 	const labelPiece = createTextPiece({ label: "Label", text: label });
 	return createModule({
@@ -391,17 +391,17 @@ export const SKILL_ABILITIES = {
 
 export const SKILL_NAMES = Object.keys(SKILL_ABILITIES);
 
-// Structurally a saving throw (proficiency checkbox + live modifier + name), but
-// its own type so the two read as different things in the module picker and can
-// diverge later (expertise, half-proficiency…).
-export function createSkillModule(label, { ability = null, proficiencyBonus = 2 } = {}) {
+// Like a saving throw (proficiency + live modifier + name), but proficiency is
+// a tri-state — none, proficient, expertise — so expertise doubles the
+// proficiency bonus.
+export function createSkillModule(label, { ability = null } = {}) {
 	const governing = ability || SKILL_ABILITIES[label] || null;
-	const proficiencyPiece = createCheckboxPiece({ label: "Proficient" });
+	const proficiencyPiece = createTristatePiece({ label: "Proficiency" });
 	const bonusPiece = createVariablePiece({
 		label: "Modifier",
 		value: 0,
 		role: `skill.${slug(label)}.modifier`,
-		ref: abilityPlusProficiency(abilityKey(governing), proficiencyPiece.id, proficiencyBonus),
+		ref: abilityPlusProficiency(abilityKey(governing), proficiencyPiece.id),
 	});
 	const labelPiece = createTextPiece({ label: "Label", text: label });
 	return createModule({
@@ -412,8 +412,10 @@ export function createSkillModule(label, { ability = null, proficiencyBonus = 2 
 	});
 }
 
-// Builds a module for the Custom Card flow. Returns null for types that are
-// visible in the picker but not buildable yet ("coming soon").
+// Builds a module of any type from a plain config — for the Custom Card flow
+// and for card definitions (see cardDefinitions.js). Returns null for types
+// that are visible in the picker but not buildable yet ("coming soon"), and
+// for unknown types.
 export function createModuleForType(typeId, config = {}) {
 	switch (typeId) {
 		case "abilityScore":
@@ -439,7 +441,7 @@ export function createModuleForType(typeId, config = {}) {
 		case "passiveSkill":
 			return createPassiveSkillModule(config.label || "Passive Skill", config);
 		case "columnHeader":
-			return createColumnHeaderModule(config.labels || ["Proficient?", "Modifier", "Stat"]);
+			return createColumnHeaderModule(config.labels || ["Proficient?", "Modifier", "Skill"]);
 		case "listText":
 			return createListTextModule(config.label || "List", config.items || ["", "", ""]);
 		case "itemList":
@@ -448,8 +450,10 @@ export function createModuleForType(typeId, config = {}) {
 			return createImageModule(config.label || "Image", config.src ?? "");
 		case "currency":
 			return createCurrencyModule(config.label || "Currency");
-		case "spellEntry":
-			return createSpellEntryModule(config.label || "", config);
+		case "savingThrow":
+			return createSavingThrowModule(config.label || "Save");
+		case "damageHeal":
+			return createDamageHealModule(config.label || "Damage/Heal", config);
 		default:
 			return null;
 	}
@@ -582,356 +586,8 @@ export function createCard({ type, title, modules = [] }) {
 
 export const ABILITY_NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
 
-export function createAbilityScoresCard() {
-	return createCard({
-		type: "abilityScores",
-		title: "Ability Scores",
-		modules: ABILITY_NAMES.map((name) => createAbilityScoreModule(name)),
-	});
-}
-
-// Each save links to its ability's Bonus by role, so it connects to whichever
-// Ability Scores card is on the sheet — now or added later.
-export function createSavingThrowsCard({ proficiencyBonus = 2 } = {}) {
-	return createCard({
-		type: "savingThrows",
-		title: "Saving Throws",
-		modules: ABILITY_NAMES.map((name) => createSavingThrowModule(name, { proficiencyBonus })),
-	});
-}
-
-export function createHealthCard() {
-	const currentHpModule = createNumberModule("Current HP", 10);
-	const maxHpModule = createNumberModule("Max HP", 10);
-	const tempHpModule = createTextModule("Temp HP", { text: "0", numberLocked: true });
-	const currentHpPieceId = currentHpModule.pieceOrder[0];
-	const maxHpPieceId = maxHpModule.pieceOrder[0];
-
-	const amountPiece = createTextPiece({ label: "Amount", text: "", numberLocked: true });
-	const damageButton = createButtonPiece({
-		label: "Damage",
-		actions: [{ targetPieceId: currentHpPieceId, op: "subtract", operandPieceId: amountPiece.id, min: 0 }],
-	});
-	const healButton = createButtonPiece({
-		label: "Heal",
-		actions: [{ targetPieceId: currentHpPieceId, op: "add", operandPieceId: amountPiece.id, maxPieceId: maxHpPieceId }],
-	});
-	const damageHealModule = createModule({
-		type: "damageHeal",
-		label: "Damage/Heal",
-		pieces: [amountPiece, damageButton, healButton],
-	});
-
-	return createCard({
-		type: "health",
-		title: "Health",
-		modules: [currentHpModule, maxHpModule, tempHpModule, damageHealModule],
-	});
-}
-
-// ---------- Standard cards ----------
-//
-// Each builder below mirrors one card in the "Character Sheet Cards" spec: the
-// same modules, in the same reading order, built out of the shared module types
-// above rather than one bespoke type per card. The order they're listed in is
-// the order they pack into a fresh card (see packModuleRects in sheetOps.js), so
-// it doubles as the default layout.
-
-export function createCharacterNameCard() {
-	return createCard({
-		type: "characterName",
-		title: "Character Name",
-		modules: [createBigTextModule("Name", "")],
-	});
-}
-
-export function createBasicInfoCard() {
-	return createCard({
-		type: "basicInfo",
-		title: "Basic Information",
-		modules: [
-			createTextModule("Class"),
-			createNumberModule("Lvl", 1, { role: "character.level" }),
-			createTextModule("Background"),
-			createTextModule("Player Name"),
-			createTextModule("Race"),
-			createTextModule("Alignment"),
-			createNumberModule("Experience", 0),
-		],
-	});
-}
-
-export function createInspirationCard() {
-	return createCard({
-		type: "inspiration",
-		title: "Inspiration",
-		modules: [createCheckboxModule("Inspiration")],
-	});
-}
-
-export function createProficiencyBonusCard(value = 2) {
-	return createCard({
-		type: "proficiencyBonus",
-		title: "Proficiency",
-		modules: [createBigNumberModule("Proficiency Bonus", value, { signed: true, role: "proficiency.bonus" })],
-	});
-}
-
-// Each skill's modifier links to the Bonus of the ability that governs it, by role.
-export function createSkillsCard({ proficiencyBonus = 2 } = {}) {
-	return createCard({
-		type: "skills",
-		title: "Skills",
-		modules: [
-			createColumnHeaderModule(["Proficient?", "Modifier", "Stat"]),
-			...SKILL_NAMES.map((name) => createSkillModule(name, { proficiencyBonus })),
-		],
-	});
-}
-
-export function createPassiveSkillsCard() {
-	return createCard({
-		type: "passiveSkills",
-		title: "Passive Scores",
-		modules: [createPassiveSkillModule("Perception (WIS)", { value: 10, text: "Perception (WIS)" })],
-	});
-}
-
-export function createProficienciesCard() {
-	return createCard({
-		type: "proficiencies",
-		title: "Proficiencies and Languages",
-		modules: [createListTextModule("Proficiencies and Languages", ["", "", "", ""])],
-	});
-}
-
-export function createArmorClassCard(value = 10) {
-	return createCard({
-		type: "armorClass",
-		title: "Armor Class",
-		modules: [createBigNumberModule("Armor Class", value)],
-	});
-}
-
-export function createInitiativeCard() {
-	return createCard({
-		type: "initiative",
-		title: "Initiative",
-		modules: [createBigNumberModule("Initiative", 0, { signed: true })],
-	});
-}
-
-export function createMovementSpeedCard() {
-	return createCard({
-		type: "movementSpeed",
-		title: "Movement Speed",
-		modules: [
-			createNumberModule("Walking Speed", 30, { suffix: "ft" }),
-			createNumberModule("Swim", 0, { suffix: "ft" }),
-			createNumberModule("Climb", 0, { suffix: "ft" }),
-			createNumberModule("Fly", 0, { suffix: "ft" }),
-		],
-	});
-}
-
-export function createHitDiceCard() {
-	return createCard({
-		type: "hitDice",
-		title: "Hit Dice",
-		modules: [
-			createTextModule("Dice Type", { text: "D8" }),
-			createNumberModule("Total", 5),
-			createCheckboxRowModule("Hit Dice Used", 5),
-		],
-	});
-}
-
-export function createDeathSavesCard() {
-	return createCard({
-		type: "deathSaves",
-		title: "Death Saves",
-		modules: [
-			createCheckboxRowModule("Successes", 3, { tone: "success" }),
-			createCheckboxRowModule("Failures", 3, { tone: "danger" }),
-		],
-	});
-}
-
-export function createAttackCard(title = "Attack") {
-	return createCard({
-		type: "attack",
-		title,
-		modules: [
-			createBigTextModule("Name", ""),
-			createTextModule("Range"),
-			createNumberModule("To Hit Bonus", 0, { signed: true }),
-			createTextModule("Type"),
-			createTextModule("Dice"),
-			createNumberModule("Dmg +", 0, { signed: true }),
-			createCheckboxRowModule("Charges", 3),
-			createTextAreaModule("Notes"),
-		],
-	});
-}
-
-export function createEquipmentCard() {
-	return createCard({
-		type: "equipment",
-		title: "Equipment",
-		modules: [createItemListModule("Item List", [{ name: "", qty: "1" }, { name: "", qty: "1" }, { name: "", qty: "1" }])],
-	});
-}
-
-export function createMoneyCard() {
-	return createCard({
-		type: "money",
-		title: "Currency",
-		modules: [createCurrencyModule("Currency")],
-	});
-}
-
-export function createPersonalityCard() {
-	return createCard({
-		type: "personality",
-		title: "Personality",
-		modules: [
-			createTextAreaModule("Personality Traits"),
-			createTextAreaModule("Ideals"),
-			createTextAreaModule("Bonds"),
-			createTextAreaModule("Flaws"),
-		],
-	});
-}
-
-// Each feature/trait is its own card (per the spec) — a description plus an
-// optional row of use checkboxes, which is what the mockup's Healer's Kit shows.
-export function createFeatureCard(title = "Feature/Trait") {
-	return createCard({
-		type: "feature",
-		title,
-		modules: [createTextAreaModule("Description"), createCheckboxRowModule("Uses", 10)],
-	});
-}
-
-export function createBasicDescriptionsCard() {
-	return createCard({
-		type: "basicDescriptions",
-		title: "Character Description",
-		modules: [
-			createTextModule("Age", { numberLocked: true }),
-			createTextModule("Height"),
-			createTextModule("Weight", { numberLocked: true }),
-			createTextModule("Eyes"),
-			createTextModule("Skin"),
-			createTextModule("Hair"),
-		],
-	});
-}
-
-export function createAppearanceCard() {
-	return createCard({
-		type: "appearance",
-		title: "Appearance",
-		modules: [createImageModule("Portrait"), createTextAreaModule("Appearance Description")],
-	});
-}
-
-export function createBackstoryCard() {
-	return createCard({
-		type: "backstory",
-		title: "Backstory",
-		modules: [createTextAreaModule("Backstory Description")],
-	});
-}
-
-export function createAlliesCard() {
-	return createCard({
-		type: "allies",
-		title: "Allies and Organizations",
-		modules: [createTextAreaModule("Allies"), createTextAreaModule("Organizations")],
-	});
-}
-
-export function createSymbolCard() {
-	return createCard({
-		type: "symbol",
-		title: "Symbol",
-		modules: [createImageModule("Symbol Image"), createTextAreaModule("Symbol Description")],
-	});
-}
-
-export function createTreasureCard() {
-	return createCard({
-		type: "treasure",
-		title: "Treasure",
-		modules: [createItemListModule("Treasure List", [{ name: "", qty: "1" }, { name: "", qty: "1" }])],
-	});
-}
-
-export function createSpellcastingStatsCard() {
-	return createCard({
-		type: "spellcastingStats",
-		title: "Spellcasting Stats",
-		modules: [
-			createDropdownModule("Spell Casting Ability", ABILITY_NAMES),
-			createNumberModule("Spell Attack Bonus", 0, { signed: true }),
-			createNumberModule("Spell Save DC", 10),
-		],
-	});
-}
-
-export function createSpellListCard() {
-	return createCard({
-		type: "spellList",
-		title: "Spell List",
-		modules: [createSpellEntryModule("")],
-	});
-}
-
 export function createCustomCard(title) {
 	return createCard({ type: "custom", title: title || "Unnamed", modules: [] });
-}
-
-// Builders for every standard card type in the New Card picker.
-const STANDARD_CARD_BUILDERS = {
-	abilityScores: createAbilityScoresCard,
-	allies: createAlliesCard,
-	appearance: createAppearanceCard,
-	armorClass: createArmorClassCard,
-	attack: createAttackCard,
-	backstory: createBackstoryCard,
-	basicDescriptions: createBasicDescriptionsCard,
-	basicInfo: createBasicInfoCard,
-	characterName: createCharacterNameCard,
-	deathSaves: createDeathSavesCard,
-	equipment: createEquipmentCard,
-	feature: createFeatureCard,
-	health: createHealthCard,
-	hitDice: createHitDiceCard,
-	initiative: createInitiativeCard,
-	inspiration: createInspirationCard,
-	money: createMoneyCard,
-	movementSpeed: createMovementSpeedCard,
-	passiveSkills: createPassiveSkillsCard,
-	personality: createPersonalityCard,
-	proficiencies: createProficienciesCard,
-	proficiencyBonus: createProficiencyBonusCard,
-	spellcastingStats: createSpellcastingStatsCard,
-	spellList: createSpellListCard,
-	savingThrows: createSavingThrowsCard,
-	skills: createSkillsCard,
-	symbol: createSymbolCard,
-	treasure: createTreasureCard,
-};
-
-export const STANDARD_CARD_TYPES = Object.keys(STANDARD_CARD_BUILDERS);
-
-// Builds a fresh standard card, or null for an unknown type. Cards whose
-// numbers come from other cards (a skill from its ability's Bonus) link by
-// role, so they connect on their own whenever the source card is on the sheet.
-export function createStandardCard(typeId) {
-	const build = STANDARD_CARD_BUILDERS[typeId];
-	return build ? build() : null;
 }
 
 // ---------- Pages and Sheets ----------
@@ -978,42 +634,6 @@ export function createSheet(name = "New Character") {
 
 // ---------- Picker options ----------
 
-// Card types shown in the New Card modal. Unavailable types render disabled
-// ("coming soon") so the full intended list stays visible.
-export const CARD_TYPE_OPTIONS = [
-	{ id: "custom", label: "(Custom)", available: true },
-	{ id: "insertExisting", label: "[Insert from another Page]", available: true },
-	{ id: "abilityScores", label: "Ability Scores", available: true },
-	{ id: "allies", label: "Allies and Organizations", available: true },
-	{ id: "armorClass", label: "Armor Class", available: true },
-	{ id: "attack", label: "Attack", available: true },
-	{ id: "backstory", label: "Backstory", available: true },
-	{ id: "basicDescriptions", label: "Basic Descriptions", available: true },
-	{ id: "basicInfo", label: "Basic Info", available: true },
-	{ id: "appearance", label: "Character Appearance", available: true },
-	{ id: "characterName", label: "Character Name", available: true },
-	{ id: "deathSaves", label: "Death Saves", available: true },
-	{ id: "equipment", label: "Equipment", available: true },
-	{ id: "feature", label: "Feature/Trait", available: true },
-	{ id: "health", label: "Health", available: true },
-	{ id: "hitDice", label: "Hit Dice", available: true },
-	{ id: "initiative", label: "Initiative", available: true },
-	{ id: "inspiration", label: "Inspiration", available: true },
-	{ id: "money", label: "Money", available: true },
-	{ id: "movementSpeed", label: "Movement Speed", available: true },
-	{ id: "passiveSkills", label: "Passive Skills", available: true },
-	{ id: "personality", label: "Personality", available: true },
-	{ id: "proficiencies", label: "Proficiencies and Languages", available: true },
-	{ id: "proficiencyBonus", label: "Proficiency Bonus", available: true },
-	{ id: "savingThrows", label: "Saving Throws", available: true },
-	{ id: "skills", label: "Skills", available: true },
-	{ id: "spellcastingStats", label: "Spellcasting Stats", available: true },
-	{ id: "spellList", label: "Spell List", available: true },
-	{ id: "spellSlots", label: "Spell Slots", available: false },
-	{ id: "symbol", label: "Symbol", available: true },
-	{ id: "treasure", label: "Treasure", available: true },
-];
-
 // Module types shown in the Custom Card "Add Module" picker.
 export const MODULE_TYPE_OPTIONS = [
 	{ id: "abilityScore", label: "Ability Score", available: true },
@@ -1032,7 +652,6 @@ export const MODULE_TYPE_OPTIONS = [
 	{ id: "passiveSkill", label: "Passive Skill", available: true },
 	{ id: "rechargeOccurrence", label: "Recharge Occurrence", available: false },
 	{ id: "skill", label: "Skill", available: true },
-	{ id: "spellEntry", label: "Spell", available: true },
 	{ id: "bigNumber", label: "Stat Value", available: true },
 	{ id: "text", label: "Text Field", available: true },
 ];

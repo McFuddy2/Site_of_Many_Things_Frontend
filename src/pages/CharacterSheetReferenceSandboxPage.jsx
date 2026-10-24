@@ -1,7 +1,6 @@
 import { useMemo, useReducer, useRef, useState } from "react";
 import {
 	createSheet,
-	createStandardCard,
 	createCustomCard,
 	createTextModule,
 	createNumberModule,
@@ -9,6 +8,7 @@ import {
 	createRule,
 	cloneCard,
 } from "../utils/character_sheet/schema";
+import { createStandardCard } from "../utils/character_sheet/cardDefinitions";
 import { addCardToPage, addModuleToCard, setReference, setModuleRules, DEFAULT_PAGE_COLUMNS } from "../utils/character_sheet/sheetOps";
 import { historyReducer } from "../utils/character_sheet/sheetReducer";
 import { createHistoryState } from "../utils/character_sheet/history";

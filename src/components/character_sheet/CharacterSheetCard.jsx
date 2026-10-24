@@ -164,6 +164,36 @@ function CheckboxField({ pieceId, label }) {
 	);
 }
 
+// A skill's proficiency: one press cycles none → proficient → expertise →
+// none. The three look different by shape as well as colour — an empty ring,
+// a filled dot, a filled dot with a second ring and an "E" — and each says
+// what it is, and what a press does next, to screen readers and on hover.
+const PROFICIENCY_STATES = ["Not proficient", "Proficient", "Expertise"];
+
+function TristateField({ pieceId, label }) {
+	const read = usePieceValue(pieceId);
+	const state = read.value ?? 0;
+	const next = (state + 1) % PROFICIENCY_STATES.length;
+	const describe = `${label}: ${PROFICIENCY_STATES[state]}. Press for ${PROFICIENCY_STATES[next]}.`;
+	return (
+		<button
+			type="button"
+			className={`cs-tristate cs-tristate--${state}${lockedClass(read)}`}
+			data-piece-id={pieceId}
+			aria-label={describe}
+			title={describe}
+			disabled={read.locked}
+			onClick={() => read.set(next)}
+		>
+			{state === 2 ? (
+				<span className="cs-tristate-mark" aria-hidden="true">
+					E
+				</span>
+			) : null}
+		</button>
+	);
+}
+
 function ButtonField({ pieceId, className = "" }) {
 	const { dispatch } = useCharacterSheet();
 	const read = usePieceValue(pieceId);
@@ -599,14 +629,18 @@ function DropdownModule({ module, cardId }) {
 
 // Saving throw / skill row: proficiency checkbox, live modifier, name. Its
 // columns line up with the Skills card's column heading (see --cs-stat-*).
+//
+// A skill's proficiency is a tri-state (expertise doubles it); a save's is a
+// checkbox.
 function StatRowModule({ module }) {
 	const [profId, bonusId, labelId] = module.pieceOrder;
 	const name = usePieceValue(labelId);
 	const label = name.error ? module.label : name.value || module.label;
+	const Proficiency = module.pieces[profId]?.kind === "tristate" ? TristateField : CheckboxField;
 	return (
 		<RowShell module={module} className={`cs-stat-row${module.type === "savingThrow" ? " cs-stat-row--save" : ""}`}>
 			<span className="cs-stat-cell">
-				<CheckboxField pieceId={profId} label={`${label} proficiency`} />
+				<Proficiency pieceId={profId} label={`${label} proficiency`} />
 			</span>
 			<span className="cs-stat-cell">
 				<NumberField pieceId={bonusId} signed />
@@ -765,31 +799,6 @@ function CurrencyModule({ module, cardId }) {
 	);
 }
 
-// One spell: its name, the five stat columns, then the description.
-const SPELL_COLUMN_LABELS = ["Level", "Casting Time", "School", "Source", "Classes"];
-
-function SpellEntryModule({ module, cardId }) {
-	const [nameId, ...rest] = module.pieceOrder;
-	const columnIds = rest.slice(0, SPELL_COLUMN_LABELS.length);
-	const descriptionId = rest[SPELL_COLUMN_LABELS.length];
-	return (
-		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-mod-body--stack">
-			<TextField pieceId={nameId} placeholder="Spell name" className="cs-input cs-input--strong" />
-			<div className="cs-spell-columns">
-				{columnIds.map((pieceId, index) => (
-					<label key={pieceId} className="cs-spell-column">
-						<span className="cs-caption" title={SPELL_COLUMN_LABELS[index]}>
-							{SPELL_COLUMN_LABELS[index]}
-						</span>
-						<TextField pieceId={pieceId} className="cs-input-flush cs-input-flush--boxed" />
-					</label>
-				))}
-			</div>
-			{descriptionId ? <TextAreaField pieceId={descriptionId} placeholder="What the spell does…" /> : null}
-		</ModuleShell>
-	);
-}
-
 // Health's Damage/Heal control: number-locked amount + the two wired buttons.
 function DamageHealModule({ module, cardId }) {
 	const [amountId, damageId, healId] = module.pieceOrder;
@@ -813,6 +822,8 @@ function GenericModule({ module, cardId }) {
 						return <NumberField key={pieceId} pieceId={pieceId} />;
 					case "checkbox":
 						return <CheckboxField key={pieceId} pieceId={pieceId} />;
+					case "tristate":
+						return <TristateField key={pieceId} pieceId={pieceId} label={pieceIndex[pieceId].piece.label} />;
 					case "text":
 						return <TextField key={pieceId} pieceId={pieceId} />;
 					case "button":
@@ -847,7 +858,6 @@ const MODULE_VIEWS = {
 	itemList: ItemListModule,
 	image: ImageModule,
 	currency: CurrencyModule,
-	spellEntry: SpellEntryModule,
 	damageHeal: DamageHealModule,
 };
 
