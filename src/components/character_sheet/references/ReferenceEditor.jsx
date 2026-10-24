@@ -6,7 +6,15 @@ import { chipText } from "./chips";
 import { LinkIcon } from "../icons";
 import { getTargetReference, targetNode } from "../../../utils/character_sheet/sheetOps";
 import { nodeIds, checkExpression, previewExpression } from "../../../utils/character_sheet/engine/engine";
-import { exprToTokens, tokensToExpr, tokenLabel, FUNCTION_LABELS, OPERATOR_LABELS } from "../../../utils/character_sheet/engine/tokens";
+import {
+	exprToTokens,
+	tokensToExpr,
+	tokenLabel,
+	FUNCTION_LABELS,
+	OPERATOR_LABELS,
+	COMPARISON_LABELS,
+	IF_SKELETON,
+} from "../../../utils/character_sheet/engine/tokens";
 import { describeExpression, describeLocation, describeRole } from "../../../utils/character_sheet/engine/describe";
 
 // The popover editor (desktop only): a reference built with buttons, not
@@ -21,7 +29,19 @@ import { describeExpression, describeLocation, describeRole } from "../../../uti
 // chip where the caret was.
 
 const OPERATORS = ["+", "-", "*", "/"];
-const KEY_TOKENS = { "+": { t: "op", value: "+" }, "-": { t: "op", value: "-" }, "*": { t: "op", value: "*" }, x: { t: "op", value: "*" }, "/": { t: "op", value: "/" }, "(": { t: "(" }, ")": { t: ")" }, ",": { t: "," } };
+const KEY_TOKENS = {
+	"+": { t: "op", value: "+" },
+	"-": { t: "op", value: "-" },
+	"*": { t: "op", value: "*" },
+	x: { t: "op", value: "*" },
+	"/": { t: "op", value: "/" },
+	"(": { t: "(" },
+	")": { t: ")" },
+	",": { t: "," },
+	"<": { t: "cmp", value: "<" },
+	">": { t: "cmp", value: ">" },
+	"=": { t: "cmp", value: "=" },
+};
 const VIEWPORT_MARGIN = 8;
 const GAP = 6;
 
@@ -49,6 +69,17 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 	const problem = parsed.error || checkExpression(engine, node, parsed.expr);
 	const preview = problem ? null : previewExpression(engine, parsed.expr);
 	const canSave = !problem && !preview?.error;
+	const option = target.kind === "option" ? engine.index.pieces[target.pieceId]?.piece.options.find((each) => each.id === target.optionId) : null;
+	const title =
+		target.kind === "rule"
+			? "Rule: the value to test"
+			: target.kind === "capacity"
+				? "Box count"
+				: option
+					? `Option “${option.label}”`
+					: existing
+						? "Edit reference"
+						: "Add reference";
 
 	// Below the field when there's room, else above it; always on screen.
 	useLayoutEffect(() => {
@@ -102,6 +133,24 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 			return { tokens: [...tokens.slice(0, caret - 1), ...tokens.slice(caret)], caret: caret - 1 };
 		});
 
+	// The if… button drops in the whole "if( ≥ then else )" frame with the
+	// caret inside it; a comparison button swaps the comparison just before
+	// the caret, or adds one.
+	const insertIf = () =>
+		setDraft(({ tokens, caret }) => ({
+			tokens: [...tokens.slice(0, caret), ...IF_SKELETON, ...tokens.slice(caret)],
+			caret: caret + 1,
+		}));
+	const setComparison = (value) =>
+		setDraft(({ tokens, caret }) => {
+			if (tokens[caret - 1]?.t === "cmp") {
+				const next = [...tokens];
+				next[caret - 1] = { t: "cmp", value };
+				return { tokens: next, caret };
+			}
+			return { tokens: [...tokens.slice(0, caret), { t: "cmp", value }, ...tokens.slice(caret)], caret: caret + 1 };
+		});
+
 	const removeAfter = () => setDraft(({ tokens, caret }) => ({ tokens: [...tokens.slice(0, caret), ...tokens.slice(caret + 1)], caret }));
 	const moveCaret = (to) => setDraft(({ tokens, caret }) => ({ tokens, caret: Math.max(0, Math.min(tokens.length, to(caret, tokens.length))) }));
 
@@ -149,6 +198,8 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 		let handled = true;
 		if (/^[0-9.]$/.test(key)) {
 			typeDigit(key);
+		} else if (KEY_TOKENS[key.toLowerCase()]?.t === "cmp") {
+			setComparison(KEY_TOKENS[key.toLowerCase()].value);
 		} else if (KEY_TOKENS[key.toLowerCase()]) {
 			insert([KEY_TOKENS[key.toLowerCase()]]);
 		} else if (key === "Backspace") {
@@ -236,7 +287,7 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 			}}
 		>
 			<div className="cs-popover-title">
-				{existing ? "Edit reference" : "Add reference"} <span className="cs-ref-editor-where">— {host?.path}</span>
+				{title} <span className="cs-ref-editor-where">— {host?.path}</span>
 			</div>
 
 			<div
@@ -265,6 +316,16 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 				<button type="button" className="cs-ref-key" title="Delete the piece before the caret" onClick={backspace}>
 					⌫
 				</button>
+			</div>
+			<div className="cs-ref-keys" role="group" aria-label="Conditions">
+				<button type="button" className="cs-ref-key" title="if (value, comparison, value) then … else …" onClick={insertIf}>
+					if … then … else
+				</button>
+				{Object.entries(COMPARISON_LABELS).map(([cmp, symbol]) => (
+					<button key={cmp} type="button" className="cs-ref-key" title="Comparison (inside if…)" onClick={() => setComparison(cmp)}>
+						{symbol}
+					</button>
+				))}
 			</div>
 			<div className="cs-ref-keys" role="group" aria-label="Functions">
 				{Object.entries(FUNCTION_LABELS).map(([name, label]) => keyButton(label, [{ t: "fn", name }]))}
@@ -310,10 +371,12 @@ export default function ReferenceEditor({ target, anchor, onClose }) {
 						: `Result: ${chipText(preview, { signed: Boolean(hostModule?.signed) })}`}
 			</div>
 
-			<label className="cs-ref-row cs-ref-nickname">
-				<span>Name (optional)</span>
-				<input type="text" value={nickname} placeholder="e.g. Rage damage" onChange={(event) => setNickname(event.target.value)} />
-			</label>
+			{target.kind === "rule" ? null : (
+				<label className="cs-ref-row cs-ref-nickname">
+					<span>Name (optional)</span>
+					<input type="text" value={nickname} placeholder="e.g. Rage damage" onChange={(event) => setNickname(event.target.value)} />
+				</label>
+			)}
 
 			<div className="cs-modal-actions">
 				<button type="button" className="cs-modal-button" onClick={onClose}>

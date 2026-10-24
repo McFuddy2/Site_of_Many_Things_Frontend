@@ -16,6 +16,8 @@ const INERT = {
 	goToSource: () => {},
 	startPick: () => {},
 	stopPick: () => {},
+	openOptionsEditor: () => {},
+	openRulesEditor: () => {},
 };
 
 export function useReferenceUI() {

@@ -1035,12 +1035,53 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		return [{ id: "reference", label: "Add reference…", submenu }];
 	};
 
+	// The rest of a module's linking tools: a dropdown's options, a checkbox
+	// group's box count, and the lock/hide rules every module can have.
+	const linkingItems = (layoutId, moduleId) => {
+		const module = sheet.cards[layoutById[layoutId]?.cardId]?.modules[moduleId];
+		if (!module) {
+			return [];
+		}
+		const slot = () => canvasRef.current?.querySelector(`[data-layout-id="${layoutId}"] [data-module-id="${moduleId}"]`);
+		const items = [];
+		for (const pieceId of module.pieceOrder) {
+			if (module.pieces[pieceId]?.kind === "dropdown") {
+				items.push({
+					id: `options-${pieceId}`,
+					label: "Edit Options…",
+					onSelect: () => refUI.openOptionsEditor(pieceId, canvasRef.current?.querySelector(`[data-piece-id="${pieceId}"]`)),
+				});
+			}
+		}
+		if (module.type === "checkboxRow") {
+			const linked = module.capacity && !module.capacity.unlinked;
+			items.push({
+				id: "capacity",
+				label: linked ? "Edit Box Count Link…" : "Link Box Count…",
+				onSelect: () => refUI.openEditor({ kind: "capacity", moduleId }, slot()),
+			});
+			if (linked) {
+				items.push({ id: "capacity-unlink", label: "Unlink Box Count", onSelect: () => dispatch({ type: "unlinkReference", target: { kind: "capacity", moduleId } }) });
+			}
+		}
+		const count = module.rules?.length || 0;
+		items.push({
+			id: "rules",
+			label: count ? `Lock / Hide Rules (${count})…` : "Lock / Hide Rules…",
+			onSelect: () => refUI.openRulesEditor(moduleId, slot()),
+		});
+		return items;
+	};
+
 	// A chip's own menu (right-click on it): the same actions as its info modal.
 	const openChipMenu = (chip, x, y) => {
+		const kind = chip.dataset.chipKind;
 		const target =
-			chip.dataset.chipKind === "value"
+			kind === "value"
 				? { kind: "value", pieceId: chip.dataset.chipPiece }
-				: { kind: "chip", pieceId: chip.closest("[data-piece-id]")?.dataset.pieceId, refId: chip.dataset.chip };
+				: kind === "capacity"
+					? { kind: "capacity", moduleId: chip.dataset.chipModule }
+					: { kind: "chip", pieceId: chip.closest("[data-piece-id]")?.dataset.pieceId, refId: chip.dataset.chip };
 		setMenu({
 			x,
 			y,
@@ -1061,10 +1102,7 @@ export default function SheetCanvas({ showGrid, getPageColumns, focusRequest }) 
 		const isCards = target.level === "cards";
 		const items = [];
 		if (!isCards && single) {
-			const references = referenceItems(target.layoutId, target.ids[0]);
-			if (references.length) {
-				items.push(...references, { separator: true });
-			}
+			items.push(...referenceItems(target.layoutId, target.ids[0]), ...linkingItems(target.layoutId, target.ids[0]), { separator: true });
 		}
 		items.push({ id: "duplicate", label: "Duplicate", hint: "Ctrl+D", onSelect: duplicateSelection });
 		if (isCards && single) {

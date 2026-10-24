@@ -424,6 +424,130 @@ check("custom ladder clamps", ex.lookupLadder([[0, "low"], [10, "high"]], -5), "
 	check("preview evaluates against the live sheet", engineLib.previewExpression(engineLib.createEngine(sheet), ex.fn("abilityModifier", ex.pieceSrc(numberIds(card)[0]))).value, 2);
 }
 
+// ---------- Phase 3: if/else, rules, dropdown options, linked box counts ----------
+
+{
+	const tokens = await import(`${BASE}/character_sheet/engine/tokens.js`);
+	const ifElse = ex.ifThen(ex.pieceSrc("level"), ">=", ex.num(5), ex.num(2), ex.num(1));
+	const row = tokens.exprToTokens(ifElse);
+	check("if/else becomes tokens", row.map((token) => token.t), ["if", "src", "cmp", "num", "then", "num", "else", "num", ")"]);
+	check("…and parses back", tokens.tokensToExpr(row).expr, ifElse);
+	check("if/else evaluates (level 6 → 2)", evaluate(tokens.tokensToExpr(row).expr, { level: 6 }).value, 2);
+	check("the if skeleton explains what's missing", tokens.tokensToExpr(tokens.IF_SKELETON).error, "Add a value before “≥”");
+	check("a comparison outside if( is explained", tokens.tokensToExpr([{ t: "num", value: "1" }, { t: "cmp", value: "<" }, { t: "num", value: "2" }]).error, "“<” only works inside “if(”");
+	check("missing else is explained", tokens.tokensToExpr(row.filter((token) => token.t !== "else")).error, "Add “else” after the “then” value");
+
+	// Rules as a reference target.
+	const basics = schema.createBasicInfoCard();
+	const card = numberCard("Feature", ["Bonus"]);
+	let sheet = newSheet(basics, card);
+	const levelId = basics.modules[basics.moduleOrder[1]].pieceOrder[0];
+	const moduleId = card.moduleOrder[0];
+	sheet = ops.setModuleRules(sheet, moduleId, [schema.createRule({ left: null, cmp: "<", right: ex.num(5), effect: "locked" })]);
+	const ruleId = live(sheet, card).modules[moduleId].rules[0].id;
+	check("an empty rule never fires", engineLib.moduleLockState(engineLib.createEngine(sheet), moduleId), "none");
+	const ruleTarget = { kind: "rule", moduleId, ruleId };
+	check("a rule's condition reads like a reference", ops.getTargetReference(sheet, ruleTarget).expr, null);
+	sheet = ops.setReference(sheet, ruleTarget, ex.roleSrc("character.level"));
+	check("editing a rule's condition saves it by id", live(sheet, card).modules[moduleId].rules[0].left, ex.pieceSrc(levelId));
+	check("…and the rule fires (Level 1 < 5)", engineLib.moduleLockState(engineLib.createEngine(sheet), moduleId), "locked");
+	check("the rule's target node is the module's lock", ops.targetNode(ruleTarget), `${moduleId}:lock`);
+	check("a rule may read its own module", engineLib.checkSource(engineLib.createEngine(sheet), `${moduleId}:lock`, { piece: numberIds(card)[0] }), null);
+	sheet = ops.updateRule(sheet, moduleId, ruleId, { cmp: ">=" });
+	check("changing the comparison flips it", engineLib.moduleLockState(engineLib.createEngine(sheet), moduleId), "none");
+	check("removing a rule's condition empties it", live(ops.removeReference(sheet, ruleTarget), card).modules[moduleId].rules[0].left, null);
+
+	// Dropdown options: add, rename, reorder, delete; selection follows its option.
+	const attack = schema.createCustomCard("Attack");
+	const dropdown = schema.createDropdownModule("Ability", ["STR", "DEX"]);
+	attack.modules[dropdown.id] = dropdown;
+	attack.moduleOrder.push(dropdown.id);
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, attack, { maxCols: 60 });
+	const dropdownId = dropdown.pieceOrder[0];
+	const optionsOf = () => live(sheet, attack).modules[dropdown.id].pieces[dropdownId].options;
+	const [str, dex] = optionsOf();
+	sheet = ops.setPieceValue(sheet, dropdownId, dex.id);
+	const con = schema.createDropdownOption("CON");
+	sheet = ops.setDropdownOptions(sheet, dropdownId, [dex, { ...str, label: "Strength" }, con]);
+	check("options can be added, renamed and reordered", optionsOf().map((option) => option.label), ["DEX", "Strength", "CON"]);
+	check("the selection stays on its option", valueOf(sheet, dropdownId), "DEX");
+	sheet = ops.setDropdownOptions(sheet, dropdownId, optionsOf().filter((option) => option.id !== dex.id));
+	check("deleting the selected option selects the first", valueOf(sheet, dropdownId), "Strength");
+	sheet = ops.setReference(sheet, { kind: "option", pieceId: dropdownId, optionId: con.id }, ex.num(7));
+	sheet = ops.setPieceValue(sheet, dropdownId, con.id);
+	check("an option's reference is set like any other", valueOf(sheet, dropdownId), 7);
+
+	// Linked box counts.
+	const hitDice = schema.createHitDiceCard();
+	sheet = ops.addCardToPage(sheet, sheet.pages[0].id, hitDice, { maxCols: 60 });
+	const [, totalModule, usedModule] = hitDice.moduleOrder;
+	const totalId = hitDice.modules[totalModule].pieceOrder[0];
+	let state = createHistoryState(sheet);
+	state = historyReducer(state, { type: "setReference", target: { kind: "capacity", moduleId: usedModule }, expr: ex.pieceSrc(totalId) });
+	const used = () => live(state.sheet, hitDice).modules[usedModule];
+	check("a linked group records the boxes it shows", used().shownBoxes, 5);
+	state = historyReducer(state, { type: "setBoxChecked", moduleId: usedModule, index: 4, checked: true });
+	const layoutHeight = () => state.sheet.pages[0].cardLayouts.find((layout) => layout.cardId === hitDice.id).moduleRects[usedModule].h;
+	const before = layoutHeight();
+	state = historyReducer(state, { type: "setPieceValue", pieceId: totalId, value: 20 });
+	check("raising the count updates what it shows", used().shownBoxes, 20);
+	check("…and grows the module to fit", layoutHeight() > before, true);
+	state = historyReducer(state, { type: "setBoxChecked", moduleId: usedModule, index: 14, checked: true });
+	check("ticking a box past the pieces adds them", used().pieceOrder.length, 15);
+	state = historyReducer(state, { type: "setPieceValue", pieceId: totalId, value: 3 });
+	check("shrinking hides boxes but keeps them", [used().shownBoxes, used().pieceOrder.length], [3, 15]);
+	check("…and they don't count while hidden", engineLib.createEngine(state.sheet).values.get(`${usedModule}:checked`).value, 0);
+	state = historyReducer(state, { type: "setPieceValue", pieceId: totalId, value: 15 });
+	check("growing again brings their ticks back", engineLib.createEngine(state.sheet).values.get(`${usedModule}:checked`).value, 2);
+	state = historyReducer(state, { type: "addPage" });
+	state = historyReducer(state, { type: "undo" });
+	check("undoing an earlier step keeps ticked-on boxes", used().pieceOrder.length, 15);
+	state = historyReducer(state, { type: "unlinkReference", target: { kind: "capacity", moduleId: usedModule } });
+	check("unlinking the count keeps the boxes it showed", [used().capacity, used().shownBoxes, used().pieceOrder.length], [null, undefined, 15]);
+
+	// Loops through links that don't exist yet are caught at pick time.
+	const fresh = schema.createHitDiceCard();
+	let loops = newSheet(fresh, numberCard("Reader", ["Reads"]));
+	const freshUsed = fresh.moduleOrder[2];
+	check(
+		"a group's count can't come from its own checked count, even before it's linked",
+		engineLib.checkSource(engineLib.createEngine(loops), `${freshUsed}:capacity`, { module: freshUsed, field: "checked" }) !== null,
+		true
+	);
+	const reader = Object.values(loops.cards).find((each) => each.title === "Reader");
+	const readsId = numberIds(reader)[0];
+	const rageModule = fresh.moduleOrder[1];
+	loops = ops.setReference(loops, { kind: "value", pieceId: readsId }, ex.pieceSrc(fresh.modules[rageModule].pieceOrder[0]));
+	check(
+		"a module's first rule can't test something that reads the module",
+		engineLib.checkSource(engineLib.createEngine(loops), `${rageModule}:lock`, { piece: readsId }) !== null,
+		true
+	);
+	check(
+		"…but it can test the module's own pieces",
+		engineLib.checkSource(engineLib.createEngine(loops), `${rageModule}:lock`, { piece: fresh.modules[rageModule].pieceOrder[0] }),
+		null
+	);
+
+	const tile = schema.createAbilityScoresCard();
+	const tileSheet = newSheet(tile);
+	const strength = tile.moduleOrder[0];
+	check(
+		"a rule may test a piece that reads its own module (an ability's Bonus)",
+		engineLib.checkSource(engineLib.createEngine(tileSheet), `${strength}:lock`, { piece: tile.modules[strength].pieceOrder[1] }),
+		null
+	);
+
+	// −/+ on a group whose linked count is still pending claims it.
+	const pendingGroup = schema.createCheckboxRowModule("Uses", 2);
+	pendingGroup.capacity = schema.createReference(ex.roleSrc("proficiency.bonus"), { origin: "default" });
+	let pending = newSheet(schema.createCustomCard("Feat"));
+	const featId = Object.keys(pending.cards)[0];
+	pending = ops.addModuleToCard(pending, featId, pendingGroup);
+	pending = ops.addModuleRow(pending, featId, pendingGroup.id);
+	check("−/+ on a pending count makes it the player's", pending.cards[featId].modules[pendingGroup.id].capacity.unlinked, "typed");
+}
+
 // ---------- Undo ----------
 
 {

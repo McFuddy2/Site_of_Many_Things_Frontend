@@ -88,8 +88,10 @@ function withLiveValue(piece, livePiece) {
 // no longer exists.
 export function mergeLiveValues(target, current) {
 	const live = new Map();
+	const liveModules = new Map();
 	for (const card of Object.values(current.cards)) {
 		for (const module of Object.values(card.modules)) {
+			liveModules.set(module.id, module);
 			for (const piece of Object.values(module.pieces)) {
 				live.set(piece.id, piece);
 			}
@@ -112,7 +114,18 @@ export function mergeLiveValues(target, current) {
 					pieces[pieceId] = piece;
 				}
 			}
-			modules[moduleId] = moduleChanged ? { ...module, pieces } : module;
+			// A checkbox group with a linked count grows by ticking boxes past
+			// its end — a value change, so those boxes stay through any undo.
+			let pieceOrder = module.pieceOrder;
+			const liveModule = module.capacity ? liveModules.get(moduleId) : null;
+			for (const pieceId of liveModule?.pieceOrder || []) {
+				if (!pieces[pieceId] && liveModule.pieces[pieceId]?.kind === "checkbox") {
+					pieces[pieceId] = liveModule.pieces[pieceId];
+					pieceOrder = [...pieceOrder, pieceId];
+					moduleChanged = true;
+				}
+			}
+			modules[moduleId] = moduleChanged ? { ...module, pieces, pieceOrder } : module;
 			cardChanged = cardChanged || moduleChanged;
 		}
 		cards[cardId] = cardChanged ? { ...card, modules } : card;

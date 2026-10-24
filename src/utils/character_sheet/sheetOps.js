@@ -664,12 +664,19 @@ export function getModuleRowCount(module) {
 
 // Appends one row's worth of pieces to a variable-length module, growing the
 // module (and its card) wherever it no longer fits.
+// A pending linked box count the player changes with −/+ is theirs from then
+// on, like typing over a pending number.
+function claimBoxCount(module) {
+	return module.capacity && !module.capacity.unlinked ? { ...module, capacity: { ...module.capacity, unlinked: "typed" } } : module;
+}
+
 export function addModuleRow(sheet, cardId, moduleId) {
-	const module = sheet.cards[cardId]?.modules[moduleId];
-	const shape = getModuleRowShape(module?.type);
+	const found = sheet.cards[cardId]?.modules[moduleId];
+	const shape = getModuleRowShape(found?.type);
 	if (!shape) {
 		return sheet;
 	}
+	const module = claimBoxCount(found);
 	const pieces = { ...module.pieces };
 	const pieceOrder = [...module.pieceOrder];
 	for (const makePiece of shape) {
@@ -701,7 +708,7 @@ export function removeModuleRow(sheet, cardId, moduleId, rowIndex) {
 		delete pieces[pieceId];
 	}
 	return replaceModule(sheet, cardId, {
-		...module,
+		...claimBoxCount(module),
 		pieces,
 		pieceOrder: module.pieceOrder.filter((pieceId) => !removedIds.includes(pieceId)),
 	});
@@ -727,6 +734,7 @@ export function setDropdownOptions(sheet, pieceId, options) {
 //   { kind: "chip", pieceId, refId }        one chip inside a text piece
 //   { kind: "option", pieceId, optionId }   one dropdown option
 //   { kind: "capacity", moduleId }          a checkbox group's box count
+//   { kind: "rule", moduleId, ruleId }      the value a module rule tests
 // Every op here is one undoable step (see HISTORY_ACTIONS).
 
 // The graph node a target's value lives at.
@@ -738,6 +746,8 @@ export function targetNode(target) {
 			return nodeIds.part(target.pieceId, target.optionId);
 		case "capacity":
 			return nodeIds.capacity(target.moduleId);
+		case "rule":
+			return nodeIds.lock(target.moduleId);
 		default:
 			return nodeIds.piece(target.pieceId);
 	}
@@ -761,6 +771,11 @@ function replaceModuleById(sheet, moduleId, updater) {
 export function getTargetReference(sheet, target) {
 	if (target.kind === "capacity") {
 		return findModuleLocation(sheet, target.moduleId)?.module.capacity || null;
+	}
+	if (target.kind === "rule") {
+		// A rule's condition isn't a saved reference, but reads like one.
+		const rule = findModuleLocation(sheet, target.moduleId)?.module.rules?.find((each) => each.id === target.ruleId);
+		return rule ? { id: rule.id, expr: rule.left, origin: "user", unlinked: false, nickname: null, lastKnown: null } : null;
 	}
 	const piece = findPieceLocation(sheet, target.pieceId)?.module.pieces[target.pieceId];
 	if (!piece) {
@@ -825,6 +840,9 @@ function byId(sheet, expr) {
 // (a chip keeps its id). Editing a card's default reference by hand turns it
 // into an ordinary by-id reference.
 export function setReference(sheet, target, expr, { nickname } = {}) {
+	if (target.kind === "rule") {
+		return updateRule(sheet, target.moduleId, target.ruleId, { left: byId(sheet, expr) });
+	}
 	return updateTargetReference(sheet, target, (current) => ({
 		...(current || createReference(null)),
 		expr: byId(sheet, expr),
@@ -904,6 +922,9 @@ function setBoxCount(sheet, moduleId, count) {
 // kept (marked unlinked) so it never auto-connects again; a hand-made one is
 // dropped. A chip becomes its value as plain text.
 export function unlinkReference(sheet, target) {
+	if (target.kind === "rule") {
+		return removeReference(sheet, target);
+	}
 	const current = currentValue(sheet, target);
 	const shown = current && !current.error ? current.value : null;
 	if (target.kind === "chip") {
@@ -933,6 +954,9 @@ export function unlinkReference(sheet, target) {
 // Remove: the reference and its value are both cleared (a chip disappears; a
 // box count goes back to its −/+ buttons at the count it showed).
 export function removeReference(sheet, target) {
+	if (target.kind === "rule") {
+		return updateRule(sheet, target.moduleId, target.ruleId, { left: null });
+	}
 	if (target.kind === "chip") {
 		return replacePiece(sheet, target.pieceId, (piece) => ({
 			...piece,
@@ -954,6 +978,72 @@ export function setModuleRules(sheet, moduleId, rules) {
 		...module,
 		rules: rules.map((rule) => ({ ...rule, id: rule.id || makeId("rule") })),
 	}));
+}
+
+export function updateRule(sheet, moduleId, ruleId, patch) {
+	return replaceModuleById(sheet, moduleId, (module) => ({
+		...module,
+		rules: (module.rules || []).map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)),
+	}));
+}
+
+// ---------- Linked box counts ----------
+//
+// A checkbox group whose box count is linked shows exactly that many boxes.
+// Boxes past the count keep their checked state (their pieces stay), so
+// raising the count brings them back; boxes past the pieces it has are drawn
+// empty and get a piece the first time they're ticked.
+
+// Ticks (or unticks) box `index` of a checkbox group, adding pieces up to it
+// if the group doesn't have that many yet. A value change, not an undo step.
+export function setBoxChecked(sheet, moduleId, index, checked) {
+	return replaceModuleById(sheet, moduleId, (module) => {
+		const boxes = module.pieceOrder.filter((pieceId) => module.pieces[pieceId]?.kind === "checkbox");
+		const pieces = { ...module.pieces };
+		const pieceOrder = [...module.pieceOrder];
+		for (let at = boxes.length; at <= index; at += 1) {
+			const piece = createCheckboxPiece({ label: `${module.label} ${at + 1}` });
+			pieces[piece.id] = piece;
+			pieceOrder.push(piece.id);
+			boxes.push(piece.id);
+		}
+		pieces[boxes[index]] = { ...pieces[boxes[index]], value: Boolean(checked) };
+		return { ...module, pieces, pieceOrder };
+	});
+}
+
+// After any change: every checkbox group with a linked count records how
+// many boxes it shows (`shownBoxes`, which its sizing reads — see
+// moduleTypes.js), and grows wherever it's placed if they no longer fit.
+// Cheap when nothing has a linked count.
+export function syncLinkedBoxCounts(sheet) {
+	const linked = [];
+	for (const card of Object.values(sheet.cards)) {
+		for (const module of Object.values(card.modules)) {
+			if (module.capacity || module.shownBoxes !== undefined) {
+				linked.push({ cardId: card.id, moduleId: module.id });
+			}
+		}
+	}
+	if (!linked.length) {
+		return sheet;
+	}
+	const engine = createEngine(sheet);
+	let next = sheet;
+	for (const { cardId, moduleId } of linked) {
+		const module = next.cards[cardId].modules[moduleId];
+		const entry = module.capacity ? engine.values.get(nodeIds.capacity(moduleId)) : null;
+		const shown = entry?.computed && !entry.error && typeof entry.value === "number" ? entry.value : undefined;
+		if (shown === module.shownBoxes) {
+			continue;
+		}
+		const { shownBoxes, ...rest } = module;
+		next = replaceModule(next, cardId, shown === undefined ? rest : { ...rest, shownBoxes: shown });
+		if (shown !== undefined && shown > (shownBoxes ?? 0)) {
+			next = ensureModuleFits(next, cardId, moduleId);
+		}
+	}
+	return next;
 }
 
 // ---------- Buttons ----------

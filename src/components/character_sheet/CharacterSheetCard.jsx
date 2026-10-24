@@ -7,10 +7,11 @@ import { buildDefaultLayout } from "../../utils/character_sheet/cardLayouts";
 import { tokenCssVars, unitsToPx } from "../../utils/character_sheet/layoutConstants";
 import { useCharacterSheet } from "./CharacterSheetContext";
 import usePieceValue from "./usePieceValue";
-import { KebabIcon } from "./icons";
-import { ValueChip } from "./references/chips";
+import { KebabIcon, EyeOffIcon, LinkIcon, PencilIcon } from "./icons";
+import { ValueChip, chipText, chipState, chipTitle, chipLabel } from "./references/chips";
 import ChipTextField from "./references/ChipTextField";
-import { rememberCaret } from "./references/useReferenceUI";
+import { rememberCaret, useReferenceUI } from "./references/useReferenceUI";
+import { moduleLockState, nodeIds } from "../../utils/character_sheet/engine/engine";
 
 // Every module fills its grid rect exactly, and everything inside it is sized
 // by the shared tokens (see layoutConstants.js / tokenCssVars) — a label bar
@@ -52,6 +53,12 @@ export function moduleColorProps(module) {
 }
 
 const lockedClass = (read) => (read.locked ? " cs-locked" : "");
+
+// A module's rule state: "none" | "locked" | "hidden" (see createRule).
+function useModuleLock(module) {
+	const { engine } = useCharacterSheet();
+	return moduleLockState(engine, module.id);
+}
 
 // Remembers where the caret was in a plain text field, so "Add reference…"
 // can put a chip there.
@@ -173,22 +180,176 @@ function ButtonField({ pieceId, className = "" }) {
 	);
 }
 
+// The label an option reads as: its name, plus its value when it's a
+// reference ("DEX · +3").
+function optionText(engine, pieceId, option) {
+	if (!option.ref) {
+		return option.label;
+	}
+	const value = chipText(engine.values.get(nodeIds.part(pieceId, option.id)), { signed: true });
+	return `${option.label} · ${value}`;
+}
+
+// A dropdown. On desktop it's a listbox with ✎ "Edit options…" at the
+// bottom of the open list; on tablets and phones it's the browser's own
+// select (selection works everywhere, editing the list doesn't).
 function DropdownField({ pieceId }) {
 	const read = usePieceValue(pieceId);
+	const { engine } = useCharacterSheet();
+	const ui = useReferenceUI();
+	const options = read.piece?.options || [];
+	if (!ui.editable) {
+		return (
+			<select
+				className={`cs-input cs-select${lockedClass(read)}`}
+				data-piece-id={pieceId}
+				aria-label={read.piece?.label || undefined}
+				value={read.value ?? ""}
+				disabled={read.locked}
+				onChange={(event) => read.set(event.target.value)}
+			>
+				{options.map((option) => (
+					<option key={option.id} value={option.id}>
+						{optionText(engine, pieceId, option)}
+					</option>
+				))}
+			</select>
+		);
+	}
+	return <ListboxDropdown read={read} pieceId={pieceId} options={options} optionText={(option) => optionText(engine, pieceId, option)} />;
+}
+
+function ListboxDropdown({ read, pieceId, options, optionText: textOf }) {
+	const ui = useReferenceUI();
+	const buttonRef = useRef(null);
+	const listRef = useRef(null);
+	const [open, setOpen] = useState(false);
+	const [active, setActive] = useState(0);
+	const [box, setBox] = useState(null);
+	const selected = options.find((option) => option.id === read.value) || options[0];
+
+	const show = () => {
+		const rect = buttonRef.current.getBoundingClientRect();
+		setBox({ left: rect.left, top: rect.bottom + 2, width: Math.max(rect.width, 160) });
+		setActive(Math.max(0, options.indexOf(selected)));
+		setOpen(true);
+	};
+	const hide = (refocus = true) => {
+		setOpen(false);
+		if (refocus) {
+			buttonRef.current?.focus();
+		}
+	};
+	const choose = (option) => {
+		if (option) {
+			read.set(option.id);
+		}
+		hide();
+	};
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		listRef.current?.focus();
+		const onPointerDown = (event) => {
+			if (!listRef.current?.contains(event.target) && !buttonRef.current?.contains(event.target)) {
+				hide(false);
+			}
+		};
+		const onScroll = (event) => {
+			if (!listRef.current?.contains(event.target)) {
+				hide(false);
+			}
+		};
+		document.addEventListener("pointerdown", onPointerDown, true);
+		window.addEventListener("scroll", onScroll, true);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown, true);
+			window.removeEventListener("scroll", onScroll, true);
+		};
+	}, [open]);
+
 	return (
-		<select
-			className={`cs-input cs-select${lockedClass(read)}`}
-			data-piece-id={pieceId}
-			value={read.value ?? ""}
-			disabled={read.locked}
-			onChange={(event) => read.set(event.target.value)}
-		>
-			{(read.piece?.options || []).map((option) => (
-				<option key={option.id} value={option.id}>
-					{option.label}
-				</option>
-			))}
-		</select>
+		<>
+			<button
+				ref={buttonRef}
+				type="button"
+				className={`cs-input cs-select cs-dropdown-btn${lockedClass(read)}`}
+				data-piece-id={pieceId}
+				aria-haspopup="listbox"
+				aria-expanded={open}
+				aria-label={`${read.piece?.label || "Choice"}: ${selected ? textOf(selected) : "nothing chosen"}`}
+				title={selected ? textOf(selected) : undefined}
+				disabled={read.locked}
+				onClick={() => (open ? hide() : show())}
+				onKeyDown={(event) => {
+					if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+						event.preventDefault();
+						show();
+					}
+				}}
+			>
+				<span className="cs-dropdown-btn-text">{selected ? textOf(selected) : "—"}</span>
+				<span className="cs-dropdown-caret" aria-hidden="true">
+					▾
+				</span>
+			</button>
+			{open && box ? (
+				<div
+					ref={listRef}
+					className="cs-dropdown-list"
+					role="listbox"
+					tabIndex={-1}
+					aria-label={read.piece?.label || "Choices"}
+					aria-activedescendant={options[active] ? `${pieceId}-${options[active].id}` : undefined}
+					style={{ left: box.left, top: box.top, minWidth: box.width }}
+					data-ref-ui
+					onKeyDown={(event) => {
+						if (event.key === "ArrowDown") {
+							event.preventDefault();
+							setActive((index) => Math.min(index + 1, options.length - 1));
+						} else if (event.key === "ArrowUp") {
+							event.preventDefault();
+							setActive((index) => Math.max(index - 1, 0));
+						} else if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							choose(options[active]);
+						} else if (event.key === "Escape" || event.key === "Tab") {
+							event.preventDefault();
+							event.stopPropagation();
+							hide();
+						}
+					}}
+				>
+					{options.map((option, index) => (
+						<div
+							key={option.id}
+							id={`${pieceId}-${option.id}`}
+							role="option"
+							aria-selected={option === selected}
+							className={`cs-dropdown-option${index === active ? " cs-dropdown-option--active" : ""}`}
+							onMouseEnter={() => setActive(index)}
+							onClick={() => choose(option)}
+						>
+							{option.ref ? <LinkIcon /> : null}
+							<span>{textOf(option)}</span>
+						</div>
+					))}
+					{options.length === 0 ? <div className="cs-dropdown-empty">No options yet</div> : null}
+					<button
+						type="button"
+						className="cs-dropdown-edit"
+						onClick={() => {
+							hide(false);
+							ui.openOptionsEditor(pieceId, buttonRef.current);
+						}}
+					>
+						<PencilIcon /> Edit options…
+					</button>
+				</div>
+			) : null}
+		</>
 	);
 }
 
@@ -256,9 +417,14 @@ function ImageField({ pieceId }) {
 // tucked into its label bar. Only live cards pass a cardId, so previews and
 // the layout editor never show them.
 function RowControls({ cardId, module }) {
-	const { dispatch } = useCharacterSheet();
+	const { dispatch, engine } = useCharacterSheet();
+	const lock = useModuleLock(module);
 	if (!cardId || !getModuleRowShape(module.type)) {
 		return null;
+	}
+	const count = module.capacity ? engine.values.get(nodeIds.capacity(module.id)) : null;
+	if (count?.computed) {
+		return <BoxCountChip module={module} entry={count} />;
 	}
 	const rowCount = getModuleRowCount(module);
 	const noun = module.type === "checkboxRow" ? "checkbox" : "row";
@@ -269,7 +435,7 @@ function RowControls({ cardId, module }) {
 				className="cs-row-btn"
 				title={`Remove a ${noun}`}
 				aria-label={`Remove a ${noun} from ${module.label}`}
-				disabled={rowCount === 0}
+				disabled={rowCount === 0 || lock === "locked"}
 				onClick={() => dispatch({ type: "removeModuleRow", cardId, moduleId: module.id, rowIndex: rowCount - 1 })}
 			>
 				−
@@ -279,11 +445,44 @@ function RowControls({ cardId, module }) {
 				className="cs-row-btn"
 				title={`Add a ${noun}`}
 				aria-label={`Add a ${noun} to ${module.label}`}
+				disabled={lock === "locked"}
 				onClick={() => dispatch({ type: "addModuleRow", cardId, moduleId: module.id })}
 			>
 				+
 			</button>
 		</span>
+	);
+}
+
+// A checkbox group whose box count is linked shows the count as a chip where
+// its −/+ buttons were; like any chip, it opens its info modal.
+function BoxCountChip({ module, entry }) {
+	const { engine } = useCharacterSheet();
+	const ui = useReferenceUI();
+	const text = chipText(entry);
+	const state = chipState(entry);
+	const open = () => ui.openInfo({ kind: "capacity", moduleId: module.id });
+	return (
+		<button
+			type="button"
+			className={`cs-chip cs-chip--count${state ? ` cs-chip--${state}` : ""}`}
+			data-chip={module.capacity.id}
+			data-chip-kind="capacity"
+			data-chip-module={module.id}
+			title={`Box count\n${chipTitle(engine, module.capacity, entry)}`}
+			aria-label={chipLabel(module.capacity, entry, text, `${module.label} box count`)}
+			onClick={open}
+			onKeyDown={(event) => {
+				if (event.key === "Backspace" || event.key === "Delete") {
+					event.preventDefault();
+					event.stopPropagation();
+					open();
+				}
+			}}
+		>
+			<LinkIcon size={10} />
+			<span className="cs-chip-text">{text}</span>
+		</button>
 	);
 }
 
@@ -293,8 +492,14 @@ function RowControls({ cardId, module }) {
 function ModuleShell({ module, cardId, className = "", bodyClassName = "", labelProps = null, children }) {
 	const color = moduleColorProps(module);
 	const label = module.label || "Untitled";
+	const locked = useModuleLock(module) === "locked";
 	return (
-		<div className={`cs-module ${color.className} ${className}`} style={color.style}>
+		<div
+			className={`cs-module ${color.className} ${className}${locked ? " cs-locked" : ""}`}
+			style={color.style}
+			aria-disabled={locked || undefined}
+			title={locked ? `${label} is locked by a rule` : undefined}
+		>
 			<div className="cs-mod-label" {...labelProps}>
 				<span className="cs-mod-label-text" title={label}>
 					{label}
@@ -310,8 +515,14 @@ function ModuleShell({ module, cardId, className = "", bodyClassName = "", label
 // (a skill row, a lone checkbox).
 function RowShell({ module, className = "", children }) {
 	const color = moduleColorProps(module);
+	const locked = useModuleLock(module) === "locked";
 	return (
-		<div className={`cs-module cs-module--row ${color.className} ${className}`} style={color.style}>
+		<div
+			className={`cs-module cs-module--row ${color.className} ${className}${locked ? " cs-locked" : ""}`}
+			style={color.style}
+			aria-disabled={locked || undefined}
+			title={locked ? `${module.label || "This module"} is locked by a rule` : undefined}
+		>
 			{children}
 		</div>
 	);
@@ -445,12 +656,34 @@ function CheckboxModule({ module }) {
 // A labelled run of checkboxes — death saves, hit dice spent, charges, uses.
 // The boxes wrap; the module's minimum height grows with the count (see
 // moduleTypes.js), so every box always stays visible.
+//
+// With a linked box count it shows exactly that many: boxes past the count
+// keep their ticks but aren't drawn, and boxes past the pieces it has are
+// drawn empty, getting a piece the first time they're ticked.
 function CheckboxRowModule({ module, cardId }) {
+	const { engine, dispatch, readOnly } = useCharacterSheet();
+	const lock = useModuleLock(module);
+	const count = module.capacity ? engine.values.get(nodeIds.capacity(module.id)) : null;
+	const linked = count?.computed && !count.error && typeof count.value === "number";
+	const boxes = module.pieceOrder.filter((pieceId) => module.pieces[pieceId]?.kind === "checkbox");
+	const shown = linked ? count.value : boxes.length;
 	return (
 		<ModuleShell module={module} cardId={cardId} bodyClassName="cs-checkbox-wrap" labelProps={{ "data-pick-module": module.id }}>
-			{module.pieceOrder.map((pieceId, index) => (
-				<CheckboxField key={pieceId} pieceId={pieceId} label={`${module.label} ${index + 1}`} />
-			))}
+			{Array.from({ length: shown }, (unused, index) =>
+				boxes[index] ? (
+					<CheckboxField key={boxes[index]} pieceId={boxes[index]} label={`${module.label} ${index + 1}`} />
+				) : (
+					<input
+						key={`extra-${index}`}
+						type="checkbox"
+						className="cs-checkbox"
+						aria-label={`${module.label} ${index + 1}`}
+						checked={false}
+						disabled={readOnly || lock === "locked"}
+						onChange={(event) => dispatch({ type: "setBoxChecked", moduleId: module.id, index, checked: event.target.checked })}
+					/>
+				)
+			)}
 		</ModuleShell>
 	);
 }
@@ -620,9 +853,32 @@ const MODULE_VIEWS = {
 
 // Renders one module with the view matching its type. The layout editor and
 // card previews pass no cardId, which is what hides the row +/− controls.
+//
+// A module a rule hides isn't drawn — except on desktop, where it shows as a
+// faint dashed outline at its own spot, so it can still be selected and its
+// rule changed (⋮ or right-click → Lock / Hide Rules…).
 export function ModuleView({ module, cardId = null }) {
+	const ui = useReferenceUI();
+	const lock = useModuleLock(module);
+	if (lock === "hidden") {
+		return ui.editable && cardId ? <HiddenModuleGhost module={module} /> : null;
+	}
 	const View = MODULE_VIEWS[module.type] || GenericModule;
 	return <View module={module} cardId={cardId} />;
+}
+
+function HiddenModuleGhost({ module }) {
+	const label = module.label || "Untitled";
+	return (
+		<div
+			className="cs-module cs-module--ghost"
+			title={`“${label}” is hidden by a rule. Select it and use ⋮ → Lock / Hide Rules… to change that.`}
+			aria-label={`${label} (hidden by a rule)`}
+		>
+			<EyeOffIcon />
+			<span className="cs-module-ghost-text">Hidden · {label}</span>
+		</div>
+	);
 }
 
 // Header inline style for a card's own chosen color (falls back to the
@@ -687,7 +943,8 @@ function TitleEditor({ title, onCommit, onCancel }) {
 // fill its row; its height follows its content (phone sizes are bigger than
 // the grid's), never less than its default.
 function FlowModules({ card, layout, moduleIds, cardId }) {
-	const ordered = [...moduleIds].sort((a, b) => {
+	const { engine } = useCharacterSheet();
+	const ordered = moduleIds.filter((moduleId) => moduleLockState(engine, moduleId) !== "hidden").sort((a, b) => {
 		const ra = layout.moduleRects[a];
 		const rb = layout.moduleRects[b];
 		return ra.y - rb.y || ra.x - rb.x;

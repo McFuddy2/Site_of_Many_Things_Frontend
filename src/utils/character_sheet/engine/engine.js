@@ -572,19 +572,30 @@ export function checkSource(engine, targetNode, src) {
 	if (start === targetNode || start === targetPiece) {
 		return "A field can't use its own value";
 	}
-	// A cycle exists if the source already depends on the target.
+	// A cycle exists if the source already depends on the target — or will,
+	// once this link exists: a group's checked count always depends on its
+	// box count, and anything that reads a module's pieces (from outside it)
+	// depends on that module's rules. Those edges may not be in the graph yet
+	// (no box count linked, no rule saved), so they're checked by name.
+	const [targetId, targetPart] = targetNode.split(":");
+	const moduleOf = (id) => engine.nodes.get(id)?.moduleId;
+	// `from` is the node that reads `id` on the way here (null for the source).
+	const loopsBack = (id, from) =>
+		id === targetNode ||
+		(targetPart === "capacity" && id === nodeIds.checked(targetId)) ||
+		(targetPart === "lock" && from !== null && moduleOf(id) === targetId && moduleOf(from) !== targetId);
 	const seen = new Set();
-	const stack = [start];
+	const stack = [[start, null]];
 	while (stack.length) {
-		const id = stack.pop();
-		if (id === targetNode) {
+		const [id, from] = stack.pop();
+		if (loopsBack(id, from)) {
 			return "That would make a loop — it already depends on this field";
 		}
 		if (seen.has(id)) {
 			continue;
 		}
 		seen.add(id);
-		stack.push(...(engine.nodes.get(id)?.deps || []));
+		stack.push(...(engine.nodes.get(id)?.deps || []).map((dep) => [dep, id]));
 	}
 	return null;
 }

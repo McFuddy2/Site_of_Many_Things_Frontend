@@ -130,3 +130,24 @@ export function LinkIcon({ size = 12 }) {
 		</Icon>
 	);
 }
+
+// A hidden module's ghost outline.
+export function EyeOffIcon({ size = 14 }) {
+	return (
+		<Icon size={size}>
+			<path d="M3 3l18 18" />
+			<path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6 0 9.5 7 9.5 7a17.7 17.7 0 0 1-3.2 4.1" />
+			<path d="M6.6 6.6A17.4 17.4 0 0 0 2.5 12s3.5 7 9.5 7a9.7 9.7 0 0 0 5.4-1.6" />
+			<path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+		</Icon>
+	);
+}
+
+// "Edit options…" at the foot of a dropdown's list.
+export function PencilIcon({ size = 13 }) {
+	return (
+		<Icon size={size}>
+			<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+		</Icon>
+	);
+}

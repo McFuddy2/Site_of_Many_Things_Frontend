@@ -2548,6 +2548,244 @@
 	flex-wrap: wrap;
 }
 
+/* A module a rule locks wears the shared locked state as a whole; the
+   pieces inside don't dim a second time. */
+.cs-locked .cs-locked {
+	opacity: 1;
+	filter: none;
+	background-image: none;
+}
+
+/* A module a rule hides, as desktop shows it: a faint outline at its own
+   spot, so it can still be selected and its rules changed. */
+.cs-module--ghost {
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 6px;
+	border: 2px dashed var(--cs-header-border);
+	background-color: transparent;
+	background-image: repeating-linear-gradient(45deg, rgba(143, 146, 149, 0.12) 0 6px, transparent 6px 12px);
+	color: #5f6b80;
+	font-size: var(--cs-label-font);
+	font-weight: bold;
+}
+
+.cs-module--ghost svg {
+	flex: none;
+}
+
+.cs-module-ghost-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A linked box count, where a checkbox group's −/+ were. */
+.cs-chip--count {
+	flex: none;
+	height: 14px;
+	gap: 2px;
+	padding: 0 4px 0 3px;
+	font-size: 11px;
+}
+
+/* The desktop dropdown: a listbox, with ✎ Edit options… at its foot. */
+.cs-dropdown-btn {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+	cursor: pointer;
+}
+
+.cs-dropdown-btn-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cs-dropdown-caret {
+	flex: none;
+	font-size: 0.8em;
+	color: #3a465e;
+}
+
+.cs-dropdown-list {
+	position: fixed;
+	z-index: 60;
+	box-sizing: border-box;
+	max-height: 16rem;
+	overflow-y: auto;
+	padding: 4px;
+	background-color: #ffffff;
+	border: 1px solid #c3cad6;
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(22, 38, 63, 0.25);
+	font-size: 0.88rem;
+	color: #1f2a3d;
+	outline: none;
+}
+
+.cs-dropdown-option {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 8px;
+	border-radius: 5px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.cs-dropdown-option[aria-selected="true"] {
+	font-weight: bold;
+}
+
+.cs-dropdown-option--active {
+	background-color: #e8edf5;
+}
+
+.cs-dropdown-empty {
+	padding: 5px 8px;
+	color: #7a8599;
+}
+
+.cs-dropdown-edit {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	margin-top: 4px;
+	padding: 6px 8px;
+	border: none;
+	border-top: 1px solid #e1e5ec;
+	background: none;
+	font: inherit;
+	color: #22385c;
+	text-align: left;
+	cursor: pointer;
+}
+
+.cs-dropdown-edit:hover,
+.cs-dropdown-edit:focus-visible {
+	background-color: #e8edf5;
+	outline: none;
+}
+
+/* The dropdown-options and lock/hide-rules panels. */
+.cs-ref-panel {
+	width: min(36rem, calc(100vw - 16px));
+	max-height: calc(100vh - 16px);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.cs-ref-panel .cs-popover-title,
+.cs-ref-panel .cs-popover-hint {
+	margin: 0;
+}
+
+.cs-ref-panel-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.cs-ref-panel-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	padding: 6px;
+	border: 1px solid #e1e5ec;
+	border-radius: 6px;
+}
+
+.cs-ref-panel-order {
+	display: flex;
+	gap: 2px;
+}
+
+.cs-ref-panel-input,
+.cs-ref-panel-select {
+	height: 28px;
+	box-sizing: border-box;
+	padding: 0 6px;
+	border: 1px solid #8b97ad;
+	border-radius: 5px;
+	font: inherit;
+}
+
+.cs-ref-panel-input {
+	flex: 1 1 8rem;
+	min-width: 6rem;
+}
+
+.cs-ref-panel-input--value {
+	flex: 0 1 6rem;
+	min-width: 4rem;
+}
+
+.cs-ref-panel-input:focus,
+.cs-ref-panel-select:focus {
+	outline: 2px solid var(--cs-select-blue);
+	outline-offset: 1px;
+}
+
+.cs-ref-panel-small {
+	padding: 0.25rem 0.7rem;
+	font-size: 0.82rem;
+}
+
+.cs-ref-panel-empty {
+	margin: 0;
+	font-size: 0.85rem;
+	color: #6a7489;
+}
+
+.cs-ref-key--danger {
+	color: #9c2b2b;
+}
+
+.cs-ref-key:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.cs-rule-word {
+	font-size: 0.82rem;
+	font-weight: bold;
+	color: #3a465e;
+}
+
+.cs-rule-row .cs-chip--token {
+	max-width: 14rem;
+}
+
+.cs-rule-status {
+	flex: 1 0 100%;
+	font-size: 0.75rem;
+	color: #6a7489;
+}
+
+.cs-rule-status--on {
+	color: var(--cs-chip-warn-text);
+	font-weight: bold;
+}
+
+.cs-rule-now {
+	font-size: 0.82rem;
+	color: #3a465e;
+}
+
 /* Dev-only reference engine sandbox (see CharacterSheetReferenceSandboxPage). */
 .cs-sandbox-actions {
 	display: flex;

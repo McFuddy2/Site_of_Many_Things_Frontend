@@ -28,8 +28,10 @@ function stackHeight(count, itemHeight, gap) {
 	return n * itemHeight + (n - 1) * gap;
 }
 
+// A group with a linked box count is as tall as the boxes it shows (see
+// syncLinkedBoxCounts), not the pieces it keeps.
 function checkboxRowHeight(module, w) {
-	const count = module?.pieceOrder?.length ?? 0;
+	const count = module?.shownBoxes ?? module?.pieceOrder?.length ?? 0;
 	const pitch = SIZE.checkbox + SIZE.checkboxGap;
 	const perLine = Math.max(1, Math.floor((bodyWidth(w) + SIZE.checkboxGap) / pitch));
 	const lines = Math.max(1, Math.ceil(count / perLine));

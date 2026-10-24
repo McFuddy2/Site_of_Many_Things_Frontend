@@ -15,7 +15,7 @@ export const CONFIGURE_INSTRUCTIONS = {
 	text: "Provide the text for this module:",
 	bigText: "Provide the heading text for this module:",
 	textArea: "Provide the description for this module:",
-	dropdown: "Provide the options for this list (one per line):",
+	dropdown: "Provide the options for this list (one per line). Once the card is made, ✎ Edit options… at the foot of the open list can link each option to a value on the sheet:",
 	checkbox: "Set up your checkbox:",
 	checkboxRow: "Set up this row of checkboxes:",
 	skill: "Set up this skill:",

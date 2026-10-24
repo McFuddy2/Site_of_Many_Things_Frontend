@@ -32,6 +32,8 @@ import {
 	removeReference,
 	setDropdownOptions,
 	setModuleRules,
+	setBoxChecked,
+	syncLinkedBoxCounts,
 } from "./sheetOps.js";
 import { withHistory } from "./history.js";
 
@@ -102,11 +104,20 @@ export function sheetReducer(sheet, action) {
 			return setDropdownOptions(sheet, action.pieceId, action.options);
 		case "setModuleRules":
 			return setModuleRules(sheet, action.moduleId, action.rules);
+		case "setBoxChecked":
+			return setBoxChecked(sheet, action.moduleId, action.index, action.checked);
 		default:
 			return sheet;
 	}
 }
 
 // Layout/structure/colour/reference actions are undoable (see history.js);
-// dispatch { type: "undo" } / { type: "redo" } to step through them.
-export const historyReducer = withHistory(sheetReducer);
+// dispatch { type: "undo" } / { type: "redo" } to step through them. After
+// every change — undo and redo too — linked box counts are brought up to
+// date (a typed Level can add Hit Dice boxes).
+const tracked = withHistory(sheetReducer);
+
+export function historyReducer(state, action) {
+	const next = tracked(state, action);
+	return next.sheet === state.sheet ? next : { ...next, sheet: syncLinkedBoxCounts(next.sheet) };
+}

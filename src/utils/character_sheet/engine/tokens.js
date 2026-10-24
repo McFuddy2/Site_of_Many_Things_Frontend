@@ -9,7 +9,9 @@
 //   { t: "fn", name }                a function and its opening "(" —
 //                                    floor, ceil, min, max, or a rules function
 //   { t: "lookup", name }            a rules table and its opening "("
-//   { t: "expr", expr }              anything else, kept whole (if/else…)
+//   { t: "if" } { t: "cmp", value } { t: "then" } { t: "else" }
+//                                    if( <value> <comparison> <value> then <value> else <value> )
+//   { t: "expr", expr }              anything else, kept whole
 
 import { RULES_5E } from "./rules5e.js";
 
@@ -18,6 +20,11 @@ const BUILTIN_ARITY = { floor: 1, ceil: 1, min: null, max: null };
 
 export const FUNCTION_LABELS = { floor: "round down", ceil: "round up", min: "min", max: "max" };
 export const OPERATOR_LABELS = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+export const COMPARISON_LABELS = { "<": "<", "<=": "≤", "=": "=", "!=": "≠", ">=": "≥", ">": ">" };
+
+// What the editor's "if" button inserts: the whole skeleton, so the row
+// always reads as one; the caret goes just inside "if(".
+export const IF_SKELETON = [{ t: "if" }, { t: "cmp", value: ">=" }, { t: "then" }, { t: "else" }, { t: ")" }];
 
 class TokenError extends Error {}
 
@@ -67,6 +74,19 @@ export function exprToTokens(expr) {
 	}
 	if ("lookup" in expr) {
 		return [{ t: "lookup", name: expr.lookup }, ...exprToTokens(expr.arg), { t: ")" }];
+	}
+	if ("if" in expr && expr.if && COMPARISON_LABELS[expr.if.cmp]) {
+		return [
+			{ t: "if" },
+			...exprToTokens(expr.if.left),
+			{ t: "cmp", value: expr.if.cmp },
+			...exprToTokens(expr.if.right),
+			{ t: "then" },
+			...exprToTokens(expr.then),
+			{ t: "else" },
+			...exprToTokens(expr.else),
+			{ t: ")" },
+		];
 	}
 	return [{ t: "expr", expr }];
 }
@@ -138,7 +158,7 @@ export function tokensToExpr(tokens, rules = RULES_5E) {
 
 	function parsePrimary(after) {
 		const token = next();
-		if (!token || token.t === ")" || token.t === "," || token.t === "op") {
+		if (!token || [")", ",", "op", "cmp", "then", "else"].includes(token.t)) {
 			throw new TokenError(after ? `Add a value after “${OPERATOR_LABELS[after] || after}”` : `Add a value before ${describeToken(token)}`);
 		}
 		switch (token.t) {
@@ -171,6 +191,29 @@ export function tokensToExpr(tokens, rules = RULES_5E) {
 				const arity = builtin ? BUILTIN_ARITY[token.name] : defined.params.length;
 				return { fn: token.name, args: parseArguments(label, arity) };
 			}
+			case "if": {
+				const left = parseExpression();
+				if (peek()?.t !== "cmp") {
+					throw new TokenError("Add a comparison (<, ≤, =, ≠, ≥, >) inside “if(”");
+				}
+				const cmp = next().value;
+				const right = parseExpression();
+				if (peek()?.t !== "then") {
+					throw new TokenError("Add “then” after the comparison");
+				}
+				next();
+				const thenExpr = parseExpression();
+				if (peek()?.t !== "else") {
+					throw new TokenError("Add “else” after the “then” value");
+				}
+				next();
+				const elseExpr = parseExpression();
+				if (peek()?.t !== ")") {
+					throw new TokenError("Close “if(” with “)”");
+				}
+				next();
+				return { if: { left, cmp, right }, then: thenExpr, else: elseExpr };
+			}
 			case "lookup": {
 				const table = rules.tables?.[token.name];
 				if (!table) {
@@ -187,7 +230,13 @@ export function tokensToExpr(tokens, rules = RULES_5E) {
 		const expr = parseExpression();
 		if (pos < tokens.length) {
 			const extra = tokens[pos];
-			throw new TokenError(extra.t === ")" ? "There's a “)” with no “(”" : `Add an operator before ${describeToken(extra)}`);
+			if (extra.t === ")") {
+				throw new TokenError("There's a “)” with no “(”");
+			}
+			if (["cmp", "then", "else"].includes(extra.t)) {
+				throw new TokenError(`“${tokenLabel(extra)}” only works inside “if(”`);
+			}
+			throw new TokenError(`Add an operator before ${describeToken(extra)}`);
 		}
 		return { expr, error: null };
 	} catch (error) {
@@ -209,6 +258,13 @@ export function tokenLabel(token, rules = RULES_5E) {
 			return `${FUNCTION_LABELS[token.name] || rules.functions?.[token.name]?.label || token.name}(`;
 		case "lookup":
 			return `${rules.tables?.[token.name]?.label || token.name}(`;
+		case "if":
+			return "if(";
+		case "cmp":
+			return COMPARISON_LABELS[token.value] || token.value;
+		case "then":
+		case "else":
+			return token.t;
 		case "(":
 		case ")":
 		case ",":

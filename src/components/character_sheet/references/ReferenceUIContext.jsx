@@ -5,12 +5,17 @@ import { checkSource } from "../../../utils/character_sheet/engine/engine";
 import { describeSource, pageOfCard } from "../../../utils/character_sheet/engine/describe";
 import ReferenceInfoDialog from "./ReferenceInfoDialog";
 import ReferenceEditor from "./ReferenceEditor";
+import DropdownOptionsEditor from "./DropdownOptionsEditor";
+import RulesEditor from "./RulesEditor";
+import { anchorOf } from "./FloatingPanel";
 
 // Everything about references that spans the sheet, in one place:
 //
 //   - the reference info modal (what a chip links to; Edit / Unlink / Remove
 //     on desktop, read-only below it)
 //   - the popover editor (desktop only)
+//   - the dropdown-options and lock/hide-rules panels (desktop only), which
+//     open the popover editor for each option's or rule's value
 //   - Pick mode: while it's on, every value on the sheet is marked usable or
 //     not (with the reason), a click on a usable one picks it, page tabs
 //     still work, and Esc cancels
@@ -38,6 +43,7 @@ export function ReferenceUIProvider({ editable, children }) {
 	const [pick, setPick] = useState(null); // { targetNode, onPick }
 	const [hint, setHint] = useState(null); // { x, y, text, ok }
 	const [flash, setFlash] = useState(null); // { pieceId, moduleId, n }
+	const [panel, setPanel] = useState(null); // { kind: "options", pieceId, anchor } | { kind: "rules", moduleId, anchor }
 	const live = useRef({});
 	live.current = { sheet, engine, pick, editor };
 
@@ -59,6 +65,15 @@ export function ReferenceUIProvider({ editable, children }) {
 				key: Date.now(),
 			});
 		},
+		[editable]
+	);
+
+	const openOptionsEditor = useCallback(
+		(pieceId, element) => editable && setPanel({ kind: "options", pieceId, anchor: anchorOf(element) }),
+		[editable]
+	);
+	const openRulesEditor = useCallback(
+		(moduleId, element) => editable && setPanel({ kind: "rules", moduleId, anchor: anchorOf(element) }),
 		[editable]
 	);
 
@@ -217,8 +232,8 @@ export function ReferenceUIProvider({ editable, children }) {
 	}, [pick, stopPick]);
 
 	const value = useMemo(
-		() => ({ editable, picking: Boolean(pick), openInfo, openEditor, goToSource, startPick, stopPick }),
-		[editable, pick, openInfo, openEditor, goToSource, startPick, stopPick]
+		() => ({ editable, picking: Boolean(pick), openInfo, openEditor, goToSource, startPick, stopPick, openOptionsEditor, openRulesEditor }),
+		[editable, pick, openInfo, openEditor, goToSource, startPick, stopPick, openOptionsEditor, openRulesEditor]
 	);
 
 	return (
@@ -227,6 +242,11 @@ export function ReferenceUIProvider({ editable, children }) {
 				{children}
 			</div>
 			{info ? <ReferenceInfoDialog target={info.target} onClose={() => setInfo(null)} /> : null}
+			{/* Panels step aside while picking, so the sheet behind is clear. */}
+			{panel?.kind === "options" && !pick ? (
+				<DropdownOptionsEditor pieceId={panel.pieceId} anchor={panel.anchor} onClose={() => setPanel(null)} />
+			) : null}
+			{panel?.kind === "rules" && !pick ? <RulesEditor moduleId={panel.moduleId} anchor={panel.anchor} onClose={() => setPanel(null)} /> : null}
 			{editor ? <ReferenceEditor key={editor.key} target={editor.target} anchor={editor.anchor} onClose={closeEditor} /> : null}
 			{hint ? (
 				<div className={`cs-pick-hint${hint.ok ? "" : " cs-pick-hint--bad"}`} style={{ left: hint.x + 14, top: hint.y + 16 }} role="status">
