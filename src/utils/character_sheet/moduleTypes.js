@@ -5,6 +5,8 @@
 //   defaultW/defaultH: the size a fresh module of this type starts at.
 //   minW/minH: the smallest size at which everything inside is fully
 //     visible — no clipped controls, no scrollbars. Resizing stops here.
+//   textIsLabel: the type's text pieces are its row's name, shown as a
+//     label rather than a field — not something to link to or from.
 //
 // List-like types grow with their content (rows, checkboxes), so their
 // heights are functions of the module (and, for wrapping content, its width)
@@ -26,8 +28,10 @@ function stackHeight(count, itemHeight, gap) {
 	return n * itemHeight + (n - 1) * gap;
 }
 
+// A group with a linked box count is as tall as the boxes it shows (see
+// syncLinkedBoxCounts), not the pieces it keeps.
 function checkboxRowHeight(module, w) {
-	const count = module?.pieceOrder?.length ?? 0;
+	const count = module?.shownBoxes ?? module?.pieceOrder?.length ?? 0;
 	const pitch = SIZE.checkbox + SIZE.checkboxGap;
 	const perLine = Math.max(1, Math.floor((bodyWidth(w) + SIZE.checkboxGap) / pitch));
 	const lines = Math.max(1, Math.ceil(count / perLine));
@@ -71,19 +75,11 @@ export const MODULE_TYPES = {
 		minW: 6,
 		minH: pxToUnits(FIELD_CHROME + 40),
 	},
-	spellEntry: {
-		role: "text",
-		defaultW: 20,
-		defaultH: 10,
-		minW: 14,
-		// Name, the stat columns (caption + field), then at least two lines of description.
-		minH: pxToUnits(FIELD_CHROME + SIZE.inputHeight + 4 + (12 + SIZE.rowHeight) + 4 + 40),
-	},
 	dropdown: { role: "choice", defaultW: 8, defaultH: FIELD_H, minW: 5, minH: FIELD_H },
 	checkbox: { role: "tracker", defaultW: 6, defaultH: ROW_H, minW: 4, minH: ROW_H },
 	checkboxRow: { role: "tracker", defaultW: 9, defaultH: checkboxRowHeight, minW: 5, minH: checkboxRowHeight },
-	skill: { role: "tracker", defaultW: 13, defaultH: ROW_H, minW: 10, minH: ROW_H },
-	savingThrow: { role: "tracker", defaultW: 10, defaultH: ROW_H, minW: 8, minH: ROW_H },
+	skill: { role: "tracker", defaultW: 13, defaultH: ROW_H, minW: 10, minH: ROW_H, textIsLabel: true },
+	savingThrow: { role: "tracker", defaultW: 10, defaultH: ROW_H, minW: 8, minH: ROW_H, textIsLabel: true },
 	columnHeader: { role: "heading", defaultW: 13, defaultH: ROW_H, minW: 10, minH: ROW_H },
 	listText: { role: "list", defaultW: 12, defaultH: listTextHeight, minW: 6, minH: listTextHeight },
 	itemList: { role: "list", defaultW: 14, defaultH: itemListHeight, minW: 8, minH: itemListHeight },
@@ -126,4 +122,10 @@ export function getModuleSizing(module, w = null) {
 
 export function getModuleRole(module) {
 	return getModuleType(module?.type).role;
+}
+
+// Whether a piece is one a player sees as a value: everything but the text
+// that only names a row (see textIsLabel).
+export function isValuePiece(module, piece) {
+	return Boolean(piece) && !(piece.kind === "text" && getModuleType(module?.type).textIsLabel);
 }

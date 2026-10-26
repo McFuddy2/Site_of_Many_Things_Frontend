@@ -1,16 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SheetPreviewProvider } from "../components/character_sheet/CharacterSheetContext";
 import { CardFace, ModuleView, staticCardStyle, moduleSlotStyle } from "../components/character_sheet/CharacterSheetCard";
-import {
-	CARD_TYPE_OPTIONS,
-	STANDARD_CARD_TYPES,
-	createSheet,
-	createStandardCard,
-	createCard,
-	createModuleForType,
-	createSavingThrowModule,
-	createHealthCard,
-} from "../utils/character_sheet/schema";
+import { createSheet, createCard, createModuleForType } from "../utils/character_sheet/schema";
+import { CARD_TYPE_OPTIONS, STANDARD_CARD_TYPES, createStandardCard } from "../utils/character_sheet/cardDefinitions";
 import { buildDefaultLayout } from "../utils/character_sheet/cardLayouts";
 import { coverage, fitCardSize, boundingSize } from "../utils/character_sheet/grid";
 import { getModuleSizing, MODULE_TYPES } from "../utils/character_sheet/moduleTypes";
@@ -147,15 +139,7 @@ function auditCard(element, card, layout) {
 function buildModuleSamples() {
 	const samples = [];
 	for (const type of Object.keys(MODULE_TYPES)) {
-		let module = null;
-		if (type === "savingThrow") {
-			module = createSavingThrowModule("Constitution");
-		} else if (type === "damageHeal") {
-			const health = createHealthCard();
-			module = health.modules[health.moduleOrder[3]];
-		} else {
-			module = createModuleForType(type, {});
-		}
+		const module = createModuleForType(type, type === "savingThrow" ? { label: "Constitution" } : {});
 		if (module) {
 			samples.push(module);
 		}
@@ -166,9 +150,9 @@ function buildModuleSamples() {
 function buildGallerySheet() {
 	let sheet = createSheet("Gallery");
 	const cards = {};
-	// Ability Scores first so Skills/Saving Throws get wired to it, like on a real sheet.
+	// Ability Scores first, like on a real sheet.
 	for (const type of ["abilityScores", ...STANDARD_CARD_TYPES.filter((t) => t !== "abilityScores")]) {
-		const card = createStandardCard(type, { ...sheet, cards });
+		const card = createStandardCard(type);
 		cards[card.id] = card;
 	}
 	const sampleCard = createCard({ type: "custom", title: "Module samples", modules: buildModuleSamples() });

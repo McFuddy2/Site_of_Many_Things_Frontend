@@ -4,12 +4,15 @@
 const BASE = new URL("../src/utils/character_sheet", import.meta.url).href;
 
 const schema = await import(`${BASE}/schema.js`);
+const cards = await import(`${BASE}/cardDefinitions.js`);
 const ops = await import(`${BASE}/sheetOps.js`);
 const grid = await import(`${BASE}/grid.js`);
 const tokens = await import(`${BASE}/layoutConstants.js`);
 const moduleTypes = await import(`${BASE}/moduleTypes.js`);
 const cardLayouts = await import(`${BASE}/cardLayouts.js`);
+const engine = await import(`${BASE}/engine/engine.js`);
 const refs = await import(`${BASE}/references.js`);
+const expression = await import(`${BASE}/engine/expression.js`);
 const values = await import(`${BASE}/values.js`);
 const colors = await import(`${BASE}/colors.js`);
 const placement = await import(`${BASE}/placement.js`);
@@ -47,11 +50,11 @@ check("too wide for the page lands below everything", grid.findFreeSpot(occupied
 check("empty page starts at the origin", grid.findFreeSpot([], 5, 5, 30), { x: 0, y: 0, w: 5, h: 5 });
 
 // --- every standard card: authored, gap-free, content-fit ---
-const typeIds = schema.STANDARD_CARD_TYPES;
-check("every picker card type has a builder", schema.CARD_TYPE_OPTIONS.filter((o) => o.available && !["custom", "insertExisting"].includes(o.id)).map((o) => o.id).sort(), [...typeIds].sort());
+const typeIds = cards.STANDARD_CARD_TYPES;
+check("every picker card type has a builder", cards.CARD_TYPE_OPTIONS.filter((o) => o.available && !["custom", "insertExisting"].includes(o.id)).map((o) => o.id).sort(), [...typeIds].sort());
 for (const typeId of typeIds) {
-	const card = schema.createStandardCard(typeId);
-	const recipe = cardLayouts.CARD_DEFAULT_ROWS[typeId];
+	const card = cards.createStandardCard(typeId);
+	const recipe = cards.CARD_DEFINITIONS[typeId].rows;
 	const recipeCount = recipe ? recipe.reduce((n, row) => n + row.w.length, 0) : -1;
 	check(`${typeId}: has an authored layout for all its modules`, recipeCount, card.moduleOrder.length);
 
@@ -76,7 +79,7 @@ for (const typeId of typeIds) {
 let sheet = schema.createSheet("Layout");
 const pageId = sheet.pages[0].id;
 for (const typeId of typeIds) {
-	sheet = ops.addCardToPage(sheet, pageId, schema.createStandardCard(typeId, sheet), { maxCols: 60 });
+	sheet = ops.addCardToPage(sheet, pageId, cards.createStandardCard(typeId), { maxCols: 60 });
 }
 const placed = sheet.pages[0].cardLayouts;
 const cardOverlap = placed.some((a, i) => placed.some((b, j) => i < j && grid.rectsOverlap(a, b)));
@@ -85,12 +88,13 @@ check("every placement fits the page width", placed.every((l) => l.x + l.w <= 60
 
 // --- growing a variable-length module pushes what's below it ---
 let grow = schema.createSheet("Grow");
-const attack = schema.createAttackCard();
+const attack = cards.createStandardCard("attack");
 grow = ops.addCardToPage(grow, grow.pages[0].id, attack);
-const chargesId = attack.moduleOrder[6];
-const notesId = attack.moduleOrder[7];
+const chargesId = attack.moduleOrder.find((id) => attack.modules[id].label === "Charges");
+const notesId = attack.moduleOrder.find((id) => attack.modules[id].label === "Notes");
 const before = grow.pages[0].cardLayouts[0];
-for (let i = 0; i < 6; i += 1) {
+// Charges runs the card's full width, so it takes a lot of boxes to wrap.
+for (let i = 0; i < 30; i += 1) {
 	grow = ops.addModuleRow(grow, attack.id, chargesId);
 }
 const after = grow.pages[0].cardLayouts[0];
@@ -100,16 +104,16 @@ check("module below moves down by the same amount", after.moduleRects[notesId].y
 check("card grows to match", after.h - before.h, grewBy);
 
 // --- value accessor ---
-const health = schema.createHealthCard();
+const health = cards.createStandardCard("health");
 let vSheet = ops.addCardToPage(schema.createSheet("Values"), schema.createSheet().pages[0].id, health);
 vSheet = { ...vSheet, cards: { ...vSheet.cards, [health.id]: health } };
 const hpId = health.modules[health.moduleOrder[0]].pieceOrder[0];
 vSheet = ops.setPieceValue(vSheet, hpId, 7);
-check("setPieceValue writes a variable", values.readPieceValue(refs.buildPieceIndex(vSheet), hpId).value, 7);
-const abil = schema.createAbilityScoresCard();
-const abilIndex = refs.buildPieceIndex({ cards: { [abil.id]: abil } });
-const bonusRead = values.readPieceValue(abilIndex, abil.modules[abil.moduleOrder[0]].pieceOrder[1]);
-check("formula values read as computed", [bonusRead.computed, bonusRead.value], [true, 0]);
+check("setPieceValue writes a variable", values.readPieceValue(engine.createEngine(vSheet), hpId).value, 7);
+const abil = cards.createStandardCard("abilityScores");
+const abilEngine = engine.createEngine({ pages: [], cards: { [abil.id]: abil } });
+const bonusRead = values.readPieceValue(abilEngine, abil.modules[abil.moduleOrder[0]].pieceOrder[1]);
+check("referenced values read as computed", [bonusRead.computed, bonusRead.value], [true, 0]);
 check("locked defaults to false", bonusRead.locked, false);
 
 // --- push-away placement ---
@@ -147,12 +151,12 @@ const anyOverlap = (rects) => {
 {
 	// Module push inside a card: stays within the card's width, card grows.
 	let s2 = schema.createSheet("Push");
-	const healthCard = schema.createHealthCard();
+	const healthCard = cards.createStandardCard("health");
 	const mana = schema.createCheckboxRowModule("Mana", 3);
 	healthCard.modules[mana.id] = mana;
 	healthCard.moduleOrder.push(mana.id);
 	s2 = ops.addCardToPage(s2, s2.pages[0].id, healthCard, { maxCols: 60 });
-	s2 = ops.addCardToPage(s2, s2.pages[0].id, schema.createStandardCard("initiative"), { maxCols: 60 });
+	s2 = ops.addCardToPage(s2, s2.pages[0].id, cards.createStandardCard("initiative"), { maxCols: 60 });
 	const page2 = s2.pages[0];
 	const [hLayout, iLayout] = page2.cardLayouts;
 	const firstId = healthCard.moduleOrder[0];
@@ -200,7 +204,7 @@ const anyOverlap = (rects) => {
 		return sheet;
 	});
 	let hs = schema.createSheet("History");
-	const hp = schema.createHealthCard();
+	const hp = cards.createStandardCard("health");
 	hs = ops.addCardToPage(hs, hs.pages[0].id, hp, { maxCols: 60 });
 	const hLayoutId = hs.pages[0].cardLayouts[0].id;
 	const hpPiece = hp.modules[hp.moduleOrder[0]].pieceOrder[0];
@@ -211,10 +215,10 @@ const anyOverlap = (rects) => {
 	check("value edits are not undo steps", state.past.length, 1);
 	state = reducer(state, { type: "undo" });
 	check("undo restores the layout", state.sheet.pages[0].cardLayouts[0].x, 0);
-	check("undo keeps values typed since", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	check("undo keeps values typed since", values.readPieceValue(engine.createEngine(state.sheet), hpPiece).value, 3);
 	state = reducer(state, { type: "redo" });
 	check("redo reapplies the layout", state.sheet.pages[0].cardLayouts[0].x, 5);
-	check("redo keeps live values too", values.readPieceValue(refs.buildPieceIndex(state.sheet), hpPiece).value, 3);
+	check("redo keeps live values too", values.readPieceValue(engine.createEngine(state.sheet), hpPiece).value, 3);
 	state = reducer(state, { type: "redo" });
 	check("redo with nothing to redo is a no-op", state.future.length, 0);
 }
@@ -222,9 +226,9 @@ const anyOverlap = (rects) => {
 // --- deleting ---
 {
 	let ds = schema.createSheet("Delete");
-	const abilities = schema.createAbilityScoresCard();
+	const abilities = cards.createStandardCard("abilityScores");
 	ds = ops.addCardToPage(ds, ds.pages[0].id, abilities, { maxCols: 60 });
-	ds = ops.addCardToPage(ds, ds.pages[0].id, schema.createStandardCard("skills", ds), { maxCols: 60 });
+	ds = ops.addCardToPage(ds, ds.pages[0].id, cards.createStandardCard("skills"), { maxCols: 60 });
 	const strength = abilities.moduleOrder[0];
 	check("a module other cards use can't be deleted", refs.canDeleteModule(ds, abilities.id, strength).ok, false);
 	check("blocked delete is a no-op", ops.deleteModules(ds, abilities.id, [strength]), ds);
@@ -239,7 +243,7 @@ const anyOverlap = (rects) => {
 
 // --- copies: fresh ids, internal references remapped, external kept ---
 {
-	const money = schema.createMoneyCard();
+	const money = cards.createStandardCard("money");
 	const copy = schema.cloneCard(money);
 	const originalModule = money.modules[money.moduleOrder[0]];
 	const copiedModule = copy.modules[copy.moduleOrder[0]];
@@ -247,21 +251,22 @@ const anyOverlap = (rects) => {
 	check("copy has new module ids", copy.moduleOrder.every((id) => !money.modules[id]), true);
 	const copiedTotal = copiedModule.pieces[copiedModule.pieceOrder[0]];
 	const ownPieces = new Set(copiedModule.pieceOrder);
-	const totalRefs = [...copiedTotal.formula.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]);
+	const totalRefs = expression.collectSources(copiedTotal.ref.expr).map((src) => src.piece);
 	check("copied total adds up the copy's own coins", totalRefs.every((id) => ownPieces.has(id)), true);
-	check("original total untouched", originalModule.pieces[originalModule.pieceOrder[0]].formula === copiedTotal.formula, false);
+	check("copied reference gets a new id", originalModule.pieces[originalModule.pieceOrder[0]].ref.id === copiedTotal.ref.id, false);
 
 	let cs = schema.createSheet("Copies");
-	const abilities = schema.createAbilityScoresCard();
+	const abilities = cards.createStandardCard("abilityScores");
 	cs = ops.addCardToPage(cs, cs.pages[0].id, abilities, { maxCols: 60 });
-	const skills = schema.createStandardCard("skills", cs);
+	const skills = cards.createStandardCard("skills");
 	const skillCopy = schema.cloneCard(skills);
 	const skillModule = skillCopy.modules[skillCopy.moduleOrder[1]];
 	const modifier = skillModule.pieces[skillModule.pieceOrder[1]];
 	const abilityPieces = new Set(Object.values(abilities.modules).flatMap((module) => module.pieceOrder));
-	check("copied skill still reads the Ability Scores card", [...modifier.formula.matchAll(/#\{([^}]+)\}/g)].some((m) => abilityPieces.has(m[1])), true);
+	check("copied skill still reads the Dexterity Bonus by role", expression.collectSources(modifier.ref.expr)[0], { role: "ability.dex.bonus" });
+	check("abilities aren't copied along", abilityPieces.size, 12);
 
-	const health = schema.createHealthCard();
+	const health = cards.createStandardCard("health");
 	const healthCopy = schema.cloneCard(health);
 	const dh = healthCopy.modules[healthCopy.moduleOrder[3]];
 	const damage = dh.pieces[dh.pieceOrder[1]];
@@ -269,7 +274,7 @@ const anyOverlap = (rects) => {
 }
 {
 	let ds = schema.createSheet("Duplicate");
-	const attack = schema.createAttackCard();
+	const attack = cards.createStandardCard("attack");
 	ds = ops.addCardToPage(ds, ds.pages[0].id, attack, { maxCols: 60 });
 	const source = ds.pages[0].cardLayouts[0];
 	const copy = schema.cloneCard(attack);

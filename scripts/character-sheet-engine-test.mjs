@@ -11,9 +11,11 @@ globalThis.localStorage = {
 };
 
 const schema = await import(`${BASE}/character_sheet/schema.js`);
+const cards = await import(`${BASE}/character_sheet/cardDefinitions.js`);
 const refs = await import(`${BASE}/character_sheet/references.js`);
 const ops = await import(`${BASE}/character_sheet/sheetOps.js`);
-const formula = await import(`${BASE}/character_sheet/formula.js`);
+const engine = await import(`${BASE}/character_sheet/engine/engine.js`);
+const expression = await import(`${BASE}/character_sheet/engine/expression.js`);
 const storage = await import(`${BASE}/characterSheetStorage.js`);
 
 let failures = 0;
@@ -27,91 +29,74 @@ function check(name, actual, expected) {
 	}
 }
 
-// --- formula basics ---
-check("literal math", formula.evaluateFormula("2 + 3 * 4", () => 0).value, 14);
-check("floor/negatives", formula.evaluateFormula("floor((7 - 10) / 2)", () => 0).value, -2);
-check("min args", formula.evaluateFormula("min(3, 8, -1)", () => 0).value, -1);
-check("bad formula is error not throw", typeof formula.evaluateFormula("2 +", () => 0).error, "string");
-check("unknown fn", typeof formula.evaluateFormula("sqrt(4)", () => 0).error, "string");
+const valueOf = (s, pieceId) => engine.readSheetValue(s, { piece: pieceId }).value;
+const errorOf = (s, pieceId) => engine.readSheetValue(s, { piece: pieceId }).error;
 
 // --- ability scores: bonus auto-calculates and stays live ---
 let sheet = schema.createSheet("Test");
 const page1 = sheet.pages[0];
-const abilities = schema.createAbilityScoresCard();
+const abilities = cards.createStandardCard("abilityScores");
 sheet = ops.addCardToPage(sheet, page1.id, abilities);
 
-const bonusIds = schema.getAbilityBonusPieceIds(sheet.cards[abilities.id]);
-const strModule = sheet.cards[abilities.id].modules[sheet.cards[abilities.id].moduleOrder[0]];
-const strScoreId = strModule.pieceOrder[0];
+const abilityModule = (index) => sheet.cards[abilities.id].modules[sheet.cards[abilities.id].moduleOrder[index]];
+const [strScoreId, strBonusId] = abilityModule(0).pieceOrder;
+const wisBonusId = abilityModule(4).pieceOrder[1];
 
-let index = refs.buildPieceIndex(sheet);
-check("default bonus (10 -> 0)", refs.getPieceNumericValue(bonusIds.strength, index).value, 0);
-
+check("default bonus (10 -> 0)", valueOf(sheet, strBonusId), 0);
 sheet = ops.setVariableValue(sheet, strScoreId, 15);
-index = refs.buildPieceIndex(sheet);
-check("bonus live update (15 -> +2)", refs.getPieceNumericValue(bonusIds.strength, index).value, 2);
+check("bonus live update (15 -> +2)", valueOf(sheet, strBonusId), 2);
 sheet = ops.setVariableValue(sheet, strScoreId, 7);
-index = refs.buildPieceIndex(sheet);
-check("bonus live update (7 -> -2)", refs.getPieceNumericValue(bonusIds.strength, index).value, -2);
+check("bonus live update (7 -> -2)", valueOf(sheet, strBonusId), -2);
 
-// --- saving throws: cross-card reference + proficiency checkbox as 0/1 ---
-const saves = schema.createSavingThrowsCard({ abilityBonusPieceIds: bonusIds, proficiencyBonus: 3 });
+// --- saving throws: role links to the ability and the proficiency bonus; checkbox as 0/1 ---
+const saves = cards.createStandardCard("savingThrows");
 sheet = ops.addCardToPage(sheet, page1.id, saves);
+const proficiency = cards.createStandardCard("proficiencyBonus");
+sheet = ops.addCardToPage(sheet, page1.id, proficiency);
+sheet = ops.setPieceValue(sheet, proficiency.modules[proficiency.moduleOrder[0]].pieceOrder[0], 3);
 const strSaveModule = sheet.cards[saves.id].modules[sheet.cards[saves.id].moduleOrder[0]];
 const [strProfId, strSaveBonusId] = strSaveModule.pieceOrder;
 
-index = refs.buildPieceIndex(sheet);
-check("save = ability bonus when not proficient", refs.getPieceNumericValue(strSaveBonusId, index).value, -2);
+check("save = ability bonus when not proficient", valueOf(sheet, strSaveBonusId), -2);
 sheet = ops.setCheckboxValue(sheet, strProfId, true);
-index = refs.buildPieceIndex(sheet);
-check("save = bonus + prof when checked", refs.getPieceNumericValue(strSaveBonusId, index).value, 1);
+check("save = bonus + prof when checked", valueOf(sheet, strSaveBonusId), 1);
 sheet = ops.setVariableValue(sheet, strScoreId, 18);
-index = refs.buildPieceIndex(sheet);
-check("save follows ability change live", refs.getPieceNumericValue(strSaveBonusId, index).value, 7);
+check("save follows ability change live", valueOf(sheet, strSaveBonusId), 7);
 
 // --- health: damage/heal buttons with clamps ---
-const health = schema.createHealthCard();
+const health = cards.createStandardCard("health");
 sheet = ops.addCardToPage(sheet, page1.id, health);
 const healthCard = sheet.cards[health.id];
 const [curModId, maxModId, , dhModId] = healthCard.moduleOrder;
 const curHpId = healthCard.modules[curModId].pieceOrder[0];
-const maxHpId = healthCard.modules[maxModId].pieceOrder[0];
 const [amountId, damageBtnId, healBtnId] = healthCard.modules[dhModId].pieceOrder;
 
 sheet = ops.setTextPlain(sheet, amountId, "4");
 sheet = ops.pressButton(sheet, damageBtnId);
-index = refs.buildPieceIndex(sheet);
-check("damage 4 (10 -> 6)", refs.getPieceNumericValue(curHpId, index).value, 6);
+check("damage 4 (10 -> 6)", valueOf(sheet, curHpId), 6);
 
 sheet = ops.setTextPlain(sheet, amountId, "99");
 sheet = ops.pressButton(sheet, damageBtnId);
-index = refs.buildPieceIndex(sheet);
-check("damage clamps at 0", refs.getPieceNumericValue(curHpId, index).value, 0);
+check("damage clamps at 0", valueOf(sheet, curHpId), 0);
 
 sheet = ops.setTextPlain(sheet, amountId, "50");
 sheet = ops.pressButton(sheet, healBtnId);
-index = refs.buildPieceIndex(sheet);
-check("heal clamps at max HP", refs.getPieceNumericValue(curHpId, index).value, 10);
+check("heal clamps at max HP", valueOf(sheet, curHpId), 10);
 
-// --- text piece with a live ref segment ---
+// --- text piece with a live chip ---
 const feat = schema.createCustomCard("Healer's Kit (Feat)");
 sheet = ops.addCardToPage(sheet, page1.id, feat);
 const descModule = schema.createModuleForType("text", {
 	label: "Description",
-	segments: [
-		{ type: "text", value: "regain HP equal to the roll plus " },
-		{ type: "ref", pieceId: bonusIds.wisdom },
-	],
+	segments: [{ type: "text", value: "regain HP equal to the roll plus " }, schema.createChipSegment(expression.pieceSrc(wisBonusId))],
 });
 sheet = ops.addModuleToCard(sheet, feat.id, descModule);
 const descPieceId = descModule.pieceOrder[0];
 
-index = refs.buildPieceIndex(sheet);
-check("text ref resolves", refs.getPieceTextValue(descPieceId, index).text, "regain HP equal to the roll plus 0");
-const wisScoreId = sheet.cards[abilities.id].modules[sheet.cards[abilities.id].moduleOrder[4]].pieceOrder[0];
+check("text chip resolves", valueOf(sheet, descPieceId), "regain HP equal to the roll plus 0");
+const wisScoreId = abilityModule(4).pieceOrder[0];
 sheet = ops.setVariableValue(sheet, wisScoreId, 16);
-index = refs.buildPieceIndex(sheet);
-check("text ref is live", refs.getPieceTextValue(descPieceId, index).text, "regain HP equal to the roll plus 3");
+check("text chip is live", valueOf(sheet, descPieceId), "regain HP equal to the roll plus 3");
 
 // --- circular reference degrades to error, no hang ---
 let cyclic = schema.createSheet("Cycle");
@@ -121,36 +106,31 @@ const b = schema.createModuleForType("number", { label: "B" });
 cyclic = ops.addCardToPage(cyclic, cyclic.pages[0].id, cCard);
 cyclic = ops.addModuleToCard(cyclic, cCard.id, a);
 cyclic = ops.addModuleToCard(cyclic, cCard.id, b);
-cyclic = ops.setVariableFormula(cyclic, a.pieceOrder[0], `#{${b.pieceOrder[0]}} + 1`);
-cyclic = ops.setVariableFormula(cyclic, b.pieceOrder[0], `#{${a.pieceOrder[0]}} + 1`);
-const cycleResult = refs.getPieceNumericValue(a.pieceOrder[0], refs.buildPieceIndex(cyclic));
-check("cycle -> error", typeof cycleResult.error, "string");
-
-// --- missing reference degrades to error ---
-const dangling = formula.evaluateFormula("#{nonexistent} + 1", (id) => {
-	const r = refs.getPieceNumericValue(id, index);
-	if (r.error) throw new formula.FormulaError(r.error);
-	return r.value;
-});
-check("missing ref -> error", dangling.error, "Missing reference");
+cyclic = ops.setReference(cyclic, { kind: "value", pieceId: a.pieceOrder[0] }, expression.add(expression.pieceSrc(b.pieceOrder[0]), expression.num(1)));
+cyclic = ops.setReference(cyclic, { kind: "value", pieceId: b.pieceOrder[0] }, expression.add(expression.pieceSrc(a.pieceOrder[0]), expression.num(1)));
+check("cycle -> error", errorOf(cyclic, a.pieceOrder[0]), "Circular reference");
 
 // --- delete guard ---
 let del = ops.deleteCard(sheet, abilities.id);
 check("delete blocked while referenced", del.ok, false);
-check("blockers listed", del.referencedBy.map((r) => r.cardTitle).sort(), ["Healer's Kit (Feat)", "Saving Throws"]);
+check(
+	"blockers listed",
+	[...new Set(del.dependents.map((d) => sheet.cards[d.cardId].title))].sort(),
+	["Healer's Kit (Feat)", "Saving Throws"]
+);
 
 del = ops.deleteCard(sheet, saves.id);
 check("unreferenced card deletes fine", del.ok, true);
 sheet = del.sheet;
 del = ops.deleteCard(sheet, abilities.id);
-check("still blocked by feat text ref", del.referencedBy.map((r) => r.cardTitle), ["Healer's Kit (Feat)"]);
+check("still blocked by feat chip", [...new Set(del.dependents.map((d) => sheet.cards[d.cardId].title))], ["Healer's Kit (Feat)"]);
 sheet = ops.setTextPlain(sheet, descPieceId, "no more refs");
 del = ops.deleteCard(sheet, abilities.id);
 check("deletable once refs removed", del.ok, true);
 
 // --- shared card across pages: shared data, independent layout ---
 let multi = schema.createSheet("Multi");
-const mAbilities = schema.createAbilityScoresCard();
+const mAbilities = cards.createStandardCard("abilityScores");
 multi = ops.addCardToPage(multi, multi.pages[0].id, mAbilities);
 multi = ops.addPage(multi);
 const mPage2 = multi.pages[1];
@@ -188,7 +168,7 @@ check("arrangement keeps rects for kept modules", arrAfter.moduleRects[arrModule
 check("arrangement prunes rects for removed modules", arrModuleIds[5] in arrAfter.moduleRects, false);
 check("card never smaller than its modules", [arrAfter.w >= 16, arrAfter.h >= 8], [true, true]);
 
-const secondCard = schema.createHealthCard();
+const secondCard = cards.createStandardCard("health");
 multi = ops.addCardToPage(multi, multi.pages[0].id, secondCard, { maxCols: 60 });
 const [layoutA, layoutB] = multi.pages[0].cardLayouts;
 check("new card doesn't overlap", layoutB.x >= layoutA.x + layoutA.w || layoutB.y >= layoutA.y + layoutA.h, true);

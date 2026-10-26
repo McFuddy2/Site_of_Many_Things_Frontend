@@ -1,46 +1,24 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 import { createSheet, SHEET_VERSION } from "../../utils/character_sheet/schema";
 import { buildPieceIndex } from "../../utils/character_sheet/references";
-import {
-	addPage,
-	setActivePage,
-	setPageName,
-	setPageColor,
-	addCardToPage,
-	insertExistingCardOnPage,
-	removeCardFromPage,
-	deleteCard,
-	setCardTitle,
-	setCardHeaderColor,
-	setModuleColor,
-	setItemsColor,
-	addModuleToCard,
-	duplicateCards,
-	duplicateModules,
-	setPieceValue,
-	addModuleRow,
-	removeModuleRow,
-	pressButton,
-	setPageArrangement,
-	applyPageLayout,
-	deleteLayouts,
-	deleteModules,
-} from "../../utils/character_sheet/sheetOps";
-import { withHistory, createHistoryState } from "../../utils/character_sheet/history";
+import { createEngine } from "../../utils/character_sheet/engine/engine";
+import { historyReducer } from "../../utils/character_sheet/sheetReducer";
+import { createHistoryState } from "../../utils/character_sheet/history";
 import {
 	getSavedCharacterSheets,
 	upsertCharacterSheet,
 	discardLegacyCharacterSheets,
 } from "../../utils/characterSheetStorage";
 
-// The whole sheet lives in one reducer-managed tree. Because cross-card references
-// resolve at render time through pieceIndex, any change to a source piece
-// automatically updates everything that displays it — no subscriptions needed.
+// The whole sheet lives in one reducer-managed tree (see sheetReducer.js).
+// Linked values come from the reference engine, which is rebuilt alongside
+// the sheet: after a typed value changes, only the values downstream of it
+// are recomputed (see createEngine).
 
 const CharacterSheetContext = createContext(null);
 
 // A saved sheet from any other version is dropped and a fresh one started —
-// the format change to grid units was never shipped, so there's nothing to
+// none of the format changes were ever shipped, so there's nothing to
 // migrate (see CHARACTER_SHEETS_STORAGE_KEY).
 function loadInitialSheet() {
 	discardLegacyCharacterSheets();
@@ -48,70 +26,14 @@ function loadInitialSheet() {
 	return saved || createSheet();
 }
 
-function sheetReducer(sheet, action) {
-	switch (action.type) {
-		case "addPage":
-			return addPage(sheet);
-		case "setActivePage":
-			return setActivePage(sheet, action.pageId);
-		case "setPageName":
-			return setPageName(sheet, action.pageId, action.name);
-		case "setPageColor":
-			return setPageColor(sheet, action.pageId, action.color);
-		case "setCardTitle":
-			return setCardTitle(sheet, action.cardId, action.title);
-		case "setCardHeaderColor":
-			return setCardHeaderColor(sheet, action.cardId, action.color);
-		case "setModuleColor":
-			return setModuleColor(sheet, action.cardId, action.moduleId, action.color, action.part);
-		case "setItemsColor":
-			return setItemsColor(sheet, action.items, action.color);
-		case "addModuleToCard":
-			return addModuleToCard(sheet, action.cardId, action.module);
-		case "duplicateCards":
-			return duplicateCards(sheet, action.pageId, action.entries, { maxCols: action.maxCols });
-		case "duplicateModules":
-			return duplicateModules(sheet, action.cardId, action.entries);
-		case "addCardToPage":
-			return addCardToPage(sheet, action.pageId, action.card, { maxCols: action.maxCols });
-		case "insertExistingCard":
-			return insertExistingCardOnPage(sheet, action.pageId, action.cardId, { maxCols: action.maxCols });
-		case "removeCardFromPage":
-			return removeCardFromPage(sheet, action.pageId, action.layoutId);
-		case "deleteCard": {
-			// The UI checks canDeleteCard before dispatching this, so ok should
-			// always be true here — this is just a safety net against stale state.
-			const result = deleteCard(sheet, action.cardId);
-			return result.ok ? result.sheet : sheet;
-		}
-		case "setPieceValue":
-			return setPieceValue(sheet, action.pieceId, action.value);
-		case "addModuleRow":
-			return addModuleRow(sheet, action.cardId, action.moduleId);
-		case "removeModuleRow":
-			return removeModuleRow(sheet, action.cardId, action.moduleId, action.rowIndex);
-		case "pressButton":
-			return pressButton(sheet, action.pieceId);
-		case "setPageArrangement":
-			return setPageArrangement(sheet, action.pageId, { rects: action.rects });
-		case "applyPageLayout":
-			return applyPageLayout(sheet, action.pageId, {
-				cardRects: action.cardRects,
-				moduleLayoutId: action.moduleLayoutId,
-				moduleRects: action.moduleRects,
-			});
-		case "deleteLayouts":
-			return deleteLayouts(sheet, action.pageId, action.layoutIds);
-		case "deleteModules":
-			return deleteModules(sheet, action.cardId, action.moduleIds);
-		default:
-			return sheet;
-	}
+// The engine for `sheet`, built incrementally from the previous one.
+function useSheetEngine(sheet) {
+	const previous = useRef(null);
+	return useMemo(() => {
+		previous.current = createEngine(sheet, previous.current);
+		return previous.current;
+	}, [sheet]);
 }
-
-// Layout/structure/colour actions are undoable (see history.js); dispatch
-// { type: "undo" } / { type: "redo" } to step through them.
-const historyReducer = withHistory(sheetReducer);
 
 export function CharacterSheetProvider({ children }) {
 	const [state, dispatch] = useReducer(historyReducer, null, () => createHistoryState(loadInitialSheet()));
@@ -119,6 +41,7 @@ export function CharacterSheetProvider({ children }) {
 	const canUndo = state.past.length > 0;
 	const canRedo = state.future.length > 0;
 	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
+	const engine = useSheetEngine(sheet);
 
 	// Debounced autosave: every change persists to localStorage shortly after it settles.
 	const saveTimer = useRef(null);
@@ -129,8 +52,8 @@ export function CharacterSheetProvider({ children }) {
 	}, [sheet]);
 
 	const value = useMemo(
-		() => ({ sheet, dispatch, pieceIndex, readOnly: false, canUndo, canRedo }),
-		[sheet, pieceIndex, canUndo, canRedo]
+		() => ({ sheet, dispatch, pieceIndex, engine, readOnly: false, canUndo, canRedo }),
+		[sheet, pieceIndex, engine, canUndo, canRedo]
 	);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }
@@ -148,9 +71,10 @@ export function useCharacterSheet() {
 // references normally, but dispatches are no-ops so nothing can be edited.
 export function SheetPreviewProvider({ sheet, children }) {
 	const pieceIndex = useMemo(() => buildPieceIndex(sheet), [sheet]);
+	const engine = useSheetEngine(sheet);
 	const value = useMemo(
-		() => ({ sheet, dispatch: () => {}, pieceIndex, readOnly: true, canUndo: false, canRedo: false }),
-		[sheet, pieceIndex]
+		() => ({ sheet, dispatch: () => {}, pieceIndex, engine, readOnly: true, canUndo: false, canRedo: false }),
+		[sheet, pieceIndex, engine]
 	);
 	return <CharacterSheetContext.Provider value={value}>{children}</CharacterSheetContext.Provider>;
 }

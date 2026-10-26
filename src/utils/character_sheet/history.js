@@ -1,4 +1,4 @@
-// Undo/redo for the sheet's layout, structure and colours.
+// Undo/redo for the sheet's layout, structure, colours and references.
 //
 // Each tracked action (see HISTORY_ACTIONS) records the sheet as it was just
 // before, so one drag, one resize, one paint click is one step. Values the
@@ -30,16 +30,57 @@ export const HISTORY_ACTIONS = new Set([
 	"removeModuleRow",
 	"setPageArrangement",
 	"applyPageLayout",
+	"setReference",
+	"insertChip",
+	"unlinkReference",
+	"removeReference",
+	"setDropdownOptions",
+	"setModuleRules",
 ]);
 
-// The fields that hold what the player entered, per piece kind.
+// The fields that hold what the player entered, per piece kind. (Text is
+// special-cased below: its segments hold typed text *and* chips.)
 const VALUE_FIELDS = {
 	variable: ["value"],
 	checkbox: ["value"],
-	text: ["segments"],
-	dropdown: ["selectedIndex"],
+	tristate: ["value"],
+	dropdown: ["selectedOptionId"],
 	image: ["src"],
 };
+
+const chipIds = (segments) => segments.filter((segment) => segment.type === "chip").map((segment) => segment.ref?.id);
+
+// A restored piece with the player's live value. Two references-related
+// twists:
+//   - text: the live segments are kept (typing isn't undone) unless the step
+//     being undone added or removed a chip — then the snapshot's segments
+//     win, so the chip really comes back or goes away. Either way each chip
+//     keeps the snapshot's reference (an edit to it is what's undone).
+//   - a pending number the player typed over (unlinked "typed") stays
+//     unlinked, like the value they typed; only an explicit Unlink is undone.
+function withLiveValue(piece, livePiece) {
+	if (piece.kind === "text") {
+		const target = chipIds(piece.segments);
+		const live = chipIds(livePiece.segments);
+		if (target.length !== live.length || target.some((id, index) => id !== live[index])) {
+			return piece;
+		}
+		const refs = new Map(piece.segments.filter((segment) => segment.type === "chip").map((segment) => [segment.ref?.id, segment.ref]));
+		return {
+			...piece,
+			segments: livePiece.segments.map((segment) => (segment.type === "chip" ? { ...segment, ref: refs.get(segment.ref?.id) } : segment)),
+		};
+	}
+	const values = {};
+	for (const field of VALUE_FIELDS[piece.kind] || []) {
+		values[field] = livePiece[field];
+	}
+	const next = { ...piece, ...values };
+	if (piece.kind === "variable" && livePiece.ref?.unlinked === "typed" && piece.ref && piece.ref.id === livePiece.ref.id) {
+		next.ref = { ...piece.ref, unlinked: "typed" };
+	}
+	return next;
+}
 
 // `target` (a snapshot being restored) with the current value of every piece
 // that exists in both. Stays on the page the player is looking at, unless the
@@ -47,8 +88,10 @@ const VALUE_FIELDS = {
 // no longer exists.
 export function mergeLiveValues(target, current) {
 	const live = new Map();
+	const liveModules = new Map();
 	for (const card of Object.values(current.cards)) {
 		for (const module of Object.values(card.modules)) {
+			liveModules.set(module.id, module);
 			for (const piece of Object.values(module.pieces)) {
 				live.set(piece.id, piece);
 			}
@@ -65,17 +108,24 @@ export function mergeLiveValues(target, current) {
 			for (const [pieceId, piece] of Object.entries(module.pieces)) {
 				const livePiece = live.get(pieceId);
 				if (livePiece && livePiece !== piece && livePiece.kind === piece.kind) {
-					const values = {};
-					for (const field of VALUE_FIELDS[piece.kind] || []) {
-						values[field] = livePiece[field];
-					}
-					pieces[pieceId] = { ...piece, ...values };
+					pieces[pieceId] = withLiveValue(piece, livePiece);
 					moduleChanged = true;
 				} else {
 					pieces[pieceId] = piece;
 				}
 			}
-			modules[moduleId] = moduleChanged ? { ...module, pieces } : module;
+			// A checkbox group with a linked count grows by ticking boxes past
+			// its end — a value change, so those boxes stay through any undo.
+			let pieceOrder = module.pieceOrder;
+			const liveModule = module.capacity ? liveModules.get(moduleId) : null;
+			for (const pieceId of liveModule?.pieceOrder || []) {
+				if (!pieces[pieceId] && liveModule.pieces[pieceId]?.kind === "checkbox") {
+					pieces[pieceId] = liveModule.pieces[pieceId];
+					pieceOrder = [...pieceOrder, pieceId];
+					moduleChanged = true;
+				}
+			}
+			modules[moduleId] = moduleChanged ? { ...module, pieces, pieceOrder } : module;
 			cardChanged = cardChanged || moduleChanged;
 		}
 		cards[cardId] = cardChanged ? { ...card, modules } : card;
